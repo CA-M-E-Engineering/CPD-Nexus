@@ -22,8 +22,8 @@ defineEmits(['navigate', 'update:role']);
   <aside class="app-sidebar">
     <div class="sidebar-header">
       <div class="logo">
-        <div class="logo-icon">S</div>
-        <span>SGBuildex</span>
+        <div class="logo-icon">C</div>
+        <span>CPD Nexus</span>
       </div>
     </div>
 

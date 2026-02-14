@@ -60,7 +60,7 @@ const handleLogin = async () => {
         <div class="login-header">
           <div class="logo">
             <i class="ri-shield-flash-line"></i>
-            <span>SGBuildex</span>
+            <span>CPD Nexus</span>
           </div>
           <h1 class="login-title">Welcome Back</h1>
           <p class="login-subtitle">Secure access to construction management</p>

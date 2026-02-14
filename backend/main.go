@@ -25,7 +25,7 @@ import (
 
 func main() {
 	cfg := config.LoadConfig()
-	logger.Infof("--- SGBuildex Unified Backend Starting ---")
+	logger.Infof("--- CPD Nexus Unified Backend Starting ---")
 
 	// --- 1. DB Connection ---
 	db, err := sql.Open("mysql", cfg.DBDSN)
@@ -68,7 +68,7 @@ func main() {
 	signal.Notify(stop, os.Interrupt, syscall.SIGTERM)
 
 	<-stop
-	logger.Infof("Shutting down SGBuildex unified backend...")
+	logger.Infof("Shutting down CPD Nexus unified backend...")
 	cancel()
 
 	// Give a small grace period for goroutines to clean up
