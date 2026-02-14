@@ -8,7 +8,7 @@ import { assignmentsApi } from '../api/assignments.api';
 import { analyticsApi } from '../api/analytics.api';
 import { attendanceApi } from '../api/attendance.api';
 import { settingsApi } from '../api/settings.api';
-import { companiesApi } from '../api/companies.api';
+
 import { http } from '../api/http';
 
 export const liveApi = {
@@ -17,12 +17,6 @@ export const liveApi = {
     getUserProfile: authApi.getUserProfile,
     logout: authApi.logout,
 
-    // --- Companies ---
-    getCompanies: companiesApi.getCompanies,
-    getCompanyById: companiesApi.getCompanyById,
-    createCompany: companiesApi.createCompany,
-    updateCompany: companiesApi.updateCompany,
-    deleteCompany: companiesApi.deleteCompany,
 
     // --- Workers ---
     getWorkers: workersApi.getWorkers,

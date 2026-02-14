@@ -50,13 +50,21 @@ const projectInfo = computed(() => [
   { label: 'Location', value: project.value?.location || '---' }
 ]);
 
-const contractorInfo = computed(() => [
-  { label: 'Main Contractor', value: project.value?.main_contractor_name || '---' },
-  { label: 'Offsite Fabricator', value: project.value?.offsite_fabricator_name || '---' },
-  { label: 'Worker Company', value: project.value?.worker_company_name || '---' },
-  { label: 'Worker Company Client', value: project.value?.worker_company_client_name || '---' },
-  { label: 'HDB Precinct', value: project.value?.hdb_precinct || '---' }
-]);
+const contractorInfo = computed(() => {
+  const p = project.value;
+  const fmt = (name, uen) => {
+    if (!name && !uen) return '---';
+    if (uen) return `${name || '---'} (${uen})`;
+    return name;
+  };
+  return [
+    { label: 'Main Contractor', value: fmt(p?.main_contractor_name, p?.main_contractor_uen) },
+    { label: 'Offsite Fabricator', value: fmt(p?.offsite_fabricator_name, p?.offsite_fabricator_uen) },
+    { label: 'Worker Company', value: fmt(p?.worker_company_name, p?.worker_company_uen) },
+    { label: 'Worker Company Client', value: fmt(p?.worker_company_client_name, p?.worker_company_client_uen) },
+    { label: 'HDB Precinct', value: p?.hdb_precinct || '---' }
+  ];
+});
 
 const resourceStats = computed(() => [
   { label: 'Total Workers', value: project.value?.worker_count || '0' },

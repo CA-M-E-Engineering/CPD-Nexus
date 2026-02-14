@@ -22,27 +22,25 @@ func (r *ProjectRepository) Get(ctx context.Context, id string) (*domain.Project
 		SELECT 
             p.project_id, p.site_id, p.tenant_id, p.project_title, p.status, 
             p.project_reference_number, p.project_contract_number, p.project_location_description, p.project_contract_name, p.hdb_precinct_name, 
-            p.main_contractor_id, p.offsite_fabricator_id, p.worker_company_id, p.worker_company_client_id,
-            c1.company_name as mc_name, c2.company_name as of_name, c3.company_name as wc_name, c4.company_name as wcc_name,
+            p.main_contractor_name, p.main_contractor_uen,
+            p.offsite_fabricator_name, p.offsite_fabricator_uen, p.offsite_fabricator_location,
+            p.worker_company_name, p.worker_company_uen,
+            p.worker_company_client_name, p.worker_company_client_uen,
             p.created_at, p.updated_at, s.site_name,
             (SELECT COUNT(*) FROM users u WHERE u.current_project_id = p.project_id) as worker_count,
             (SELECT COUNT(*) FROM devices d WHERE d.site_id = p.site_id) as device_count
 		FROM projects p
 		LEFT JOIN sites s ON p.site_id = s.site_id
-        LEFT JOIN companies c1 ON p.main_contractor_id = c1.company_id
-        LEFT JOIN companies c2 ON p.offsite_fabricator_id = c2.company_id
-        LEFT JOIN companies c3 ON p.worker_company_id = c3.company_id
-        LEFT JOIN companies c4 ON p.worker_company_client_id = c4.company_id
 		WHERE p.project_id = ?`
 
 	var p domain.Project
-	var siteID, tenantID, status, ref, cRef, loc, cName, hdb, mcID, ofID, wcID, wccID sql.NullString
-	var mcn, ofn, wcn, wccn sql.NullString
+	var siteID, tenantID, status, ref, cRef, loc, cName, hdb sql.NullString
+	var mcName, mcUEN, ofName, ofUEN, ofLoc, wcName, wcUEN, wccName, wccUEN sql.NullString
 
 	err := r.db.QueryRowContext(ctx, query, id).Scan(
 		&p.ID, &siteID, &tenantID, &p.Title, &status,
-		&ref, &cRef, &loc, &cName, &hdb, &mcID, &ofID, &wcID, &wccID,
-		&mcn, &ofn, &wcn, &wccn,
+		&ref, &cRef, &loc, &cName, &hdb,
+		&mcName, &mcUEN, &ofName, &ofUEN, &ofLoc, &wcName, &wcUEN, &wccName, &wccUEN,
 		&p.CreatedAt, &p.UpdatedAt, &p.SiteName, &p.WorkerCount, &p.DeviceCount,
 	)
 	if err == sql.ErrNoRows {
@@ -76,29 +74,32 @@ func (r *ProjectRepository) Get(ctx context.Context, id string) (*domain.Project
 	if hdb.Valid {
 		p.HDBPrecinct = hdb.String
 	}
-	if mcID.Valid {
-		p.MainContractorID = mcID.String
+	if mcName.Valid {
+		p.MainContractorName = mcName.String
 	}
-	if ofID.Valid {
-		p.OffsiteFabricatorID = ofID.String
+	if mcUEN.Valid {
+		p.MainContractorUEN = mcUEN.String
 	}
-	if wcID.Valid {
-		p.WorkerCompanyID = wcID.String
+	if ofName.Valid {
+		p.OffsiteFabricatorName = ofName.String
 	}
-	if wccID.Valid {
-		p.WorkerCompanyClientID = wccID.String
+	if ofUEN.Valid {
+		p.OffsiteFabricatorUEN = ofUEN.String
 	}
-	if mcn.Valid {
-		p.MainContractorName = mcn.String
+	if ofLoc.Valid {
+		p.OffsiteFabricatorLocation = ofLoc.String
 	}
-	if ofn.Valid {
-		p.OffsiteFabricatorName = ofn.String
+	if wcName.Valid {
+		p.WorkerCompanyName = wcName.String
 	}
-	if wcn.Valid {
-		p.WorkerCompanyName = wcn.String
+	if wcUEN.Valid {
+		p.WorkerCompanyUEN = wcUEN.String
 	}
-	if wccn.Valid {
-		p.WorkerCompanyClientName = wccn.String
+	if wccName.Valid {
+		p.WorkerCompanyClientName = wccName.String
+	}
+	if wccUEN.Valid {
+		p.WorkerCompanyClientUEN = wccUEN.String
 	}
 
 	return &p, nil
@@ -109,17 +110,15 @@ func (r *ProjectRepository) List(ctx context.Context, tenantID string) ([]domain
         SELECT 
             p.project_id, p.site_id, p.tenant_id, p.project_title, p.status, 
             p.project_reference_number, p.project_contract_number, p.project_location_description, p.project_contract_name, p.hdb_precinct_name, 
-            p.main_contractor_id, p.offsite_fabricator_id, p.worker_company_id, p.worker_company_client_id,
-            c1.company_name as mc_name, c2.company_name as of_name, c3.company_name as wc_name, c4.company_name as wcc_name,
+            p.main_contractor_name, p.main_contractor_uen,
+            p.offsite_fabricator_name, p.offsite_fabricator_uen, p.offsite_fabricator_location,
+            p.worker_company_name, p.worker_company_uen,
+            p.worker_company_client_name, p.worker_company_client_uen,
             p.created_at, p.updated_at, s.site_name,
             (SELECT COUNT(*) FROM users u WHERE u.current_project_id = p.project_id) as worker_count,
             (SELECT COUNT(*) FROM devices d WHERE d.site_id = p.site_id AND d.status != 'inactive') as device_count
         FROM projects p
         LEFT JOIN sites s ON p.site_id = s.site_id
-        LEFT JOIN companies c1 ON p.main_contractor_id = c1.company_id
-        LEFT JOIN companies c2 ON p.offsite_fabricator_id = c2.company_id
-        LEFT JOIN companies c3 ON p.worker_company_id = c3.company_id
-        LEFT JOIN companies c4 ON p.worker_company_client_id = c4.company_id
         WHERE (p.status != 'inactive' OR p.status IS NULL)`
 
 	args := []interface{}{}
@@ -138,12 +137,12 @@ func (r *ProjectRepository) List(ctx context.Context, tenantID string) ([]domain
 	var projects []domain.Project
 	for rows.Next() {
 		var p domain.Project
-		var siteID, tenantID, status, ref, cRef, loc, cName, hdb, mcID, ofID, wcID, wccID sql.NullString
-		var mcn, ofn, wcn, wccn sql.NullString
+		var siteID, tenantID, status, ref, cRef, loc, cName, hdb sql.NullString
+		var mcName, mcUEN, ofName, ofUEN, ofLoc, wcName, wcUEN, wccName, wccUEN sql.NullString
 		if err := rows.Scan(
 			&p.ID, &siteID, &tenantID, &p.Title, &status,
-			&ref, &cRef, &loc, &cName, &hdb, &mcID, &ofID, &wcID, &wccID,
-			&mcn, &ofn, &wcn, &wccn,
+			&ref, &cRef, &loc, &cName, &hdb,
+			&mcName, &mcUEN, &ofName, &ofUEN, &ofLoc, &wcName, &wcUEN, &wccName, &wccUEN,
 			&p.CreatedAt, &p.UpdatedAt, &p.SiteName, &p.WorkerCount, &p.DeviceCount,
 		); err != nil {
 			return nil, err
@@ -172,29 +171,32 @@ func (r *ProjectRepository) List(ctx context.Context, tenantID string) ([]domain
 		if hdb.Valid {
 			p.HDBPrecinct = hdb.String
 		}
-		if mcID.Valid {
-			p.MainContractorID = mcID.String
+		if mcName.Valid {
+			p.MainContractorName = mcName.String
 		}
-		if ofID.Valid {
-			p.OffsiteFabricatorID = ofID.String
+		if mcUEN.Valid {
+			p.MainContractorUEN = mcUEN.String
 		}
-		if wcID.Valid {
-			p.WorkerCompanyID = wcID.String
+		if ofName.Valid {
+			p.OffsiteFabricatorName = ofName.String
 		}
-		if wccID.Valid {
-			p.WorkerCompanyClientID = wccID.String
+		if ofUEN.Valid {
+			p.OffsiteFabricatorUEN = ofUEN.String
 		}
-		if mcn.Valid {
-			p.MainContractorName = mcn.String
+		if ofLoc.Valid {
+			p.OffsiteFabricatorLocation = ofLoc.String
 		}
-		if ofn.Valid {
-			p.OffsiteFabricatorName = ofn.String
+		if wcName.Valid {
+			p.WorkerCompanyName = wcName.String
 		}
-		if wcn.Valid {
-			p.WorkerCompanyName = wcn.String
+		if wcUEN.Valid {
+			p.WorkerCompanyUEN = wcUEN.String
 		}
-		if wccn.Valid {
-			p.WorkerCompanyClientName = wccn.String
+		if wccName.Valid {
+			p.WorkerCompanyClientName = wccName.String
+		}
+		if wccUEN.Valid {
+			p.WorkerCompanyClientUEN = wccUEN.String
 		}
 
 		projects = append(projects, p)
@@ -206,15 +208,20 @@ func (r *ProjectRepository) Create(ctx context.Context, p *domain.Project) error
 	query := `INSERT INTO projects (
         project_id, site_id, tenant_id, project_title, status, project_reference_number, 
         project_contract_number, project_location_description, project_contract_name, hdb_precinct_name, 
-        main_contractor_id, offsite_fabricator_id, worker_company_id, worker_company_client_id,
+        main_contractor_name, main_contractor_uen,
+        offsite_fabricator_name, offsite_fabricator_uen, offsite_fabricator_location,
+        worker_company_name, worker_company_uen,
+        worker_company_client_name, worker_company_client_uen,
         created_at, updated_at
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())`
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())`
 
 	_, err := r.db.ExecContext(ctx, query,
 		p.ID, p.SiteID, p.TenantID, p.Title, p.Status, p.Reference,
 		p.ContractRef, p.Location, p.ContractName, toNullString(p.HDBPrecinct),
-		toNullString(p.MainContractorID), toNullString(p.OffsiteFabricatorID),
-		toNullString(p.WorkerCompanyID), toNullString(p.WorkerCompanyClientID),
+		toNullString(p.MainContractorName), toNullString(p.MainContractorUEN),
+		toNullString(p.OffsiteFabricatorName), toNullString(p.OffsiteFabricatorUEN), toNullString(p.OffsiteFabricatorLocation),
+		toNullString(p.WorkerCompanyName), toNullString(p.WorkerCompanyUEN),
+		toNullString(p.WorkerCompanyClientName), toNullString(p.WorkerCompanyClientUEN),
 	)
 	return err
 }
@@ -223,15 +230,20 @@ func (r *ProjectRepository) Update(ctx context.Context, p *domain.Project) error
 	query := `UPDATE projects SET 
         site_id=?, tenant_id=?, project_title=?, status=?, project_reference_number=?, 
         project_contract_number=?, project_location_description=?, project_contract_name=?, hdb_precinct_name=?, 
-        main_contractor_id=?, offsite_fabricator_id=?, worker_company_id=?, worker_company_client_id=?,
+        main_contractor_name=?, main_contractor_uen=?,
+        offsite_fabricator_name=?, offsite_fabricator_uen=?, offsite_fabricator_location=?,
+        worker_company_name=?, worker_company_uen=?,
+        worker_company_client_name=?, worker_company_client_uen=?,
         updated_at=NOW()
         WHERE project_id=?`
 
 	_, err := r.db.ExecContext(ctx, query,
 		p.SiteID, p.TenantID, p.Title, p.Status, p.Reference,
 		p.ContractRef, p.Location, p.ContractName, toNullString(p.HDBPrecinct),
-		toNullString(p.MainContractorID), toNullString(p.OffsiteFabricatorID),
-		toNullString(p.WorkerCompanyID), toNullString(p.WorkerCompanyClientID),
+		toNullString(p.MainContractorName), toNullString(p.MainContractorUEN),
+		toNullString(p.OffsiteFabricatorName), toNullString(p.OffsiteFabricatorUEN), toNullString(p.OffsiteFabricatorLocation),
+		toNullString(p.WorkerCompanyName), toNullString(p.WorkerCompanyUEN),
+		toNullString(p.WorkerCompanyClientName), toNullString(p.WorkerCompanyClientUEN),
 		p.ID,
 	)
 	return err

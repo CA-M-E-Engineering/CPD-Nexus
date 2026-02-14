@@ -75,8 +75,8 @@ func (s *WorkerService) UpdateWorker(ctx context.Context, id string, payload map
 	if v, ok := payload["fin"].(string); ok {
 		existing.FIN = v
 	}
-	if v, ok := payload["company_id"].(string); ok {
-		existing.CompanyID = v
+	if v, ok := payload["company_name"].(string); ok {
+		existing.CompanyName = v
 	}
 	if v, ok := payload["tenant_id"].(string); ok {
 		existing.TenantID = v

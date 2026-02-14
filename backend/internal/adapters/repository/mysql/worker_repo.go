@@ -22,29 +22,27 @@ func NewWorkerRepository(db *sql.DB) ports.WorkerRepository {
 func (r *WorkerRepository) Get(ctx context.Context, id string) (*domain.Worker, error) {
 	query := `
         SELECT 
-            u.user_id, u.name, u.email, u.role, u.status, u.trade_code, u.current_project_id, u.fin_nric, u.company_id,
+            u.user_id, u.name, u.email, u.role, u.status, u.trade_code, u.current_project_id, u.fin_nric, u.company_name,
             p.project_title,
             s.site_name,
             t.tenant_name,
             u.tenant_id,
             t.latitude,
             t.longitude,
-            t.address,
-            c.company_name
+            t.address
         FROM users u
         LEFT JOIN projects p ON u.current_project_id = p.project_id
         LEFT JOIN sites s ON p.site_id = s.site_id
         LEFT JOIN tenants t ON u.tenant_id = t.tenant_id
-        LEFT JOIN companies c ON u.company_id = c.company_id
         WHERE u.user_id = ?`
 
 	var w domain.Worker
-	var status, tradeCode, projID, fin, companyID, cName sql.NullString
+	var status, tradeCode, projID, fin, cName sql.NullString
 	var pName, sName, tName, tID, tLat, tLng, tAdd sql.NullString
 
 	err := r.db.QueryRowContext(ctx, query, id).Scan(
-		&w.ID, &w.Name, &w.Email, &w.Role, &status, &tradeCode, &projID, &fin, &companyID,
-		&pName, &sName, &tName, &tID, &tLat, &tLng, &tAdd, &cName,
+		&w.ID, &w.Name, &w.Email, &w.Role, &status, &tradeCode, &projID, &fin, &cName,
+		&pName, &sName, &tName, &tID, &tLat, &tLng, &tAdd,
 	)
 	if err == sql.ErrNoRows {
 		return nil, nil
@@ -64,9 +62,6 @@ func (r *WorkerRepository) Get(ctx context.Context, id string) (*domain.Worker, 
 	}
 	if fin.Valid {
 		w.FIN = fin.String
-	}
-	if companyID.Valid {
-		w.CompanyID = companyID.String
 	}
 	if cName.Valid {
 		w.CompanyName = cName.String
@@ -96,29 +91,27 @@ func (r *WorkerRepository) Get(ctx context.Context, id string) (*domain.Worker, 
 func (r *WorkerRepository) GetByFIN(ctx context.Context, fin string) (*domain.Worker, error) {
 	query := `
         SELECT 
-            u.user_id, u.name, u.email, u.role, u.status, u.trade_code, u.current_project_id, u.fin_nric, u.company_id,
+            u.user_id, u.name, u.email, u.role, u.status, u.trade_code, u.current_project_id, u.fin_nric, u.company_name,
             p.project_title,
             s.site_name,
             t.tenant_name,
             u.tenant_id,
             t.latitude,
             t.longitude,
-            t.address,
-            c.company_name
+            t.address
         FROM users u
         LEFT JOIN projects p ON u.current_project_id = p.project_id
         LEFT JOIN sites s ON p.site_id = s.site_id
         LEFT JOIN tenants t ON u.tenant_id = t.tenant_id
-        LEFT JOIN companies c ON u.company_id = c.company_id
         WHERE u.fin_nric = ? LIMIT 1`
 
 	var w domain.Worker
-	var status, tradeCode, projID, f, companyID, cName sql.NullString
+	var status, tradeCode, projID, f, cName sql.NullString
 	var pName, sName, tName, tID, tLat, tLng, tAdd sql.NullString
 
 	err := r.db.QueryRowContext(ctx, query, fin).Scan(
-		&w.ID, &w.Name, &w.Email, &w.Role, &status, &tradeCode, &projID, &f, &companyID,
-		&pName, &sName, &tName, &tID, &tLat, &tLng, &tAdd, &cName,
+		&w.ID, &w.Name, &w.Email, &w.Role, &status, &tradeCode, &projID, &f, &cName,
+		&pName, &sName, &tName, &tID, &tLat, &tLng, &tAdd,
 	)
 	if err == sql.ErrNoRows {
 		return nil, nil
@@ -138,9 +131,6 @@ func (r *WorkerRepository) GetByFIN(ctx context.Context, fin string) (*domain.Wo
 	}
 	if f.Valid {
 		w.FIN = f.String
-	}
-	if companyID.Valid {
-		w.CompanyID = companyID.String
 	}
 	if cName.Valid {
 		w.CompanyName = cName.String
@@ -170,20 +160,18 @@ func (r *WorkerRepository) GetByFIN(ctx context.Context, fin string) (*domain.Wo
 func (r *WorkerRepository) List(ctx context.Context, tenantID, siteID string) ([]domain.Worker, error) {
 	query := `
         SELECT 
-            u.user_id, u.name, u.email, u.role, u.status, u.trade_code, u.current_project_id, u.fin_nric, u.company_id,
+            u.user_id, u.name, u.email, u.role, u.status, u.trade_code, u.current_project_id, u.fin_nric, u.company_name,
             p.project_title,
             s.site_name,
             t.tenant_name,
             u.tenant_id,
             t.latitude,
             t.longitude,
-            t.address,
-            c.company_name
+            t.address
         FROM users u
         LEFT JOIN projects p ON u.current_project_id = p.project_id
         LEFT JOIN sites s ON p.site_id = s.site_id
         LEFT JOIN tenants t ON u.tenant_id = t.tenant_id
-        LEFT JOIN companies c ON u.company_id = c.company_id
         WHERE u.role IN ('worker', 'pic', 'manager') AND (u.status != 'inactive' OR u.status IS NULL)`
 
 	args := []interface{}{}
@@ -210,12 +198,12 @@ func (r *WorkerRepository) List(ctx context.Context, tenantID, siteID string) ([
 	var workers []domain.Worker
 	for rows.Next() {
 		var w domain.Worker
-		var status, tradeCode, projID, fin, companyID, cName sql.NullString
+		var status, tradeCode, projID, fin, cName sql.NullString
 		var pName, sName, tName, tID, tLat, tLng, tAdd sql.NullString
 
 		if err := rows.Scan(
-			&w.ID, &w.Name, &w.Email, &w.Role, &status, &tradeCode, &projID, &fin, &companyID,
-			&pName, &sName, &tName, &tID, &tLat, &tLng, &tAdd, &cName,
+			&w.ID, &w.Name, &w.Email, &w.Role, &status, &tradeCode, &projID, &fin, &cName,
+			&pName, &sName, &tName, &tID, &tLat, &tLng, &tAdd,
 		); err != nil {
 			log.Printf("[WorkerRepo] Scan error: %v", err)
 			continue
@@ -232,9 +220,6 @@ func (r *WorkerRepository) List(ctx context.Context, tenantID, siteID string) ([
 		}
 		if fin.Valid {
 			w.FIN = fin.String
-		}
-		if companyID.Valid {
-			w.CompanyID = companyID.String
 		}
 		if cName.Valid {
 			w.CompanyName = cName.String
@@ -269,14 +254,14 @@ func (r *WorkerRepository) Create(ctx context.Context, w *domain.Worker) error {
 	}
 
 	query := `
-        INSERT INTO users (user_id, tenant_id, name, email, role, status, trade_code, current_project_id, fin_nric, company_id) 
+        INSERT INTO users (user_id, tenant_id, name, email, role, status, trade_code, current_project_id, fin_nric, company_name) 
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
 
 	_, err := r.db.ExecContext(ctx, query,
 		w.ID, w.TenantID, w.Name, w.Email, w.Role, w.Status, w.TradeCode,
 		sql.NullString{String: w.CurrentProjectID, Valid: w.CurrentProjectID != ""},
 		w.FIN,
-		sql.NullString{String: w.CompanyID, Valid: w.CompanyID != ""},
+		sql.NullString{String: w.CompanyName, Valid: w.CompanyName != ""},
 	)
 	if err != nil {
 		return fmt.Errorf("failed to create worker: %w", err)
@@ -285,13 +270,13 @@ func (r *WorkerRepository) Create(ctx context.Context, w *domain.Worker) error {
 }
 
 func (r *WorkerRepository) Update(ctx context.Context, w *domain.Worker) error {
-	query := "UPDATE users SET name=?, email=?, trade_code=?, status=?, role=?, current_project_id=?, fin_nric=?, tenant_id=?, company_id=? WHERE user_id=?"
+	query := "UPDATE users SET name=?, email=?, trade_code=?, status=?, role=?, current_project_id=?, fin_nric=?, tenant_id=?, company_name=? WHERE user_id=?"
 
 	_, err := r.db.ExecContext(ctx, query,
 		w.Name, w.Email, w.TradeCode, w.Status, w.Role,
 		sql.NullString{String: w.CurrentProjectID, Valid: w.CurrentProjectID != ""},
 		w.FIN, w.TenantID,
-		sql.NullString{String: w.CompanyID, Valid: w.CompanyID != ""},
+		sql.NullString{String: w.CompanyName, Valid: w.CompanyName != ""},
 		w.ID,
 	)
 	if err != nil {

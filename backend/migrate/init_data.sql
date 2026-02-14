@@ -8,8 +8,6 @@ TRUNCATE TABLE devices;
 
 TRUNCATE TABLE users;
 
-TRUNCATE TABLE companies;
-
 TRUNCATE TABLE sites;
 
 TRUNCATE TABLE tenants;
@@ -82,63 +80,6 @@ VALUES (
     );
 
 -- ======================
--- Companies (Business Entities)
--- ======================
-INSERT INTO
-    companies (
-        company_id,
-        tenant_id,
-        company_name,
-        uen,
-        company_type,
-        address,
-        latitude,
-        longitude,
-        status,
-        created_at,
-        updated_at
-    )
-VALUES (
-        'company-vendor-1',
-        'tenant-vendor-1',
-        'CA M&E (Vendor)',
-        'CAMEN1234A',
-        'contractor',
-        '120 Lower Delta Road, Cendex Centre',
-        1.3521,
-        103.8198,
-        'active',
-        NOW(),
-        NOW()
-    ),
-    (
-        'company-client-1',
-        'tenant-client-1',
-        'Mega Engineering',
-        'MEGA12345X',
-        'contractor',
-        '15 Jurong Gateway Road',
-        1.3329,
-        103.7436,
-        'active',
-        NOW(),
-        NOW()
-    ),
-    (
-        'company-fab-1',
-        'tenant-vendor-1',
-        'Delta Fabrication Ltd',
-        'UEN-FAB-001',
-        'offsite_fabricator',
-        '10 Industrial Way, Singapore',
-        1.3800,
-        103.9000,
-        'active',
-        NOW(),
-        NOW()
-    );
-
--- ======================
 -- Sites (2 Total)
 -- ======================
 INSERT INTO
@@ -187,10 +128,15 @@ INSERT INTO
         project_contract_name,
         project_location_description,
         hdb_precinct_name,
-        main_contractor_id,
-        offsite_fabricator_id,
-        worker_company_id,
-        worker_company_client_id,
+        main_contractor_name,
+        main_contractor_uen,
+        offsite_fabricator_name,
+        offsite_fabricator_uen,
+        offsite_fabricator_location,
+        worker_company_name,
+        worker_company_uen,
+        worker_company_client_name,
+        worker_company_client_uen,
         status,
         created_at,
         updated_at
@@ -205,10 +151,15 @@ VALUES (
         'Structural Phase A',
         'Jurong West St 21',
         'JW-N4-C1',
-        'company-client-1',
-        'company-fab-1',
-        'company-client-1',
-        'company-vendor-1',
+        'Mega Engineering',
+        'MEGA12345X',
+        'Delta Fabrication Ltd',
+        'UEN-FAB-001',
+        '10 Industrial Way, Singapore',
+        'Mega Engineering',
+        'MEGA12345X',
+        'CA M&E (Vendor)',
+        'CAMEN1234A',
         'active',
         NOW(),
         NOW()
@@ -223,9 +174,14 @@ VALUES (
         'Foundation Civil Works',
         'Changi East Drive',
         'CH-T5-P1',
-        'company-client-1',
+        'Mega Engineering',
+        'MEGA12345X',
         NULL,
-        'company-client-1',
+        NULL,
+        NULL,
+        'Mega Engineering',
+        'MEGA12345X',
+        NULL,
         NULL,
         'active',
         NOW(),
@@ -245,7 +201,7 @@ INSERT INTO
         fin_nric,
         trade_code,
         current_project_id,
-        company_id,
+        company_name,
         status,
         created_at,
         updated_at
@@ -259,7 +215,7 @@ VALUES (
         'S1000001A',
         NULL,
         NULL,
-        'company-vendor-1',
+        'CA M&E (Vendor)',
         'active',
         NOW(),
         NOW()
@@ -273,7 +229,7 @@ VALUES (
         'S2000001A',
         NULL,
         NULL,
-        'company-client-1',
+        'Mega Engineering',
         'active',
         NOW(),
         NOW()
@@ -287,7 +243,7 @@ VALUES (
         'S8000001W',
         'ELEC',
         'project-uuid-1',
-        'company-client-1',
+        'Mega Engineering',
         'active',
         NOW(),
         NOW()
@@ -301,7 +257,7 @@ VALUES (
         'S8000002W',
         'PLUMB',
         'project-uuid-1',
-        'company-client-1',
+        'Mega Engineering',
         'active',
         NOW(),
         NOW()
@@ -315,7 +271,7 @@ VALUES (
         'S8000003W',
         'WELD',
         'project-uuid-2',
-        'company-vendor-1',
+        'CA M&E (Vendor)',
         'active',
         NOW(),
         NOW()
@@ -329,7 +285,7 @@ VALUES (
         'S8000004W',
         'SCAF',
         'project-uuid-2',
-        'company-vendor-1',
+        'CA M&E (Vendor)',
         'active',
         NOW(),
         NOW()
@@ -343,7 +299,7 @@ VALUES (
         'S8000005W',
         'PAINT',
         NULL,
-        'company-vendor-1',
+        'CA M&E (Vendor)',
         'active',
         NOW(),
         NOW()
@@ -357,7 +313,7 @@ VALUES (
         'S7000001P',
         'MGMT',
         'project-uuid-1',
-        'company-client-1',
+        'Mega Engineering',
         'active',
         NOW(),
         NOW()

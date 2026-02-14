@@ -35,7 +35,7 @@ const navigation = {
                 { id: 'sites', label: 'Sites', icon: 'ri-map-pin-line' },
                 { id: 'projects', label: 'Projects', icon: 'ri-folder-line' },
                 { id: 'workers', label: 'Workers', icon: 'ri-group-line' },
-                { id: 'companies', label: 'Companies', icon: 'ri-building-line' },
+
                 { id: 'devices', label: 'Devices', icon: 'ri-cpu-line' },
                 { id: 'attendance', label: 'Attendance', icon: 'ri-calendar-check-line' }
             ]
@@ -65,9 +65,7 @@ const breadcrumbMapping = {
     'workers': 'Workers / Directory',
     'worker-detail': 'Workers / Profile',
     'worker-add': 'Workers / New Worker',
-    'companies': 'Companies / Directory',
-    'company-detail': 'Companies / Detail',
-    'company-add': 'Companies / New Company',
+
     'attendance': 'Attendance Records',
     'analytics': 'Operational Insights',
     'settings': 'System Settings',

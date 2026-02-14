@@ -25,19 +25,20 @@ const formData = ref({
   contract: '',
   contract_name: '',
   hdb_precinct: '',
-  main_contractor_id: '',
-  offsite_fabricator_id: '',
-  worker_company_id: '',
-  worker_company_client_id: '',
+  main_contractor_name: '',
+  main_contractor_uen: '',
+  offsite_fabricator_name: '',
+  offsite_fabricator_uen: '',
+  offsite_fabricator_location: '',
+  worker_company_name: '',
+  worker_company_uen: '',
+  worker_company_client_name: '',
+  worker_company_client_uen: '',
   status: 'active'
 });
 
 const sites = ref([]);
 const isEdit = computed(() => props.mode === 'edit');
-
-const companies = ref([]);
-const filteredContractors = computed(() => companies.value.filter(c => c.company_type === 'contractor'));
-const filteredFabricators = computed(() => companies.value.filter(c => c.company_type === 'offsite_fabricator'));
 
 const fetchData = async () => {
     try {
@@ -53,13 +54,8 @@ const fetchData = async () => {
         }
         formData.value.tenant_id = tenantId;
         
-        const [sitesData, companiesData] = await Promise.all([
-             api.getSites({ tenant_id: tenantId }),
-             api.getCompanies({ tenant_id: tenantId })
-        ]);
-        
+        const sitesData = await api.getSites({ tenant_id: tenantId });
         sites.value = sitesData || [];
-        companies.value = companiesData || [];
     } catch (err) {
         console.error('Failed to load dependency data', err);
     }
@@ -118,6 +114,7 @@ const handleSubmit = async () => {
     </div>
 
     <form v-else class="form-container" @submit.prevent="handleSubmit">
+      <h3 class="section-title">Project Details</h3>
       <div class="form-grid">
         <BaseInput v-model="formData.reference" label="Project Reference Number" placeholder="e.g., PRJ-2024-001" required />
         <BaseInput v-model="formData.title" label="Project Title" placeholder="e.g., Marina Bay Tower" required />
@@ -135,48 +132,32 @@ const handleSubmit = async () => {
         <BaseInput v-model="formData.location" label="Project Location Description" placeholder="e.g., Marina Bay, Central Singapore" required />
         <BaseInput v-model="formData.contract" label="Project Contract Number" placeholder="e.g., CNT-2024-MB" required />
         <BaseInput v-model="formData.contract_name" label="Project Contract Name" placeholder="e.g., Marina Bay Development" required />
-
         <BaseInput v-model="formData.hdb_precinct" label="HDB Precinct Name" placeholder="e.g., Marina Precinct (if applicable)" />
+      </div>
 
-        <div class="form-group">
-            <label class="form-label">Main Contractor</label>
-            <select v-model="formData.main_contractor_id" class="form-select">
-                <option value="">Select Company</option>
-                <option v-for="c in filteredContractors" :key="c.company_id" :value="c.company_id">
-                    {{ c.company_name }} ({{ c.uen }})
-                </option>
-            </select>
-        </div>
+      <h3 class="section-title">Main Contractor</h3>
+      <div class="form-grid">
+        <BaseInput v-model="formData.main_contractor_name" label="Company Name" placeholder="e.g., Mega Engineering Pte Ltd" />
+        <BaseInput v-model="formData.main_contractor_uen" label="UEN" placeholder="e.g., 200012345X" />
+      </div>
 
-        <div class="form-group">
-            <label class="form-label">Offsite Fabricator</label>
-            <select v-model="formData.offsite_fabricator_id" class="form-select">
-                <option value="">Select Fabricator</option>
-                <option v-for="c in filteredFabricators" :key="c.company_id" :value="c.company_id">
-                    {{ c.company_name }} ({{ c.uen }})
-                </option>
-            </select>
-        </div>
+      <h3 class="section-title">Offsite Fabricator</h3>
+      <div class="form-grid">
+        <BaseInput v-model="formData.offsite_fabricator_name" label="Company Name" placeholder="e.g., Delta Fabrication Ltd" />
+        <BaseInput v-model="formData.offsite_fabricator_uen" label="UEN" placeholder="e.g., UEN-FAB-001" />
+        <BaseInput v-model="formData.offsite_fabricator_location" label="Location" placeholder="e.g., 10 Industrial Way, Singapore" class="full-width" />
+      </div>
 
-        <div class="form-group">
-            <label class="form-label">Worker Company</label>
-            <select v-model="formData.worker_company_id" class="form-select">
-                <option value="">Select Company</option>
-                <option v-for="c in filteredContractors" :key="c.company_id" :value="c.company_id">
-                    {{ c.company_name }} ({{ c.uen }})
-                </option>
-            </select>
-        </div>
+      <h3 class="section-title">Worker Company</h3>
+      <div class="form-grid">
+        <BaseInput v-model="formData.worker_company_name" label="Company Name" placeholder="e.g., WorkForce Solutions" />
+        <BaseInput v-model="formData.worker_company_uen" label="UEN" placeholder="e.g., 201998765W" />
+      </div>
 
-        <div class="form-group">
-            <label class="form-label">Worker Company Client</label>
-            <select v-model="formData.worker_company_client_id" class="form-select">
-                <option value="">Select Company</option>
-                <option v-for="c in filteredContractors" :key="c.company_id" :value="c.company_id">
-                    {{ c.company_name }} ({{ c.uen }})
-                </option>
-            </select>
-        </div>
+      <h3 class="section-title">Worker Company Client</h3>
+      <div class="form-grid">
+        <BaseInput v-model="formData.worker_company_client_name" label="Company Name" placeholder="e.g., Client Corp" />
+        <BaseInput v-model="formData.worker_company_client_uen" label="UEN" placeholder="e.g., 200567890C" />
       </div>
 
       <div class="form-actions">
@@ -198,11 +179,24 @@ const handleSubmit = async () => {
   padding: 32px;
 }
 
+.section-title {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--color-text-primary);
+  margin: 24px 0 12px 0;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.section-title:first-of-type {
+  margin-top: 0;
+}
+
 .form-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 20px;
-  margin-bottom: 32px;
+  margin-bottom: 16px;
 }
 
 .loading-state {
@@ -233,6 +227,10 @@ const handleSubmit = async () => {
   color: #ef4444;
 }
 
+.full-width {
+  grid-column: 1 / -1;
+}
+
 .form-select {
   background: var(--color-bg);
   border: 1px solid var(--color-border);
@@ -257,4 +255,3 @@ const handleSubmit = async () => {
   border-top: 1px solid var(--color-border);
 }
 </style>
-

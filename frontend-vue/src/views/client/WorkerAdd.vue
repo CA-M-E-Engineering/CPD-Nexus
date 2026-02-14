@@ -22,33 +22,11 @@ const formData = ref({
   role: 'worker',
   trade_code: '',
   email: '',
-  company_id: '',
+  company_name: '',
   status: 'active'
 });
 
-const companies = ref([]);
-
 const isEdit = computed(() => props.mode === 'edit');
-
-
-
-const fetchCompanies = async () => {
-    try {
-        const savedUser = localStorage.getItem('auth_user');
-        let tenantId = null;
-        if (savedUser) {
-            try {
-                const user = JSON.parse(savedUser);
-                tenantId = user.tenant_id || user.id;
-            } catch (e) {}
-        }
-        const data = await api.getCompanies({ tenant_id: tenantId });
-        companies.value = data || [];
-    } catch (err) {
-        console.error('Failed to load companies', err);
-        notification.error('Could not load company list');
-    }
-};
 
 const fetchWorker = async () => {
   if (!isEdit.value || !props.id) return;
@@ -62,11 +40,11 @@ const fetchWorker = async () => {
             contextTenantId = user.tenant_id || user.id;
         } catch (e) {}
     }
-    const data = await api.getWorkerById(props.id, { tenant_id: contextTenantId }); // Pass tenant_id to API call
+    const data = await api.getWorkerById(props.id, { tenant_id: contextTenantId });
     if (data) {
       formData.value = { 
         ...data,
-        company_id: data.company_id || ''
+        company_name: data.company_name || ''
       };
     }
   } finally {
@@ -75,7 +53,6 @@ const fetchWorker = async () => {
 };
 
 onMounted(async () => {
-    await fetchCompanies();
     await fetchWorker();
     
     // Set default role/status if new
@@ -88,7 +65,6 @@ onMounted(async () => {
 const handleSubmit = async () => {
   isSaving.value = true;
   try {
-    // prepare payload: ensure current_project_id is synced with the form selection
     const savedUser = localStorage.getItem('auth_user');
     let tenantId = null;
     if (savedUser) {
@@ -147,15 +123,7 @@ const handleSubmit = async () => {
             </select>
         </div>
 
-        <div class="form-group">
-          <label class="form-label">Employer Company</label>
-          <select v-model="formData.company_id" class="form-select">
-            <option value="">Select company</option>
-            <option v-for="c in companies" :key="c.company_id" :value="c.company_id">
-                {{ c.company_name }}
-            </option>
-          </select>
-        </div>
+        <BaseInput v-model="formData.company_name" label="Employer Company" placeholder="e.g., Mega Engineering Pte Ltd" />
 
         <BaseInput v-model="formData.trade_code" label="Trade Code" placeholder="e.g., STR-01" />
         <BaseInput v-model="formData.email" label="Email Address" type="email" placeholder="john@company.com" />
@@ -233,4 +201,3 @@ const handleSubmit = async () => {
   border-top: 1px solid var(--color-border);
 }
 </style>
-

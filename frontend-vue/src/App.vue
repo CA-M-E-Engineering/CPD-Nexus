@@ -34,8 +34,7 @@ import ClientProjectDetail from './views/client/ProjectDetail.vue';
 import ClientWorkerList from './views/client/WorkerList.vue';
 import ClientWorkerDetail from './views/client/WorkerDetail.vue';
 import ClientWorkerAdd from './views/client/WorkerAdd.vue';
-import ClientCompanyList from './views/client/CompanyList.vue';
-import ClientCompanyAdd from './views/client/CompanyAdd.vue';
+
 import ClientDeviceList from './views/client/DeviceList.vue';
 import ClientAttendanceList from './views/client/AttendanceList.vue';
 import ClientAnalytics from './views/client/Analytics.vue';
@@ -142,8 +141,7 @@ const currentComponent = computed(() => {
       'workers': ClientWorkerList,
       'worker-detail': ClientWorkerDetail,
       'worker-add': ClientWorkerAdd,
-      'companies': ClientCompanyList,
-      'company-add': ClientCompanyAdd,
+
       'worker-assign-project': WorkerAssignProject,
       'project-assign-workers': ProjectAssignWorkers,
       'site-assign-project': SiteAssignProject,

@@ -8,9 +8,8 @@ type Worker struct {
 	Status           string `json:"status"`
 	TradeCode        string `json:"trade_code,omitempty"`
 	CurrentProjectID string `json:"current_project_id,omitempty"`
-	CompanyID        string `json:"company_id,omitempty"`
-	FIN              string `json:"fin,omitempty"`
 	CompanyName      string `json:"company_name,omitempty"`
+	FIN              string `json:"fin,omitempty"`
 
 	// Details for output (Joined fields)
 	ProjectName    string `json:"project_name,omitempty"`

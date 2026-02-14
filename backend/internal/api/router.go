@@ -66,22 +66,10 @@ func RegisterRoutes(r *mux.Router, db *sql.DB) {
 	settingsService := services.NewSettingsService(settingsRepo)
 	settingsHandler := handlers.NewSettingsHandler(settingsService)
 
-	// Companies Module Wiring
-	companyRepo := mysql.NewCompanyRepository(db)
-	companyService := services.NewCompanyService(companyRepo)
-	companiesHandler := handlers.NewCompaniesHandler(companyService)
-
 	// --- Auth Routes ---
 	api.HandleFunc("/auth/login", authHandler.Login).Methods("POST")
 	api.HandleFunc("/auth/me", authHandler.Me).Methods("GET")
 	// api.HandleFunc("/auth/logout", authHandler.Logout).Methods("POST") // Stateless JWT usually handles logout on client
-
-	// --- Companies Routes ---
-	api.HandleFunc("/companies", companiesHandler.GetCompanies).Methods("GET")
-	api.HandleFunc("/companies", companiesHandler.CreateCompany).Methods("POST")
-	api.HandleFunc("/companies/{id}", companiesHandler.GetCompanyById).Methods("GET")
-	api.HandleFunc("/companies/{id}", companiesHandler.UpdateCompany).Methods("PUT")
-	api.HandleFunc("/companies/{id}", companiesHandler.DeleteCompany).Methods("DELETE")
 
 	// --- Workers Routes ---
 	api.HandleFunc("/workers", workersHandler.GetWorkers).Methods("GET")

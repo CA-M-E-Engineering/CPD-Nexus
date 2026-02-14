@@ -26,12 +26,12 @@ type AttendanceRow struct {
 	SiteLocation string
 	ProjectRef   string
 
-	// Offsite Fabricator fields (from Site)
+	// Offsite Fabricator fields (from Project)
 	OffsiteFabricator         sql.NullString
 	OffsiteFabricatorUEN      sql.NullString
 	OffsiteFabricatorLocation sql.NullString
 
-	// Joined Tenant fields (Main Contractor)
+	// Main Contractor fields (from Project)
 	SiteOwnerName string
 	SiteOwnerUEN  string
 
@@ -46,22 +46,22 @@ type AttendanceRow struct {
 }
 
 // ExtractPendingAttendance fetches all attendance rows with status 'pending'
-// joining with sites, tenants, and users to get full context for SGBuildex.
+// joining with sites, projects, and users to get full context for SGBuildex.
 func ExtractPendingAttendance(ctx context.Context, db *sql.DB) ([]AttendanceRow, error) {
 	query := `
 		SELECT 
 			a.attendance_id, a.device_id, a.worker_id, a.site_id, a.tenant_id,
 			a.time_in, a.time_out, a.direction, a.trade_code, a.status, a.submission_date,
-			s.site_name, s.location, s.project_ref,
-			s.offsite_fabricator, s.offsite_fabricator_uen, s.offsite_fabricator_location,
-			sc.company_name AS site_owner_name, sc.uen AS site_owner_uen,
+			s.site_name, s.location,
+			p.project_reference_number,
+			p.offsite_fabricator_name, p.offsite_fabricator_uen, p.offsite_fabricator_location,
+			p.main_contractor_name, p.main_contractor_uen,
 			u.name AS worker_name, u.fin_nric, u.trade_code AS worker_trade,
-			ec.company_name AS employer_name, ec.uen AS employer_uen
+			p.worker_company_name, p.worker_company_uen
 		FROM attendance a
 		JOIN sites s ON a.site_id = s.site_id
-		LEFT JOIN companies sc ON s.tenant_id = sc.tenant_id AND sc.company_type = 'contractor'
 		JOIN users u ON a.worker_id = u.user_id
-		LEFT JOIN companies ec ON u.tenant_id = ec.tenant_id AND ec.company_type = 'contractor'
+		LEFT JOIN projects p ON u.current_project_id = p.project_id
 		WHERE a.status = 'pending'
 		ORDER BY a.submission_date, a.attendance_id
 	`
@@ -75,6 +75,7 @@ func ExtractPendingAttendance(ctx context.Context, db *sql.DB) ([]AttendanceRow,
 	var results []AttendanceRow
 	for rows.Next() {
 		var r AttendanceRow
+		var mcName, mcUEN, wcName, wcUEN sql.NullString
 		err := rows.Scan(
 			&r.AttendanceID,
 			&r.DeviceID,
@@ -93,17 +94,30 @@ func ExtractPendingAttendance(ctx context.Context, db *sql.DB) ([]AttendanceRow,
 			&r.OffsiteFabricator,
 			&r.OffsiteFabricatorUEN,
 			&r.OffsiteFabricatorLocation,
-			&r.SiteOwnerName,
-			&r.SiteOwnerUEN,
+			&mcName,
+			&mcUEN,
 			&r.WorkerName,
 			&r.WorkerFIN,
 			&r.WorkerTrade,
-			&r.EmployerName,
-			&r.EmployerUEN,
+			&wcName,
+			&wcUEN,
 		)
 		if err != nil {
 			return nil, err
 		}
+		if mcName.Valid {
+			r.SiteOwnerName = mcName.String
+		}
+		if mcUEN.Valid {
+			r.SiteOwnerUEN = mcUEN.String
+		}
+		if wcName.Valid {
+			r.EmployerName = wcName.String
+		}
+		if wcUEN.Valid {
+			r.EmployerUEN = wcUEN.String
+		}
+
 		results = append(results, r)
 	}
 
@@ -127,22 +141,23 @@ type MonthlyDistributionRow struct {
 }
 
 // ExtractMonthlyDistributionData fetches aggregated attendance counts for the current month
-// for all sites that have an offsite fabricator assigned.
+// for all projects that have an offsite fabricator assigned.
 func ExtractMonthlyDistributionData(ctx context.Context, db *sql.DB) ([]MonthlyDistributionRow, error) {
 	query := `
 		SELECT 
-			s.offsite_fabricator, s.offsite_fabricator_uen, s.offsite_fabricator_location,
-			s.project_ref, s.site_name, s.location,
+			p.offsite_fabricator_name, p.offsite_fabricator_uen, p.offsite_fabricator_location,
+			p.project_reference_number, p.project_title, p.project_location_description,
 			DATE_FORMAT(a.submission_date, '%Y-%m') as submission_month,
 			COUNT(*) as attendance_count
 		FROM attendance a
-		JOIN sites s ON a.site_id = s.site_id
-		WHERE s.offsite_fabricator_uen IS NOT NULL 
-		  AND s.offsite_fabricator_uen != ''
+		JOIN users u ON a.worker_id = u.user_id
+		JOIN projects p ON u.current_project_id = p.project_id
+		WHERE p.offsite_fabricator_uen IS NOT NULL 
+		  AND p.offsite_fabricator_uen != ''
 		  AND DATE_FORMAT(a.submission_date, '%Y-%m') = DATE_FORMAT(CURRENT_DATE, '%Y-%m')
 		GROUP BY 
-			s.offsite_fabricator, s.offsite_fabricator_uen, s.offsite_fabricator_location,
-			s.project_ref, s.site_name, s.location,
+			p.offsite_fabricator_name, p.offsite_fabricator_uen, p.offsite_fabricator_location,
+			p.project_reference_number, p.project_title, p.project_location_description,
 			submission_month
 	`
 

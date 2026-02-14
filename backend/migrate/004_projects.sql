@@ -12,10 +12,15 @@ CREATE TABLE IF NOT EXISTS `projects` (
     `project_contract_name` varchar(100) DEFAULT NULL,
     `project_location_description` varchar(255) DEFAULT NULL,
     `hdb_precinct_name` varchar(100) DEFAULT NULL,
-    `main_contractor_id` varchar(50) DEFAULT NULL,
-    `offsite_fabricator_id` varchar(50) DEFAULT NULL,
-    `worker_company_id` varchar(50) DEFAULT NULL,
-    `worker_company_client_id` varchar(50) DEFAULT NULL,
+    `main_contractor_name` varchar(255) DEFAULT NULL,
+    `main_contractor_uen` varchar(50) DEFAULT NULL,
+    `offsite_fabricator_name` varchar(255) DEFAULT NULL,
+    `offsite_fabricator_uen` varchar(50) DEFAULT NULL,
+    `offsite_fabricator_location` varchar(255) DEFAULT NULL,
+    `worker_company_name` varchar(255) DEFAULT NULL,
+    `worker_company_uen` varchar(50) DEFAULT NULL,
+    `worker_company_client_name` varchar(255) DEFAULT NULL,
+    `worker_company_client_uen` varchar(50) DEFAULT NULL,
     `status` enum(
         'active',
         'completed',
@@ -29,11 +34,7 @@ CREATE TABLE IF NOT EXISTS `projects` (
     KEY `idx_status` (`status`),
     KEY `fk_projects_tenant` (`tenant_id`),
     CONSTRAINT `fk_projects_tenant` FOREIGN KEY (`tenant_id`) REFERENCES `tenants` (`tenant_id`),
-    CONSTRAINT `projects_ibfk_1` FOREIGN KEY (`site_id`) REFERENCES `sites` (`site_id`),
-    CONSTRAINT `fk_projects_main_contractor` FOREIGN KEY (`main_contractor_id`) REFERENCES `companies` (`company_id`),
-    CONSTRAINT `fk_projects_offsite_fabricator` FOREIGN KEY (`offsite_fabricator_id`) REFERENCES `companies` (`company_id`),
-    CONSTRAINT `fk_projects_worker_company` FOREIGN KEY (`worker_company_id`) REFERENCES `companies` (`company_id`),
-    CONSTRAINT `fk_projects_worker_company_client` FOREIGN KEY (`worker_company_client_id`) REFERENCES `companies` (`company_id`)
+    CONSTRAINT `projects_ibfk_1` FOREIGN KEY (`site_id`) REFERENCES `sites` (`site_id`)
 ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci;
 
 SET FOREIGN_KEY_CHECKS = 1;

@@ -11,7 +11,7 @@ CREATE TABLE IF NOT EXISTS `users` (
     `fin_nric` varchar(50) DEFAULT NULL,
     `trade_code` varchar(50) DEFAULT NULL,
     `current_project_id` varchar(50) DEFAULT NULL,
-    `company_id` varchar(50) DEFAULT NULL,
+    `company_name` varchar(255) DEFAULT NULL,
     `status` enum(
         'active',
         'inactive',
@@ -23,10 +23,8 @@ CREATE TABLE IF NOT EXISTS `users` (
     PRIMARY KEY (`user_id`),
     UNIQUE KEY `email` (`email`),
     KEY `tenant_id` (`tenant_id`),
-    KEY `company_id` (`company_id`),
     KEY `idx_status` (`status`),
-    CONSTRAINT `users_ibfk_1` FOREIGN KEY (`tenant_id`) REFERENCES `tenants` (`tenant_id`),
-    CONSTRAINT `users_ibfk_2` FOREIGN KEY (`company_id`) REFERENCES `companies` (`company_id`)
+    CONSTRAINT `users_ibfk_1` FOREIGN KEY (`tenant_id`) REFERENCES `tenants` (`tenant_id`)
 ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci;
 
 SET FOREIGN_KEY_CHECKS = 1;
