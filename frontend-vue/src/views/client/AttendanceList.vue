@@ -31,26 +31,26 @@ const fetchData = async () => {
     if (selectedSite.value) params.site_id = selectedSite.value;
     if (selectedDate.value) params.date = selectedDate.value;
     const savedUser = localStorage.getItem('auth_user');
-    let tenantId = null;
+    let userId = null;
     if (savedUser) {
         try {
             const user = JSON.parse(savedUser);
-            tenantId = user.tenant_id || user.id;
+            userId = user.user_id || user.id;
         } catch (e) {
             console.error("Failed to parse auth_user", e);
         }
     }
 
-    if (!tenantId) {
+    if (!userId) {
         isLoading.value = false;
         return;
     }
     
-    // Add tenant_id to attendance params
-    params.tenant_id = tenantId;
+    // Add user_id to attendance params
+    params.user_id = userId;
 
     const [sitesData, attendanceData] = await Promise.all([
-      api.getSites({ tenant_id: tenantId }),
+      api.getSites({ user_id: userId }),
       api.getAttendance(params)
     ]);
     

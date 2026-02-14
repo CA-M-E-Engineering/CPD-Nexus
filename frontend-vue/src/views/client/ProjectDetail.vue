@@ -9,7 +9,7 @@ import BaseButton from '../../components/ui/BaseButton.vue';
 import DataTable from '../../components/ui/DataTable.vue';
 import BaseBadge from '../../components/ui/BaseBadge.vue';
 import ConfirmDialog from '../../components/ui/ConfirmDialog.vue';
-import { TENANT_STATUS } from '../../utils/constants.js';
+import { USER_STATUS } from '../../utils/constants.js';
 
 const props = defineProps({
   id: [Number, String]
@@ -104,22 +104,22 @@ onMounted(async () => {
     // 1. Fetch project details
     await fetchProject();
     
-    // 2. Resolve tenant context for scoped fetching
+    // 2. Resolve User context for scoped fetching
     const savedUser = localStorage.getItem('auth_user');
-    let tenantId = 'tenant-client-1';
+    let userId = 'User-client-1';
     if (savedUser) {
         try {
             const user = JSON.parse(savedUser);
-            tenantId = user.tenant_id || user.id;
+            userId = user.user_id || user.id;
         } catch (e) {
             console.error('Failed to parse auth_user', e);
         }
     }
 
-    // 3. Fetch related data in parallel with tenant scoping
+    // 3. Fetch related data in parallel with User scoping
     const [workersData, devicesData] = await Promise.all([
-      api.getWorkers({ tenant_id: tenantId }),
-      api.getDevices({ tenant_id: tenantId })
+      api.getWorkers({ user_id: userId }),
+      api.getDevices({ user_id: userId })
     ]);
 
     // 4. Filter workers assigned to THIS project

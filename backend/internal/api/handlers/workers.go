@@ -19,11 +19,11 @@ func NewWorkersHandler(service ports.WorkerService) *WorkersHandler {
 }
 
 func (h *WorkersHandler) GetWorkers(w http.ResponseWriter, r *http.Request) {
-	tenantID := r.URL.Query().Get("tenant_id")
+	userID := r.URL.Query().Get("user_id")
 	siteID := r.URL.Query().Get("site_id")
 
-	log.Printf("[WorkersHandler] GetWorkers request: tenant_id=%s, site_id=%s", tenantID, siteID)
-	workers, err := h.service.ListWorkers(r.Context(), tenantID, siteID)
+	log.Printf("[WorkersHandler] GetWorkers request: user_id=%s, site_id=%s", userID, siteID)
+	workers, err := h.service.ListWorkers(r.Context(), userID, siteID)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return

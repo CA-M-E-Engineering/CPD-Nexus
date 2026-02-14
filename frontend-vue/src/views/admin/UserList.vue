@@ -1,7 +1,7 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue';
 import { api } from '../../services/api.js';
-import { DATA_FILTERS, TENANT_STATUS } from '../../utils/constants';
+import { DATA_FILTERS, USER_STATUS } from '../../utils/constants';
 import PageHeader from '../../components/ui/PageHeader.vue';
 import DataTable from '../../components/ui/DataTable.vue';
 import BaseBadge from '../../components/ui/BaseBadge.vue';
@@ -13,12 +13,12 @@ import ConfirmDialog from '../../components/ui/ConfirmDialog.vue';
 const emit = defineEmits(['navigate']);
 
 const activeFilter = ref('All');
-const tenants = ref([]);
+const Users = ref([]);
 const isLoading = ref(true);
-const filters = DATA_FILTERS.TENANTS;
+const filters = DATA_FILTERS.USERS;
 
 const columns = [
-  { key: 'tenant_name', label: 'Company Name', size: 'lg', bold: true },
+  { key: 'user_name', label: 'Company Name', size: 'lg', bold: true },
   { key: 'worker_count', label: 'Workers', size: 'md', align: 'center' },
   { key: 'device_count', label: 'Devices', size: 'md', align: 'center' },
   { key: 'email', label: 'Contact Email', size: 'md' },
@@ -26,65 +26,65 @@ const columns = [
   { key: 'actions', label: 'Actions', width: '100px' }
 ];
 
-const fetchTenants = async () => {
+const fetchUsers = async () => {
   isLoading.value = true;
   try {
-    const data = await api.getTenants();
-    tenants.value = data || [];
+    const data = await api.getUsers();
+    Users.value = data || [];
   } finally {
     isLoading.value = false;
   }
 };
 
-onMounted(fetchTenants);
+onMounted(fetchUsers);
 
-const filteredTenants = computed(() => {
-  return tenants.value.filter(tenant => {
-    return activeFilter.value === 'All' || tenant.status === activeFilter.value || tenant.tenant_type === activeFilter.value;
+const filteredUsers = computed(() => {
+  return Users.value.filter(User => {
+    return activeFilter.value === 'All' || User.status === activeFilter.value || User.user_type === activeFilter.value;
   });
 });
 
-const handleRowClick = (tenant) => {
-  emit('navigate', 'tenant-detail', { id: tenant.tenant_id });
+const handleRowClick = (User) => {
+  emit('navigate', 'user-detail', { id: User.user_id });
 };
 
-const handleEdit = (tenant) => {
-  emit('navigate', 'tenant-add', { id: tenant.tenant_id, mode: 'edit' });
+const handleEdit = (User) => {
+  emit('navigate', 'user-add', { id: User.user_id, mode: 'edit' });
 };
 
 const handleExport = async () => {
   isLoading.value = true;
-  await api.simulateExport('Tenants');
+  await api.simulateExport('users');
   isLoading.value = false;
 };
 
 const showDeleteDialog = ref(false);
-const tenantToDelete = ref(null);
+const UserToDelete = ref(null);
 const isDeleting = ref(false);
 
 const confirmDelete = (item) => {
-  tenantToDelete.value = item;
+  UserToDelete.value = item;
   showDeleteDialog.value = true;
 };
 
-const deleteTenant = async () => {
-  if (!tenantToDelete.value) return;
+const deleteUser = async () => {
+  if (!UserToDelete.value) return;
   isDeleting.value = true;
   try {
-    await api.deleteTenant(tenantToDelete.value.tenant_id);
-    tenants.value = tenants.value.filter(t => t.tenant_id !== tenantToDelete.value.tenant_id);
+    await api.deleteUser(UserToDelete.value.user_id);
+    Users.value = Users.value.filter(t => t.user_id !== UserToDelete.value.user_id);
     showDeleteDialog.value = false;
   } finally {
     isDeleting.value = false;
-    tenantToDelete.value = null;
+    UserToDelete.value = null;
   }
 };
 </script>
 
 <template>
-  <div class="tenant-list">
+  <div class="User-list">
     <PageHeader 
-      title="Tenant Management" 
+      title="User Management" 
       description="Manage all organizations and their access levels"
     >
       <template #actions>
@@ -103,8 +103,8 @@ const deleteTenant = async () => {
         />
       </template>
       <template #right>
-        <BaseButton icon="ri-add-line" @click="$emit('navigate', 'tenant-add')">
-          Add Tenant
+        <BaseButton icon="ri-add-line" @click="$emit('navigate', 'user-add')">
+          Add User
         </BaseButton>
       </template>
     </TableToolbar>
@@ -112,7 +112,7 @@ const deleteTenant = async () => {
     <DataTable 
       :loading="isLoading" 
       :columns="columns" 
-      :data="filteredTenants"
+      :data="filteredUsers"
       row-clickable
       @row-click="handleRowClick"
     >
@@ -131,7 +131,7 @@ const deleteTenant = async () => {
       </template>
 
       <template #cell-status="{ item }">
-        <BaseBadge :type="item.status === TENANT_STATUS.ACTIVE ? 'success' : item.status === TENANT_STATUS.PENDING ? 'warning' : 'danger'">
+        <BaseBadge :type="item.status === USER_STATUS.ACTIVE ? 'success' : item.status === USER_STATUS.PENDING ? 'warning' : 'danger'">
           {{ item.status.toUpperCase() }}
         </BaseBadge>
       </template>
@@ -151,9 +151,9 @@ const deleteTenant = async () => {
     <ConfirmDialog
       :show="showDeleteDialog"
       :loading="isDeleting"
-      title="Delete Tenant"
-      :description="`Are you sure you want to delete ${tenantToDelete?.tenant_name}? All associated records will be archived.`"
-      @confirm="deleteTenant"
+      title="Delete User"
+      :description="`Are you sure you want to delete ${UserToDelete?.user_name}? All associated records will be archived.`"
+      @confirm="deleteUser"
       @cancel="showDeleteDialog = false"
     />
   </div>
@@ -181,6 +181,3 @@ const deleteTenant = async () => {
   color: var(--color-danger);
 }
 </style>
-
-
-

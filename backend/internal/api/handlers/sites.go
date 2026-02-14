@@ -18,9 +18,9 @@ func NewSitesHandler(service ports.SiteService) *SitesHandler {
 }
 
 func (h *SitesHandler) GetSites(w http.ResponseWriter, r *http.Request) {
-	tenantID := r.URL.Query().Get("tenant_id")
+	userID := r.URL.Query().Get("user_id")
 
-	sites, err := h.service.ListSites(r.Context(), tenantID)
+	sites, err := h.service.ListSites(r.Context(), userID)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return

@@ -22,25 +22,25 @@ export const DEVICE_STATUS = {
     MAINTENANCE: 'maintenance'
 };
 
-export const TENANT_STATUS = {
+export const USER_STATUS = {
     ACTIVE: 'active',
     PENDING: 'pending',
     INACTIVE: 'inactive'
 };
 
-export const TENANT_TYPES = {
+export const USER_TYPES = {
     VENDOR: 'vendor',
     CLIENT: 'client'
 };
 
 export const DATA_FILTERS = {
-    TENANTS: ['All', TENANT_TYPES.VENDOR, TENANT_TYPES.CLIENT, TENANT_STATUS.PENDING, TENANT_STATUS.INACTIVE],
+    USERS: ['All', USER_TYPES.VENDOR, USER_TYPES.CLIENT, USER_STATUS.PENDING, USER_STATUS.INACTIVE],
     DEVICES: ['All', 'Assigned', 'Unassigned']
 };
 
 export const API_ENDPOINTS = {
     DEVICES: '/devices',
-    TENANTS: '/tenants',
+    USERS: '/users',
     SITES: '/sites',
     WORKERS: '/workers',
     PROJECTS: '/projects',
@@ -48,7 +48,7 @@ export const API_ENDPOINTS = {
 };
 
 export const MAP_MODES = {
-    TENANTS: 'tenants',
+    USERS: 'users',
     SITES: 'sites',
     SINGLE_EDIT: 'single-edit'
 };

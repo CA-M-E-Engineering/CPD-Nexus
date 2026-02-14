@@ -2,6 +2,7 @@
 import { ref, onMounted } from 'vue';
 import StatCard from '../../components/ui/StatCard.vue';
 import { api } from '../../services/api.js';
+import { MAP_MODES } from '../../utils/constants.js';
 import PageHeader from '../../components/ui/PageHeader.vue';
 import BaseButton from '../../components/ui/BaseButton.vue';
 import UnifiedMap from '../../components/ui/UnifiedMap.vue';
@@ -13,9 +14,25 @@ const loading = ref(true);
 const loadDashboardData = async () => {
   loading.value = true;
   try {
+    const savedUser = localStorage.getItem('auth_user');
+    let userId = null;
+    if (savedUser) {
+        try {
+            const user = JSON.parse(savedUser);
+            userId = user.id || user.user_id;
+        } catch (e) {
+            console.error('[Dashboard] Failed to parse auth_user', e);
+        }
+    }
+
+    if (!userId) {
+        console.warn('[Dashboard] No user ID found for analytics');
+        return;
+    }
+
     const [statsData, activityData] = await Promise.all([
-      api.getDashboardStats(),
-      api.getActivityLog()
+      api.getDashboardStats({ user_id: userId }),
+      api.getActivityLog({ user_id: userId })
     ]);
 
     // Transform stats object to array for UI
@@ -76,10 +93,10 @@ defineEmits(['navigate']);
         </div>
         <i class="ri-arrow-right-line action-arrow"></i>
       </div>
-      <div class="action-card" @click="$emit('navigate', 'tenant-add')">
+      <div class="action-card" @click="$emit('navigate', 'user-add')">
         <div class="action-icon"><i class="ri-building-line"></i></div>
         <div class="action-info">
-          <h4>Register Tenant</h4>
+          <h4>Register User</h4>
           <p>Add new contractor or client</p>
         </div>
         <i class="ri-arrow-right-line action-arrow"></i>
@@ -89,10 +106,10 @@ defineEmits(['navigate']);
     <div class="dashboard-content-grid">
       <div class="content-card main-map-card">
         <div class="card-header">
-          <h3 class="card-title">Global Tenant Distribution</h3>
+          <h3 class="card-title">Global User Distribution</h3>
         </div>
         <div class="map-wrapper">
-          <UnifiedMap mode="tenants" />
+          <UnifiedMap :mode="MAP_MODES.USERS" />
         </div>
       </div>
 

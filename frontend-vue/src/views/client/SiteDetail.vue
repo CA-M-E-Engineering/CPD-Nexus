@@ -28,16 +28,16 @@ const fetchSite = async () => {
   isLoading.value = true;
   try {
     const savedUser = localStorage.getItem('auth_user');
-    let tenantId = null;
+    let userId = null;
     if (savedUser) {
         try {
             const user = JSON.parse(savedUser);
-            tenantId = user.tenant_id || user.id;
+            userId = user.user_id || user.id;
         } catch (e) {
             console.error('Failed to parse auth_user', e);
         }
     }
-    const response = await api.getSiteById(props.id, { tenant_id: tenantId });
+    const response = await api.getSiteById(props.id, { user_id: userId });
     site.value = typeof response === 'string' ? JSON.parse(response) : response;
   } catch (err) {
     console.error('Failed to fetch site:', err);
@@ -66,11 +66,11 @@ onMounted(async () => {
     await fetchSite();
 
     const savedUser = localStorage.getItem('auth_user');
-    let tenantId = 'tenant-client-1';
+    let userId = 'User-client-1';
     if (savedUser) {
         try {
             const user = JSON.parse(savedUser);
-            tenantId = user.tenant_id || user.id;
+            userId = user.user_id || user.id;
         } catch (e) {
             console.error('Failed to parse auth_user', e);
         }
@@ -79,8 +79,8 @@ onMounted(async () => {
     loadingSubData.value = true;
     try {
         const [workersData, devicesData] = await Promise.all([
-          api.getWorkers({ tenant_id: tenantId, site_id: props.id }),
-          api.getDevices({ tenant_id: tenantId, site_id: props.id })
+          api.getWorkers({ user_id: userId, site_id: props.id }),
+          api.getDevices({ user_id: userId, site_id: props.id })
         ]);
         
         assignedWorkers.value = workersData || [];

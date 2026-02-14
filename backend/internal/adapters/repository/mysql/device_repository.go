@@ -7,6 +7,7 @@ import (
 	"log"
 	"sgbuildex/internal/core/domain"
 	"sgbuildex/internal/core/ports"
+	"sgbuildex/internal/pkg/idgen"
 )
 
 type DeviceRepository struct {
@@ -22,21 +23,21 @@ func (r *DeviceRepository) Get(ctx context.Context, id string) (*domain.Device, 
 		SELECT 
 			d.device_id, d.sn, d.model, d.status, 
 			s.site_name, d.site_id,
-			t.tenant_name, d.tenant_id,
+			u.user_name, d.user_id,
 			d.last_heartbeat, d.last_online_check, d.battery
 		FROM devices d
 		LEFT JOIN sites s ON d.site_id = s.site_id
-		LEFT JOIN tenants t ON d.tenant_id = t.tenant_id
+		LEFT JOIN users u ON d.user_id = u.user_id
 		WHERE d.device_id = ?`
 
 	var d domain.Device
-	var siteName, siteID, tenantName, tenantID sql.NullString
+	var siteName, siteID, userName, userID sql.NullString
 	var lastBeat, lastCheck sql.NullTime
 	var status sql.NullString
 
 	err := r.db.QueryRowContext(ctx, query, id).Scan(
 		&d.ID, &d.SN, &d.Model, &status,
-		&siteName, &siteID, &tenantName, &tenantID,
+		&siteName, &siteID, &userName, &userID,
 		&lastBeat, &lastCheck, &d.Battery,
 	)
 
@@ -57,11 +58,11 @@ func (r *DeviceRepository) Get(ctx context.Context, id string) (*domain.Device, 
 		sid := siteID.String
 		d.SiteID = &sid
 	}
-	if tenantName.Valid {
-		d.TenantName = tenantName.String
+	if userName.Valid {
+		d.UserName = userName.String
 	}
-	if tenantID.Valid {
-		d.TenantID = tenantID.String
+	if userID.Valid {
+		d.UserID = userID.String
 	}
 	if lastBeat.Valid {
 		d.LastHeartbeat = &lastBeat.Time
@@ -78,21 +79,21 @@ func (r *DeviceRepository) GetBySN(ctx context.Context, sn string) (*domain.Devi
 		SELECT 
 			d.device_id, d.sn, d.model, d.status, 
 			s.site_name, d.site_id,
-			t.tenant_name, d.tenant_id,
+			u.user_name, d.user_id,
 			d.last_heartbeat, d.last_online_check, d.battery
 		FROM devices d
 		LEFT JOIN sites s ON d.site_id = s.site_id
-		LEFT JOIN tenants t ON d.tenant_id = t.tenant_id
+		LEFT JOIN users u ON d.user_id = u.user_id
 		WHERE d.sn = ? LIMIT 1`
 
 	var d domain.Device
-	var siteName, siteID, tenantName, tenantID sql.NullString
+	var siteName, siteID, userName, userID sql.NullString
 	var lastBeat, lastCheck sql.NullTime
 	var status sql.NullString
 
 	err := r.db.QueryRowContext(ctx, query, sn).Scan(
 		&d.ID, &d.SN, &d.Model, &status,
-		&siteName, &siteID, &tenantName, &tenantID,
+		&siteName, &siteID, &userName, &userID,
 		&lastBeat, &lastCheck, &d.Battery,
 	)
 
@@ -113,11 +114,11 @@ func (r *DeviceRepository) GetBySN(ctx context.Context, sn string) (*domain.Devi
 		val := siteID.String
 		d.SiteID = &val
 	}
-	if tenantName.Valid {
-		d.TenantName = tenantName.String
+	if userName.Valid {
+		d.UserName = userName.String
 	}
-	if tenantID.Valid {
-		d.TenantID = tenantID.String
+	if userID.Valid {
+		d.UserID = userID.String
 	}
 	if lastBeat.Valid {
 		d.LastHeartbeat = &lastBeat.Time
@@ -129,22 +130,22 @@ func (r *DeviceRepository) GetBySN(ctx context.Context, sn string) (*domain.Devi
 	return &d, nil
 }
 
-func (r *DeviceRepository) List(ctx context.Context, tenantID string) ([]domain.Device, error) {
+func (r *DeviceRepository) List(ctx context.Context, userID string) ([]domain.Device, error) {
 	query := `
 		SELECT 
 			d.device_id, d.sn, d.model, d.status, 
 			s.site_name, d.site_id,
-			t.tenant_name, d.tenant_id,
+			u.user_name, d.user_id,
 			d.last_heartbeat, d.last_online_check, d.battery
 		FROM devices d
 		LEFT JOIN sites s ON d.site_id = s.site_id
-		LEFT JOIN tenants t ON d.tenant_id = t.tenant_id
+		LEFT JOIN users u ON d.user_id = u.user_id
 		WHERE d.status != 'inactive'`
 
 	args := []interface{}{}
-	if tenantID != "" {
-		query += " AND d.tenant_id = ?"
-		args = append(args, tenantID)
+	if userID != "" {
+		query += " AND d.user_id = ?"
+		args = append(args, userID)
 	}
 
 	rows, err := r.db.QueryContext(ctx, query, args...)
@@ -156,13 +157,13 @@ func (r *DeviceRepository) List(ctx context.Context, tenantID string) ([]domain.
 	var devices []domain.Device
 	for rows.Next() {
 		var d domain.Device
-		var siteName, siteID, tenantName, tenantID sql.NullString
+		var siteName, siteID, uName, uid sql.NullString
 		var lastBeat, lastCheck sql.NullTime
 		var status sql.NullString
 
 		if err := rows.Scan(
 			&d.ID, &d.SN, &d.Model, &status,
-			&siteName, &siteID, &tenantName, &tenantID,
+			&siteName, &siteID, &uName, &uid,
 			&lastBeat, &lastCheck, &d.Battery,
 		); err != nil {
 			log.Printf("Scan error: %v", err)
@@ -179,11 +180,11 @@ func (r *DeviceRepository) List(ctx context.Context, tenantID string) ([]domain.
 			val := siteID.String
 			d.SiteID = &val
 		}
-		if tenantName.Valid {
-			d.TenantName = tenantName.String
+		if uName.Valid {
+			d.UserName = uName.String
 		}
-		if tenantID.Valid {
-			d.TenantID = tenantID.String
+		if uid.Valid {
+			d.UserID = uid.String
 		}
 		if lastBeat.Valid {
 			d.LastHeartbeat = &lastBeat.Time
@@ -198,8 +199,13 @@ func (r *DeviceRepository) List(ctx context.Context, tenantID string) ([]domain.
 }
 
 func (r *DeviceRepository) Create(ctx context.Context, d *domain.Device) error {
-	query := `INSERT INTO devices (device_id, sn, tenant_id, site_id, model, status, last_heartbeat) VALUES (?, ?, ?, ?, ?, ?, NOW())`
-	_, err := r.db.ExecContext(ctx, query, d.ID, d.SN, d.TenantID, d.SiteID, d.Model, d.Status)
+	id, err := idgen.GenerateNextID(r.db, "devices", "device_id", "device")
+	if err != nil {
+		return fmt.Errorf("failed to generate device ID: %w", err)
+	}
+	d.ID = id
+	query := `INSERT INTO devices (device_id, sn, user_id, site_id, model, status, last_heartbeat) VALUES (?, ?, ?, ?, ?, ?, NOW())`
+	_, err = r.db.ExecContext(ctx, query, d.ID, d.SN, d.UserID, d.SiteID, d.Model, d.Status)
 	return err
 }
 
@@ -210,9 +216,9 @@ func (r *DeviceRepository) Update(ctx context.Context, d *domain.Device) error {
 		query += ", site_id=?"
 		args = append(args, *d.SiteID)
 	}
-	if d.TenantID != "" {
-		query += ", tenant_id=?"
-		args = append(args, d.TenantID)
+	if d.UserID != "" {
+		query += ", user_id=?"
+		args = append(args, d.UserID)
 	}
 	query += " WHERE device_id=?"
 	args = append(args, d.ID)
@@ -225,14 +231,14 @@ func (r *DeviceRepository) Delete(ctx context.Context, id string) error {
 	return err
 }
 
-func (r *DeviceRepository) AssignToTenant(ctx context.Context, tenantID string, deviceIDs []string) error {
-	stmt, err := r.db.PrepareContext(ctx, "UPDATE devices SET tenant_id = ?, site_id = NULL, status = 'offline' WHERE device_id = ?")
+func (r *DeviceRepository) AssignToUser(ctx context.Context, userID string, deviceIDs []string) error {
+	stmt, err := r.db.PrepareContext(ctx, "UPDATE devices SET user_id = ?, site_id = NULL, status = 'offline' WHERE device_id = ?")
 	if err != nil {
 		return err
 	}
 	defer stmt.Close()
 	for _, id := range deviceIDs {
-		if _, err := stmt.ExecContext(ctx, tenantID, id); err != nil {
+		if _, err := stmt.ExecContext(ctx, userID, id); err != nil {
 			return err
 		}
 	}

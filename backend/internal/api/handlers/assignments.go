@@ -36,27 +36,16 @@ func (h *AssignmentsHandler) AssignWorkers(w http.ResponseWriter, r *http.Reques
 
 	log.Printf("[Assignments] Syncing workers %v for project %s", req.WorkerIDs, projectId)
 
-	// Step 0: Get Project Tenant to enforce ownership
-	var projectTenantID string
-	if err := h.DB.QueryRow("SELECT tenant_id FROM projects WHERE project_id = ?", projectId).Scan(&projectTenantID); err != nil {
-		log.Printf("[Assignments] ERROR fetching project tenant: %v", err)
+	// Step 0: Get Project User to enforce ownership
+	var projectUserID string
+	if err := h.DB.QueryRow("SELECT user_id FROM projects WHERE project_id = ?", projectId).Scan(&projectUserID); err != nil {
+		log.Printf("[Assignments] ERROR fetching project user: %v", err)
 		http.Error(w, "Project not found", http.StatusNotFound)
 		return
 	}
 
-	// Step 1: Unassign workers currently on this project (Safe key constraint usually calls for this, but simplistic approach here)
-	// We should technically only unassign workers causing conflicts, but the frontend sends the *full* new list usually?
-	// Wait, the frontend sends *Ids to add*? Or the *complete state*?
-	// AssignmentsHandler usually implies "Set these as the workers".
-	// But `WorkerList` "Assign" button implies "Add this worker to project".
-	// `WorkerAssignProject.vue` does a single update.
-	// `ProjectAssignWorkers.vue` does a bulk assignment.
-	// Let's assume this endpoint sets the list.
-	// But to be safe against cross-tenant unassignment, we add tenant_id check.
-
-	// Actually, clearing *all* workers with `current_project_id = projectId` is safe IF we assume `projectId` is owned by the caller.
-	// But better to be explicit.
-	_, err := h.DB.Exec("UPDATE users SET current_project_id = NULL WHERE current_project_id = ? AND tenant_id = ?", projectId, projectTenantID)
+	// Step 1: Unassign workers currently on this project
+	_, err := h.DB.Exec("UPDATE workers SET current_project_id = NULL WHERE current_project_id = ? AND user_id = ?", projectId, projectUserID)
 	if err != nil {
 		log.Printf("[Assignments] ERROR clearing old assignments: %v", err)
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -64,8 +53,7 @@ func (h *AssignmentsHandler) AssignWorkers(w http.ResponseWriter, r *http.Reques
 	}
 
 	// Step 2: Assign new workers
-	// Enforce that the worker being assigned ALSO belongs to the same tenant as the project
-	stmt, err := h.DB.Prepare("UPDATE users SET current_project_id = ? WHERE user_id = ? AND tenant_id = ?")
+	stmt, err := h.DB.Prepare("UPDATE workers SET current_project_id = ? WHERE worker_id = ? AND user_id = ?")
 	if err != nil {
 		log.Printf("[Assignments] ERROR preparing stmt: %v", err)
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -74,14 +62,14 @@ func (h *AssignmentsHandler) AssignWorkers(w http.ResponseWriter, r *http.Reques
 	defer stmt.Close()
 
 	for _, workerId := range req.WorkerIDs {
-		res, err := stmt.Exec(projectId, workerId, projectTenantID)
+		res, err := stmt.Exec(projectId, workerId, projectUserID)
 		if err != nil {
 			log.Printf("[Assignments] ERROR assigning worker %s: %v", workerId, err)
 			continue
 		}
 		rows, _ := res.RowsAffected()
 		if rows == 0 {
-			log.Printf("[Assignments] Warning: Worker %s not updated. Possible tenant mismatch or invalid ID.", workerId)
+			log.Printf("[Assignments] Warning: Worker %s not updated. Possible user mismatch or invalid ID.", workerId)
 		} else {
 			log.Printf("[Assignments] Worker %s assigned to project %s", workerId, projectId)
 		}
@@ -176,9 +164,9 @@ func (h *AssignmentsHandler) AssignProjects(w http.ResponseWriter, r *http.Reque
 	json.NewEncoder(w).Encode(map[string]string{"status": "assigned", "site": siteId})
 }
 
-func (h *AssignmentsHandler) AssignDevicesToTenant(w http.ResponseWriter, r *http.Request) {
+func (h *AssignmentsHandler) AssignDevicesToUser(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
-	tenantId := vars["tenantId"]
+	userId := vars["userId"]
 
 	var req AssignRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -186,10 +174,8 @@ func (h *AssignmentsHandler) AssignDevicesToTenant(w http.ResponseWriter, r *htt
 		return
 	}
 
-	// Update devices table. Set site_id to NULL to avoid invalid site references.
-	// Also set status to 'offline' (or 'online') so it shows up in the list (since we filter out 'inactive')
-	log.Printf("[Assignments] Assigning devices %v to tenant %s", req.DeviceIDs, tenantId)
-	stmt, err := h.DB.Prepare("UPDATE devices SET tenant_id = ?, site_id = NULL, status = 'offline' WHERE device_id = ?")
+	log.Printf("[Assignments] Assigning devices %v to user %s", req.DeviceIDs, userId)
+	stmt, err := h.DB.Prepare("UPDATE devices SET user_id = ?, site_id = NULL, status = 'offline' WHERE device_id = ?")
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -197,7 +183,7 @@ func (h *AssignmentsHandler) AssignDevicesToTenant(w http.ResponseWriter, r *htt
 	defer stmt.Close()
 
 	for _, devId := range req.DeviceIDs {
-		res, err := stmt.Exec(tenantId, devId)
+		res, err := stmt.Exec(userId, devId)
 		if err != nil {
 			log.Printf("[Assignments] ERROR updating device %s: %v", devId, err)
 			continue
@@ -206,5 +192,5 @@ func (h *AssignmentsHandler) AssignDevicesToTenant(w http.ResponseWriter, r *htt
 		log.Printf("[Assignments] Device %s updated. Rows affected: %d", devId, rows)
 	}
 
-	json.NewEncoder(w).Encode(map[string]string{"status": "assigned", "tenant": tenantId})
+	json.NewEncoder(w).Encode(map[string]string{"status": "assigned", "user": userId})
 }

@@ -18,8 +18,8 @@ func NewProjectsHandler(service ports.ProjectService) *ProjectsHandler {
 }
 
 func (h *ProjectsHandler) GetProjects(w http.ResponseWriter, r *http.Request) {
-	tenantID := r.URL.Query().Get("tenant_id")
-	projects, err := h.service.ListProjects(r.Context(), tenantID)
+	userID := r.URL.Query().Get("user_id")
+	projects, err := h.service.ListProjects(r.Context(), userID)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return

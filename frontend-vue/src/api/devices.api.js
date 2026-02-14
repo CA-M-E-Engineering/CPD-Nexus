@@ -30,7 +30,7 @@ export const devicesApi = {
     deleteDevice: (id) => http.delete(`/devices/${id}`),
 
     /**
-     * Bulk assign devices to a tenant
+     * Bulk assign devices to a User
      */
-    bulkAssign: (tenantId, deviceIds) => http.post(`/tenants/${tenantId}/devices/bulk`, { deviceIds }),
+    bulkAssign: (userId, deviceIds) => http.post(`/users/${userId}/devices/bulk`, { deviceIds }),
 };

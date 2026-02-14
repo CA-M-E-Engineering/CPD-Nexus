@@ -18,10 +18,10 @@ func (h *AttendanceHandler) GetAttendance(w http.ResponseWriter, r *http.Request
 	// Query params
 	siteID := r.URL.Query().Get("site_id")
 	workerID := r.URL.Query().Get("worker_id")
-	tenantID := r.URL.Query().Get("tenant_id")
+	userID := r.URL.Query().Get("user_id")
 	date := r.URL.Query().Get("date")
 
-	records, err := h.service.ListAttendance(r.Context(), tenantID, siteID, workerID, date)
+	records, err := h.service.ListAttendance(r.Context(), userID, siteID, workerID, date)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return

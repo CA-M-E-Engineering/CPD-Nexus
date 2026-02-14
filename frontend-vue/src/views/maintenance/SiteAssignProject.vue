@@ -64,17 +64,17 @@ const fetchData = async () => {
   isLoading.value = true;
   try {
     const savedUser = localStorage.getItem('auth_user');
-    let tenantId = 'tenant-client-1';
+    let userId = 'User-client-1';
     if (savedUser) {
         try {
             const user = JSON.parse(savedUser);
-            tenantId = user.tenant_id || user.id;
+            userId = user.user_id || user.id;
         } catch (e) {
             console.error('Failed to parse auth_user', e);
         }
     }
 
-    allProjects.value = await api.getProjects({ tenant_id: tenantId });
+    allProjects.value = await api.getProjects({ user_id: userId });
     
     // Find projects already linked to this site
     const linked = allProjects.value

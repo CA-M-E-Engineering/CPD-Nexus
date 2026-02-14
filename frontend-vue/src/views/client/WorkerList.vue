@@ -37,24 +37,24 @@ const fetchWorkers = async () => {
   isLoading.value = true;
   try {
     const savedUser = localStorage.getItem('auth_user');
-    let tenantId = null;
+    let userId = null;
     if (savedUser) {
         try {
             const user = JSON.parse(savedUser);
-            tenantId = user.tenant_id || user.id;
+            userId = user.user_id || user.id;
         } catch (e) {
             console.error('[WorkerList] Failed to parse auth_user', e);
         }
     }
     
-    if (!tenantId) {
-        console.warn("[WorkerList] No tenant ID found");
+    if (!userId) {
+        console.warn("[WorkerList] No User ID found");
         isLoading.value = false;
         return;
     }
     
-    console.log('[WorkerList] Requesting workers for tenant:', tenantId);
-    const data = await api.getWorkers({ tenant_id: tenantId });
+    console.log('[WorkerList] Requesting workers for User:', userId);
+    const data = await api.getWorkers({ user_id: userId });
     console.log('[WorkerList] Received workers:', data);
     workers.value = data || [];
 

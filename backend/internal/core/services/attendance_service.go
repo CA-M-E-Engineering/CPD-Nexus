@@ -32,8 +32,8 @@ func (s *AttendanceService) GetAttendance(ctx context.Context, id string) (*doma
 	return s.repo.Get(ctx, id)
 }
 
-func (s *AttendanceService) ListAttendance(ctx context.Context, tenantID, siteID, workerID, date string) ([]domain.Attendance, error) {
-	return s.repo.List(ctx, tenantID, siteID, workerID, date)
+func (s *AttendanceService) ListAttendance(ctx context.Context, userID, siteID, workerID, date string) ([]domain.Attendance, error) {
+	return s.repo.List(ctx, userID, siteID, workerID, date)
 }
 
 func (s *AttendanceService) ProcessBridgeAttendance(ctx context.Context, deviceSN string, personID string, timeIn, timeOut string, rawPayload []byte) error {
@@ -70,7 +70,7 @@ func (s *AttendanceService) ProcessBridgeAttendance(ctx context.Context, deviceS
 		DeviceID:        device.ID,
 		WorkerID:        worker.ID,
 		SiteID:          *device.SiteID,
-		TenantID:        device.TenantID,
+		UserID:          device.UserID,
 		TimeIn:          &tIn,
 		TimeOut:         tOutPtr,
 		Direction:       "unknown",

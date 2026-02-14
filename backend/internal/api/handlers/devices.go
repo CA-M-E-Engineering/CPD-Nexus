@@ -19,9 +19,9 @@ func NewDevicesHandler(service ports.DeviceService) *DevicesHandler {
 }
 
 func (h *DevicesHandler) GetDevices(w http.ResponseWriter, r *http.Request) {
-	tenantID := r.URL.Query().Get("tenant_id")
+	userID := r.URL.Query().Get("user_id")
 
-	devices, err := h.Service.ListDevices(r.Context(), tenantID)
+	devices, err := h.Service.ListDevices(r.Context(), userID)
 	if err != nil {
 		log.Printf("[GetDevices] Error: %v", err)
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -53,16 +53,16 @@ func (h *DevicesHandler) GetDeviceById(w http.ResponseWriter, r *http.Request) {
 
 func (h *DevicesHandler) CreateDevice(w http.ResponseWriter, r *http.Request) {
 	var body struct {
-		SN       string `json:"sn"`
-		Model    string `json:"model"`
-		TenantID string `json:"tenant_id"`
+		SN     string `json:"sn"`
+		Model  string `json:"model"`
+		UserID string `json:"user_id"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 
-	d, err := h.Service.RegisterDevice(r.Context(), body.SN, body.Model, body.TenantID)
+	d, err := h.Service.RegisterDevice(r.Context(), body.SN, body.Model, body.UserID)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return

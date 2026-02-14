@@ -20,8 +20,8 @@ func (s *SiteService) GetSite(ctx context.Context, id string) (*domain.Site, err
 	return s.repo.Get(ctx, id)
 }
 
-func (s *SiteService) ListSites(ctx context.Context, tenantID string) ([]domain.Site, error) {
-	return s.repo.List(ctx, tenantID)
+func (s *SiteService) ListSites(ctx context.Context, userID string) ([]domain.Site, error) {
+	return s.repo.List(ctx, userID)
 }
 
 func (s *SiteService) CreateSite(ctx context.Context, site *domain.Site) error {

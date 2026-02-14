@@ -6,22 +6,22 @@ TRUNCATE TABLE attendance;
 
 TRUNCATE TABLE devices;
 
-TRUNCATE TABLE users;
+TRUNCATE TABLE workers;
 
 TRUNCATE TABLE sites;
 
-TRUNCATE TABLE tenants;
+TRUNCATE TABLE users;
 
 TRUNCATE TABLE projects;
 
 -- ======================
--- Tenants (Accounts)
+-- Users (Accounts)
 -- ======================
 INSERT INTO
-    tenants (
-        tenant_id,
-        tenant_name,
-        tenant_type,
+    users (
+        user_id,
+        user_name,
+        user_type,
         username,
         password_hash,
         contact_email,
@@ -65,7 +65,7 @@ VALUES (
     ),
     (
         'testt.ltd',
-        'Test Tenant',
+        'Test User',
         'internal',
         'testt.ltd',
         '$2a$10$YGl2KZOrJ8oAtuyu5l59JuLCAeHZMfm15blSCSLwGAkfIU04c.F6G',
@@ -85,7 +85,7 @@ VALUES (
 INSERT INTO
     sites (
         site_id,
-        tenant_id,
+        user_id,
         site_name,
         location,
         latitude,
@@ -121,7 +121,7 @@ INSERT INTO
     projects (
         project_id,
         site_id,
-        tenant_id,
+        user_id,
         project_reference_number,
         project_title,
         project_contract_number,
@@ -189,12 +189,12 @@ VALUES (
     );
 
 -- ======================
--- Users
+-- Workers
 -- ======================
 INSERT INTO
-    users (
+    workers (
+        worker_id,
         user_id,
-        tenant_id,
         name,
         email,
         role,
@@ -326,7 +326,7 @@ INSERT INTO
     site_roles (
         site_role_id,
         site_id,
-        user_id,
+        worker_id,
         role,
         is_primary,
         created_at,
@@ -376,7 +376,7 @@ INSERT INTO
     devices (
         device_id,
         sn,
-        tenant_id,
+        user_id,
         site_id,
         model,
         status,
@@ -449,7 +449,7 @@ INSERT INTO
         device_id,
         worker_id,
         site_id,
-        tenant_id,
+        user_id,
         time_in,
         time_out,
         direction,

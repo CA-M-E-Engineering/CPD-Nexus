@@ -4,7 +4,7 @@ DROP TABLE IF EXISTS `projects`;
 
 CREATE TABLE IF NOT EXISTS `projects` (
     `project_id` varchar(50) NOT NULL,
-    `tenant_id` varchar(50) DEFAULT NULL,
+    `user_id` varchar(50) DEFAULT NULL,
     `site_id` varchar(50) DEFAULT NULL,
     `project_reference_number` varchar(50) NOT NULL,
     `project_title` varchar(255) NOT NULL,
@@ -32,8 +32,8 @@ CREATE TABLE IF NOT EXISTS `projects` (
     PRIMARY KEY (`project_id`),
     KEY `site_id` (`site_id`),
     KEY `idx_status` (`status`),
-    KEY `fk_projects_tenant` (`tenant_id`),
-    CONSTRAINT `fk_projects_tenant` FOREIGN KEY (`tenant_id`) REFERENCES `tenants` (`tenant_id`),
+    KEY `fk_projects_user` (`user_id`),
+    CONSTRAINT `fk_projects_user` FOREIGN KEY (`user_id`) REFERENCES `users` (`user_id`),
     CONSTRAINT `projects_ibfk_1` FOREIGN KEY (`site_id`) REFERENCES `sites` (`site_id`)
 ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci;
 

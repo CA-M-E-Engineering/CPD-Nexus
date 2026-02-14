@@ -15,26 +15,26 @@ const loadDashboardData = async () => {
     loading.value = true;
     try {
         const savedUser = localStorage.getItem('auth_user');
-        let tenantId = null;
+        let userId = null;
         
         if (savedUser) {
            try {
                const user = JSON.parse(savedUser);
-               tenantId = user.id || user.tenant_id;
+               userId = user.id || user.user_id;
            } catch (e) {
                console.error("Failed to parse auth_user", e);
            }
         }
 
-        if (!tenantId) {
-             console.warn("No tenant context found for dashboard");
+        if (!userId) {
+             console.warn("No User context found for dashboard");
              loading.value = false;
              return;
         }
 
         const [statsData, activityData] = await Promise.all([
-            api.getDashboardStats({ tenant_id: tenantId }),
-            api.getActivityLog({ tenant_id: tenantId })
+            api.getDashboardStats({ user_id: userId }),
+            api.getActivityLog({ user_id: userId })
         ]);
 
         stats.value = [

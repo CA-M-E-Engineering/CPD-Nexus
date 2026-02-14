@@ -15,9 +15,9 @@ func NewAnalyticsHandler(db *sql.DB) *AnalyticsHandler {
 }
 
 func (h *AnalyticsHandler) GetDashboardStats(w http.ResponseWriter, r *http.Request) {
-	tenantID := r.URL.Query().Get("tenant_id")
-	if tenantID == "" {
-		http.Error(w, "Missing tenant_id parameter", http.StatusBadRequest)
+	userID := r.URL.Query().Get("user_id")
+	if userID == "" {
+		http.Error(w, "Missing user_id parameter", http.StatusBadRequest)
 		return
 	}
 	stats := map[string]interface{}{
@@ -30,11 +30,11 @@ func (h *AnalyticsHandler) GetDashboardStats(w http.ResponseWriter, r *http.Requ
 
 	var totalWorkers, activeSites, activeProjects, totalDevices int
 
-	// Simple counts with tenant isolation
-	h.DB.QueryRow("SELECT COUNT(*) FROM users WHERE role IN ('worker', 'pic', 'manager') AND tenant_id = ?", tenantID).Scan(&totalWorkers)
-	h.DB.QueryRow("SELECT COUNT(*) FROM sites WHERE status='active' AND tenant_id = ?", tenantID).Scan(&activeSites)
-	h.DB.QueryRow("SELECT COUNT(*) FROM projects WHERE status='active' AND tenant_id = ?", tenantID).Scan(&activeProjects)
-	h.DB.QueryRow("SELECT COUNT(*) FROM devices WHERE tenant_id = ?", tenantID).Scan(&totalDevices)
+	// Simple counts with user isolation
+	h.DB.QueryRow("SELECT COUNT(*) FROM workers WHERE role IN ('worker', 'pic', 'manager') AND user_id = ?", userID).Scan(&totalWorkers)
+	h.DB.QueryRow("SELECT COUNT(*) FROM sites WHERE status='active' AND user_id = ?", userID).Scan(&activeSites)
+	h.DB.QueryRow("SELECT COUNT(*) FROM projects WHERE status='active' AND user_id = ?", userID).Scan(&activeProjects)
+	h.DB.QueryRow("SELECT COUNT(*) FROM devices WHERE user_id = ?", userID).Scan(&totalDevices)
 
 	stats["total_workers"] = totalWorkers
 	stats["active_sites"] = activeSites
@@ -45,30 +45,30 @@ func (h *AnalyticsHandler) GetDashboardStats(w http.ResponseWriter, r *http.Requ
 }
 
 func (h *AnalyticsHandler) GetActivityLog(w http.ResponseWriter, r *http.Request) {
-	tenantID := r.URL.Query().Get("tenant_id")
-	if tenantID == "" {
-		http.Error(w, "Missing tenant_id parameter", http.StatusBadRequest)
+	userID := r.URL.Query().Get("user_id")
+	if userID == "" {
+		http.Error(w, "Missing user_id parameter", http.StatusBadRequest)
 		return
 	}
-	// Mock activity log for MVP but keep it tied to tenant context if we had a table
+	// Mock activity log for MVP but keep it tied to user context if we had a table
 	logs := []map[string]interface{}{
-		{"id": 1, "user": "System", "action": "Tenant Dashboard Loaded", "target": tenantID, "time": "Just now"},
+		{"id": 1, "user": "System", "action": "User Dashboard Loaded", "target": userID, "time": "Just now"},
 		{"id": 2, "user": "System", "action": "Daily Sync Check", "target": "Cloud", "time": "5 mins ago"},
 	}
 	json.NewEncoder(w).Encode(logs)
 }
 
 func (h *AnalyticsHandler) GetDetailedAnalytics(w http.ResponseWriter, r *http.Request) {
-	tenantID := r.URL.Query().Get("tenant_id")
-	if tenantID == "" {
-		http.Error(w, "Missing tenant_id parameter", http.StatusBadRequest)
+	userID := r.URL.Query().Get("user_id")
+	if userID == "" {
+		http.Error(w, "Missing user_id parameter", http.StatusBadRequest)
 		return
 	}
 
 	response := make(map[string]interface{})
 
 	// 1. Worker Distribution by Trade
-	tradeRows, err := h.DB.Query("SELECT trade_code, COUNT(*) FROM users WHERE role IN ('worker', 'pic') AND tenant_id = ? GROUP BY trade_code", tenantID)
+	tradeRows, err := h.DB.Query("SELECT trade_code, COUNT(*) FROM workers WHERE role IN ('worker', 'pic') AND user_id = ? GROUP BY trade_code", userID)
 	if err == nil {
 		defer tradeRows.Close()
 		trades := make(map[string]int)
@@ -87,7 +87,7 @@ func (h *AnalyticsHandler) GetDetailedAnalytics(w http.ResponseWriter, r *http.R
 	}
 
 	// 2. Worker Status Distribution
-	statusRows, err := h.DB.Query("SELECT status, COUNT(*) FROM users WHERE role IN ('worker', 'pic') AND tenant_id = ? GROUP BY status", tenantID)
+	statusRows, err := h.DB.Query("SELECT status, COUNT(*) FROM workers WHERE role IN ('worker', 'pic') AND user_id = ? GROUP BY status", userID)
 	if err == nil {
 		defer statusRows.Close()
 		statuses := make(map[string]int)
@@ -102,7 +102,7 @@ func (h *AnalyticsHandler) GetDetailedAnalytics(w http.ResponseWriter, r *http.R
 	}
 
 	// 3. Device Status Distribution
-	deviceRows, err := h.DB.Query("SELECT status, COUNT(*) FROM devices WHERE tenant_id = ? GROUP BY status", tenantID)
+	deviceRows, err := h.DB.Query("SELECT status, COUNT(*) FROM devices WHERE user_id = ? GROUP BY status", userID)
 	if err == nil {
 		defer deviceRows.Close()
 		dStatuses := make(map[string]int)
@@ -117,7 +117,6 @@ func (h *AnalyticsHandler) GetDetailedAnalytics(w http.ResponseWriter, r *http.R
 	}
 
 	// 4. Mock Attendance Trends (Last 7 days)
-	// For real implementation: SELECT DATE(check_in_time), COUNT(*) FROM attendance ... GROUP BY DATE
 	response["attendance_trends"] = map[string]int{
 		"Mon": 12, "Tue": 15, "Wed": 18, "Thu": 14, "Fri": 16, "Sat": 8, "Sun": 2,
 	}

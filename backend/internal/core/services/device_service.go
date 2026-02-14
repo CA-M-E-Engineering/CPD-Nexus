@@ -21,26 +21,27 @@ func (s *DeviceService) GetDevice(ctx context.Context, id string) (*domain.Devic
 	return s.repo.Get(ctx, id)
 }
 
-func (s *DeviceService) ListDevices(ctx context.Context, tenantID string) ([]domain.Device, error) {
-	return s.repo.List(ctx, tenantID)
+func (s *DeviceService) ListDevices(ctx context.Context, userID string) ([]domain.Device, error) {
+	return s.repo.List(ctx, userID)
 }
 
-func (s *DeviceService) RegisterDevice(ctx context.Context, sn, model, tenantID string) (*domain.Device, error) {
+func (s *DeviceService) RegisterDevice(ctx context.Context, sn, model, userID string) (*domain.Device, error) {
 	if sn == "" || model == "" {
 		return nil, fmt.Errorf("serial number and model are required")
 	}
 
-	// Default tenant if missing (legacy behavior)
-	if tenantID == "" {
-		tenantID = "tenant-uuid-1"
+	// Default user if missing (legacy behavior)
+	// Default user if missing (legacy behavior)
+	if userID == "" {
+		userID = "tenant-vendor-1"
 	}
 
 	d := &domain.Device{
-		ID:       "device-" + uuid.New().String(),
-		SN:       sn,
-		Model:    model,
-		Status:   domain.DeviceStatusOffline,
-		TenantID: tenantID,
+		ID:     "device-" + uuid.New().String(),
+		SN:     sn,
+		Model:  model,
+		Status: domain.DeviceStatusOffline,
+		UserID: userID,
 		// Mock site for now, or keep nil
 		SiteID: nil, // Let it be null or handled by repository defaults if strict
 	}
@@ -77,8 +78,8 @@ func (s *DeviceService) UpdateDevice(ctx context.Context, id string, params map[
 	if v, ok := params["site_id"].(string); ok {
 		d.SiteID = &v
 	}
-	if v, ok := params["tenant_id"].(string); ok {
-		d.TenantID = v
+	if v, ok := params["user_id"].(string); ok {
+		d.UserID = v
 	}
 
 	return s.repo.Update(ctx, d)
@@ -88,6 +89,6 @@ func (s *DeviceService) DecommissionDevice(ctx context.Context, id string) error
 	return s.repo.Delete(ctx, id)
 }
 
-func (s *DeviceService) AssignDevicesToTenant(ctx context.Context, tenantID string, deviceIDs []string) error {
-	return s.repo.AssignToTenant(ctx, tenantID, deviceIDs)
+func (s *DeviceService) AssignDevicesToUser(ctx context.Context, userID string, deviceIDs []string) error {
+	return s.repo.AssignToUser(ctx, userID, deviceIDs)
 }

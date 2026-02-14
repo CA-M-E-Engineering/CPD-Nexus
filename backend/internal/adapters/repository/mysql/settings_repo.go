@@ -62,8 +62,8 @@ func (r *MySQLSettingsRepository) GetDeviceStats(ctx context.Context) (int, int,
 	query := `
 		SELECT COUNT(*) 
 		FROM devices d
-		JOIN tenants t ON d.tenant_id = t.tenant_id
-		WHERE d.status != 'inactive' AND t.tenant_type = 'vendor'
+		JOIN users u ON d.user_id = u.user_id
+		WHERE d.status != 'inactive' AND u.user_type = 'vendor'
 	`
 	err = r.DB.QueryRowContext(ctx, query).Scan(&unassigned)
 	if err != nil {

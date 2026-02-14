@@ -1,7 +1,7 @@
 <script setup>
 import { onMounted, ref, onUnmounted, watch, nextTick } from 'vue';
 import { api } from '../../services/api.js';
-import { MAP_MODES, TENANT_STATUS } from '../../utils/constants.js';
+import { MAP_MODES, USER_STATUS } from '../../utils/constants.js';
 
 // Add local constant if not in utils yet, or better, assumes it returns 'single-edit' 
 // actually I should check constants.js first but I can extend the validator.
@@ -10,7 +10,7 @@ const props = defineProps({
     mode: {
         type: String,
         required: true,
-        validator: (value) => [MAP_MODES.TENANTS, MAP_MODES.SITES, MAP_MODES.SINGLE_EDIT].includes(value)
+        validator: (value) => [MAP_MODES.USERS, MAP_MODES.SITES, MAP_MODES.SINGLE_EDIT].includes(value)
     },
     // For SINGLE_EDIT mode
     lat: { type: Number, default: 1.3521 },
@@ -78,24 +78,24 @@ const initMap = async () => {
 
         let items = [];
         try {
-            // Retrieve tenant context
+            // Retrieve User context
             const savedUser = localStorage.getItem('auth_user');
-            let tenantId = null;
+            let userId = null;
             if (savedUser) {
                 try {
                     const user = JSON.parse(savedUser);
-                    tenantId = user.id || user.tenant_id; // Handle both potential keys
+                    userId = user.id || user.user_id; // Handle both potential keys
                 } catch (e) {
                     console.error('[UnifiedMap] Failed to parse auth_user', e);
                 }
             }
 
-            if (props.mode === MAP_MODES.TENANTS) {
-                // Admin mode usually fetches all tenants, but we can pass context if needed
-                items = await api.getTenants();
+            if (props.mode === MAP_MODES.USERS) {
+                // Admin mode usually fetches all Users, but we can pass context if needed
+                items = await api.getUsers();
             } else if (props.mode === MAP_MODES.SITES) {
-                // Client mode requires tenant_id to filter sites
-                items = await api.getSites({ tenant_id: tenantId });
+                // Client mode requires user_id to filter sites
+                items = await api.getSites({ user_id: userId });
             }
         } catch (apiErr) {
             console.error('[UnifiedMap] API Fetch Error:', apiErr);
@@ -137,8 +137,8 @@ const initMap = async () => {
         } else if (items && items.length > 0) {
             items.forEach(item => {
                 if (item.lat && item.lng) {
-                    if (props.mode === MAP_MODES.TENANTS) {
-                        renderTenantMarker(item);
+                    if (props.mode === MAP_MODES.USERS) {
+                        renderUserMarker(item);
                     } else {
                         renderSiteMarker(item);
                     }
@@ -166,10 +166,10 @@ const initMap = async () => {
     }
 };
 
-const renderTenantMarker = (tenant) => {
-    const marker = window.L.circleMarker([tenant.lat, tenant.lng], {
+const renderUserMarker = (user) => {
+    const marker = window.L.circleMarker([user.lat, user.lng], {
         radius: 8,
-        fillColor: tenant.status === TENANT_STATUS.ACTIVE ? '#10b981' : '#64748b',
+        fillColor: user.status === USER_STATUS.ACTIVE ? '#10b981' : '#64748b',
         color: '#fff',
         weight: 2,
         opacity: 1,
@@ -178,10 +178,10 @@ const renderTenantMarker = (tenant) => {
 
     marker.bindPopup(`
         <div class="map-popup">
-            <h4 class="popup-title">${tenant.tenant_name}</h4>
-            <p class="popup-info">Type: ${tenant.tenant_type}</p>
-            <p class="popup-info">UEN: ${tenant.uen}</p>
-            <div class="popup-status ${tenant.status}">${tenant.status.toUpperCase()}</div>
+            <h4 class="popup-title">${user.user_name}</h4>
+            <p class="popup-info">Type: ${user.user_type}</p>
+            <p class="popup-info">UEN: ${user.uen}</p>
+            <div class="popup-status ${user.status}">${user.status.toUpperCase()}</div>
         </div>
     `, { className: 'custom-leaflet-popup' });
 };
@@ -315,8 +315,8 @@ watch(() => props.mode, initMap);
 
         <div v-else class="map-overlay">
             <div class="legend">
-                <div v-if="mode === MAP_MODES.TENANTS" class="legend-content">
-                    <div class="legend-item"><span class="dot active"></span> Active Tenant</div>
+                <div v-if="mode === MAP_MODES.USERS" class="legend-content">
+                    <div class="legend-item"><span class="dot active"></span> Active User</div>
                     <div class="legend-item"><span class="dot inactive"></span> Pending/Inactive</div>
                 </div>
                 <div v-else class="legend-content">

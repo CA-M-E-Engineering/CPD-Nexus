@@ -52,8 +52,8 @@ const assignmentInfo = computed(() => [
   { label: 'Project ID', value: worker.value?.current_project_id || '---' },
   { label: 'Site Name', value: worker.value?.site_name || '---' },
   { label: 'Site Location', value: worker.value?.site_location || '---' },
-  { label: 'Tenant Name', value: worker.value?.tenant_name || '---' },
-  { label: 'Tenant Address', value: worker.value?.tenant_address || '---' }
+  { label: 'User Name', value: worker.value?.user_name || '---' },
+  { label: 'User Address', value: worker.value?.User_address || '---' }
 ]);
 
 const handleEdit = () => {

@@ -7,7 +7,7 @@ type Attendance struct {
 	DeviceID        string     `json:"device_id"`
 	WorkerID        string     `json:"worker_id"`
 	SiteID          string     `json:"site_id"`
-	TenantID        string     `json:"tenant_id"`
+	UserID          string     `json:"user_id"`
 	TimeIn          *time.Time `json:"time_in"`
 	TimeOut         *time.Time `json:"time_out"`
 	Direction       string     `json:"direction"`

@@ -29,23 +29,23 @@ const fetchSites = async () => {
   isLoading.value = true;
   try {
     const savedUser = localStorage.getItem('auth_user');
-    let tenantId = null;
+    let userId = null;
     if (savedUser) {
        try {
            const user = JSON.parse(savedUser);
-           tenantId = user.tenant_id || user.id;
+           userId = user.user_id || user.id;
        } catch (e) {
            console.error("Failed to parse auth_user", e);
        }
     }
 
-    if (!tenantId) {
-        console.warn("No tenant ID found, skipping fetch");
+    if (!userId) {
+        console.warn("No User ID found, skipping fetch");
         isLoading.value = false;
         return;
     }
 
-    const data = await api.getSites({ tenant_id: tenantId });
+    const data = await api.getSites({ user_id: userId });
     sites.value = data || [];
     
     // Calculate totals

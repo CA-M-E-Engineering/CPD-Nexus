@@ -18,11 +18,11 @@ export const useDeviceStore = defineStore('devices', {
         }
     },
     actions: {
-        async fetchDevices(tenantId = null) {
+        async fetchDevices(userId = null) {
             this.loading = true;
             this.error = null;
             try {
-                const params = tenantId ? { tenant_id: tenantId } : {};
+                const params = userId ? { user_id: userId } : {};
                 // Assuming api.getDevices is compatible or we import the specific api
                 const response = await api.getDevices(params);
                 this.devices = response || [];
@@ -70,9 +70,9 @@ export const useDeviceStore = defineStore('devices', {
                 throw err;
             }
         },
-        async assignDeviceToTenant(tenantId, deviceIds) {
+        async assignDeviceToUser(userId, deviceIds) {
             try {
-                await api.bulkAssign(tenantId, deviceIds);
+                await api.bulkAssign(userId, deviceIds);
                 // Refresh devices or update local slice
                 await this.fetchDevices();
             } catch (err) {

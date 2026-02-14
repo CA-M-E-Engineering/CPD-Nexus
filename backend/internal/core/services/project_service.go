@@ -20,8 +20,8 @@ func (s *ProjectService) GetProject(ctx context.Context, id string) (*domain.Pro
 	return s.repo.Get(ctx, id)
 }
 
-func (s *ProjectService) ListProjects(ctx context.Context, tenantID string) ([]domain.Project, error) {
-	return s.repo.List(ctx, tenantID)
+func (s *ProjectService) ListProjects(ctx context.Context, userID string) ([]domain.Project, error) {
+	return s.repo.List(ctx, userID)
 }
 
 func (s *ProjectService) CreateProject(ctx context.Context, p *domain.Project) error {

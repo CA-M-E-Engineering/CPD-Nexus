@@ -32,28 +32,28 @@ const fetchProjects = async () => {
   isLoading.value = true;
   try {
     const savedUser = localStorage.getItem('auth_user');
-    let tenantId = null;
+    let userId = null;
     if (savedUser) {
         try {
             const user = JSON.parse(savedUser);
-            tenantId = user.tenant_id || user.id;
+            userId = user.user_id || user.id;
         } catch (e) {
             console.error('Failed to parse auth_user', e);
         }
     }
 
-    if (!tenantId) {
+    if (!userId) {
         isLoading.value = false;
         return;
     }
 
-    // projects.value = await api.getProjects({ tenant_id: tenantId });
+    // projects.value = await api.getProjects({ user_id: userId });
     // Note: api.getProjects signature in projects.api.js vs api.js might differ, 
     // but based on standard pattern it should accept params. 
     // Checking api.js... it exports liveApi.
     // Let's assume standard passing.
     
-    const data = await api.getProjects({ tenant_id: tenantId });
+    const data = await api.getProjects({ user_id: userId });
     projects.value = data || [];
 
     // Calculate Stats

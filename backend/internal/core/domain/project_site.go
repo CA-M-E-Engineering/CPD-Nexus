@@ -5,7 +5,7 @@ import "time"
 type Project struct {
 	ID           string `json:"project_id"`
 	SiteID       string `json:"site_id"`
-	TenantID     string `json:"tenant_id"`
+	UserID       string `json:"user_id"`
 	Title        string `json:"title"`
 	Status       string `json:"status"`
 	Reference    string `json:"reference"`
@@ -36,7 +36,7 @@ type Project struct {
 
 type Site struct {
 	ID        string    `json:"site_id"`
-	TenantID  string    `json:"tenant_id"`
+	UserID    string    `json:"user_id"`
 	Name      string    `json:"site_name"`
 	Location  string    `json:"location,omitempty"`
 	Latitude  float64   `json:"lat"`
@@ -47,5 +47,5 @@ type Site struct {
 	// Calculated fields
 	WorkerCount int    `json:"worker_count"`
 	DeviceCount int    `json:"device_count"`
-	TenantName  string `json:"tenant_name,omitempty"`
+	UserName    string `json:"user_name,omitempty"`
 }

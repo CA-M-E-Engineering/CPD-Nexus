@@ -18,11 +18,11 @@ func NewAttendanceRepository(db *sql.DB) ports.AttendanceRepository {
 func (r *AttendanceRepository) Get(ctx context.Context, id string) (*domain.Attendance, error) {
 	query := `
 		SELECT 
-			a.attendance_id, a.device_id, a.worker_id, a.site_id, a.tenant_id, 
+			a.attendance_id, a.device_id, a.worker_id, a.site_id, a.user_id, 
 			a.time_in, a.time_out, a.direction, a.trade_code, a.status, a.submission_date,
-			u.name as worker_name, s.site_name, a.created_at, a.updated_at
+			w.name as worker_name, s.site_name, a.created_at, a.updated_at
 		FROM attendance a
-		LEFT JOIN users u ON a.worker_id = u.user_id
+		LEFT JOIN workers w ON a.worker_id = w.worker_id
 		LEFT JOIN sites s ON a.site_id = s.site_id
 		WHERE a.attendance_id = ?`
 
@@ -31,7 +31,7 @@ func (r *AttendanceRepository) Get(ctx context.Context, id string) (*domain.Atte
 	var subDate, wName, sName sql.NullString
 
 	err := r.db.QueryRowContext(ctx, query, id).Scan(
-		&a.ID, &a.DeviceID, &a.WorkerID, &a.SiteID, &a.TenantID,
+		&a.ID, &a.DeviceID, &a.WorkerID, &a.SiteID, &a.UserID,
 		&timeIn, &timeOut, &a.Direction, &a.TradeCode, &a.Status, &subDate,
 		&wName, &sName, &a.CreatedAt, &a.UpdatedAt,
 	)
@@ -61,22 +61,22 @@ func (r *AttendanceRepository) Get(ctx context.Context, id string) (*domain.Atte
 	return &a, nil
 }
 
-func (r *AttendanceRepository) List(ctx context.Context, tenantID, siteID, workerID, date string) ([]domain.Attendance, error) {
+func (r *AttendanceRepository) List(ctx context.Context, userID, siteID, workerID, date string) ([]domain.Attendance, error) {
 	query := `
 		SELECT 
-			a.attendance_id, a.device_id, a.worker_id, a.site_id, a.tenant_id, 
+			a.attendance_id, a.device_id, a.worker_id, a.site_id, a.user_id, 
 			a.time_in, a.time_out, a.direction, a.trade_code, a.status, a.submission_date,
-			u.name as worker_name, s.site_name, a.created_at, a.updated_at
+			w.name as worker_name, s.site_name, a.created_at, a.updated_at
 		FROM attendance a
-		LEFT JOIN users u ON a.worker_id = u.user_id
+		LEFT JOIN workers w ON a.worker_id = w.worker_id
 		LEFT JOIN sites s ON a.site_id = s.site_id
 		WHERE 1=1
 	`
 	args := []interface{}{}
 
-	if tenantID != "" {
-		query += " AND a.tenant_id = ?"
-		args = append(args, tenantID)
+	if userID != "" {
+		query += " AND a.user_id = ?"
+		args = append(args, userID)
 	}
 	if siteID != "" {
 		query += " AND a.site_id = ?"
@@ -106,7 +106,7 @@ func (r *AttendanceRepository) List(ctx context.Context, tenantID, siteID, worke
 		var subDate, wName, sName sql.NullString
 
 		if err := rows.Scan(
-			&a.ID, &a.DeviceID, &a.WorkerID, &a.SiteID, &a.TenantID,
+			&a.ID, &a.DeviceID, &a.WorkerID, &a.SiteID, &a.UserID,
 			&timeIn, &timeOut, &a.Direction, &a.TradeCode, &a.Status, &subDate,
 			&wName, &sName, &a.CreatedAt, &a.UpdatedAt,
 		); err != nil {
@@ -137,13 +137,13 @@ func (r *AttendanceRepository) List(ctx context.Context, tenantID, siteID, worke
 func (r *AttendanceRepository) Create(ctx context.Context, a *domain.Attendance) error {
 	query := `
 		INSERT INTO attendance (
-			attendance_id, device_id, worker_id, site_id, tenant_id,
+			attendance_id, device_id, worker_id, site_id, user_id,
 			time_in, time_out, direction, trade_code, status,
 			submission_date, response_payload, created_at, updated_at
 		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())
 	`
 	_, err := r.db.ExecContext(ctx, query,
-		a.ID, a.DeviceID, a.WorkerID, a.SiteID, a.TenantID,
+		a.ID, a.DeviceID, a.WorkerID, a.SiteID, a.UserID,
 		a.TimeIn, a.TimeOut, a.Direction, a.TradeCode, a.Status,
 		a.SubmissionDate, a.ResponsePayload,
 	)

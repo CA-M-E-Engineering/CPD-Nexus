@@ -155,9 +155,9 @@ const formatDate = (dateStr) => {
       
       <template #cell-site_name="{ item }">
         <div class="assignment-info">
-          <div v-if="item.tenant_name" class="tenant-name">{{ item.tenant_name }}</div>
+          <div v-if="item.user_name" class="User-name">{{ item.user_name }}</div>
           <div v-if="item.site_name" class="site-name text-muted">{{ item.site_name }}</div>
-          <div v-if="!item.tenant_name && !item.site_name" class="text-muted">Unassigned</div>
+          <div v-if="!item.user_name && !item.site_name" class="text-muted">Unassigned</div>
         </div>
       </template>
 
@@ -191,7 +191,7 @@ const formatDate = (dateStr) => {
   display: flex;
   flex-direction: column;
 }
-.tenant-name {
+.User-name {
   font-weight: 500;
   color: var(--color-text-primary);
 }

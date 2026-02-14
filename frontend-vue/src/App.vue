@@ -16,9 +16,9 @@ import DeviceDetail from './views/shared/DeviceDetail.vue';
 
 // Admin Views
 import AdminDashboard from './views/admin/Dashboard.vue';
-import AdminTenantList from './views/admin/TenantList.vue';
-import AdminTenantDetail from './views/admin/TenantDetail.vue';
-import AdminTenantAdd from './views/admin/TenantAdd.vue';
+import AdminUserList from './views/admin/UserList.vue';
+import AdminUserDetail from './views/admin/UserDetail.vue';
+import AdminUserAdd from './views/admin/UserAdd.vue';
 import AdminDeviceList from './views/admin/DeviceList.vue';
 import AdminDeviceAdd from './views/admin/DeviceAdd.vue';
 import AdminSettings from './views/admin/Settings.vue';
@@ -43,7 +43,7 @@ import ClientAnalytics from './views/client/Analytics.vue';
 import DeviceAddMaintenance from './views/maintenance/DeviceAddMaintenance.vue';
 import SiteAssignProject from './views/maintenance/SiteAssignProject.vue';
 import ProjectAssignWorkers from './views/maintenance/ProjectAssignWorkers.vue';
-import TenantAssignDevice from './views/maintenance/TenantAssignDevice.vue';
+import UserAssignDevice from './views/maintenance/UserAssignDevice.vue';
 import SiteAssignDevice from './views/maintenance/SiteAssignDevice.vue';
 import WorkerAssignProject from './views/maintenance/WorkerAssignProject.vue';
 
@@ -118,16 +118,16 @@ const currentComponent = computed(() => {
   if (currentRole.value === ROLES.MANAGER) {
     const componentMap = {
       'dashboard': AdminDashboard,
-      'tenants': AdminTenantList,
-      'tenant-detail': AdminTenantDetail,
-      'tenant-add': AdminTenantAdd,
+      'users': AdminUserList,
+      'user-detail': AdminUserDetail,
+      'user-add': AdminUserAdd,
       'devices': AdminDeviceList,
       'device-detail': DeviceDetail,
       'device-add': AdminDeviceAdd,
-      'tenant-assign-device': TenantAssignDevice,
+      'user-assign-device': UserAssignDevice,
       'settings': AdminSettings
     };
-    return componentMap[activeNavId.value] || AdminDashboard;
+    return componentMap[activeNavId.value];
   } else {
     const componentMap = {
       'dashboard': ClientDashboard,
@@ -151,7 +151,7 @@ const currentComponent = computed(() => {
       'attendance': ClientAttendanceList,
       'analytics': ClientAnalytics
     };
-    return componentMap[activeNavId.value] || ClientDashboard;
+    return componentMap[activeNavId.value];
   }
 });
 </script>

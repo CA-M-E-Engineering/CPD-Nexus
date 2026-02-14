@@ -75,19 +75,19 @@ watch(() => props.id, fetchSite);
 const handleSubmit = async () => {
   isSaving.value = true;
   try {
-    // Get tenant_id from auth_user
+    // Get user_id from auth_user
     const authUser = JSON.parse(localStorage.getItem('auth_user') || '{}');
-    const tenantId = authUser.tenant_id;
+    const userId = authUser.user_id;
 
-    if (!tenantId) {
-        notification.error("Authentication error: Missing Tenant ID. Please re-login.");
+    if (!userId) {
+        notification.error("Authentication error: Missing User ID. Please re-login.");
         return;
     }
 
     const payload = {
         ...formData.value,
         site_name: formData.value.name, // Map name back to site_name
-        tenant_id: tenantId,           // Add tenant_id
+        user_id: userId,           // Add user_id
         // Convert lat/lng to numbers
         lat: parseFloat(formData.value.latitude) || 0,
         lng: parseFloat(formData.value.longitude) || 0

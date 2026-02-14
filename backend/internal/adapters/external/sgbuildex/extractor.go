@@ -14,7 +14,7 @@ type AttendanceRow struct {
 	DeviceID     string
 	WorkerID     string
 	SiteID       string
-	TenantID     string
+	UserID       string
 	TimeIn       time.Time
 	TimeOut      sql.NullTime
 	Direction    string
@@ -50,18 +50,18 @@ type AttendanceRow struct {
 func ExtractPendingAttendance(ctx context.Context, db *sql.DB) ([]AttendanceRow, error) {
 	query := `
 		SELECT 
-			a.attendance_id, a.device_id, a.worker_id, a.site_id, a.tenant_id,
+			a.attendance_id, a.device_id, a.worker_id, a.site_id, a.user_id,
 			a.time_in, a.time_out, a.direction, a.trade_code, a.status, a.submission_date,
 			s.site_name, s.location,
 			p.project_reference_number,
 			p.offsite_fabricator_name, p.offsite_fabricator_uen, p.offsite_fabricator_location,
 			p.main_contractor_name, p.main_contractor_uen,
-			u.name AS worker_name, u.fin_nric, u.trade_code AS worker_trade,
+			w.name AS worker_name, w.fin_nric, w.trade_code AS worker_trade,
 			p.worker_company_name, p.worker_company_uen
 		FROM attendance a
 		JOIN sites s ON a.site_id = s.site_id
-		JOIN users u ON a.worker_id = u.user_id
-		LEFT JOIN projects p ON u.current_project_id = p.project_id
+		JOIN workers w ON a.worker_id = w.worker_id
+		LEFT JOIN projects p ON w.current_project_id = p.project_id
 		WHERE a.status = 'pending'
 		ORDER BY a.submission_date, a.attendance_id
 	`
@@ -81,7 +81,7 @@ func ExtractPendingAttendance(ctx context.Context, db *sql.DB) ([]AttendanceRow,
 			&r.DeviceID,
 			&r.WorkerID,
 			&r.SiteID,
-			&r.TenantID,
+			&r.UserID,
 			&r.TimeIn,
 			&r.TimeOut,
 			&r.Direction,
@@ -150,8 +150,8 @@ func ExtractMonthlyDistributionData(ctx context.Context, db *sql.DB) ([]MonthlyD
 			DATE_FORMAT(a.submission_date, '%Y-%m') as submission_month,
 			COUNT(*) as attendance_count
 		FROM attendance a
-		JOIN users u ON a.worker_id = u.user_id
-		JOIN projects p ON u.current_project_id = p.project_id
+		JOIN workers w ON a.worker_id = w.worker_id
+		JOIN projects p ON w.current_project_id = p.project_id
 		WHERE p.offsite_fabricator_uen IS NOT NULL 
 		  AND p.offsite_fabricator_uen != ''
 		  AND DATE_FORMAT(a.submission_date, '%Y-%m') = DATE_FORMAT(CURRENT_DATE, '%Y-%m')

@@ -17,7 +17,7 @@ const isSaving = ref(false);
 const isLoading = ref(false);
 
 const formData = ref({
-  tenant_id: '',
+  user_id: '',
   reference: '',
   title: '',
   site_id: '',
@@ -43,18 +43,18 @@ const isEdit = computed(() => props.mode === 'edit');
 const fetchData = async () => {
     try {
         const savedUser = localStorage.getItem('auth_user');
-        let tenantId = 'tenant-client-1';
+        let userId = 'User-client-1';
         if (savedUser) {
             try {
                 const user = JSON.parse(savedUser);
-                tenantId = user.tenant_id || user.id;
+                userId = user.user_id || user.id;
             } catch (e) {
                 console.error("Failed to parse auth_user", e);
             }
         }
-        formData.value.tenant_id = tenantId;
+        formData.value.user_id = userId;
         
-        const sitesData = await api.getSites({ tenant_id: tenantId });
+        const sitesData = await api.getSites({ user_id: userId });
         sites.value = sitesData || [];
     } catch (err) {
         console.error('Failed to load dependency data', err);

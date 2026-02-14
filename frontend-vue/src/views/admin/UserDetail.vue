@@ -10,7 +10,7 @@ import DataTable from '../../components/ui/DataTable.vue';
 import BaseBadge from '../../components/ui/BaseBadge.vue';
 import BaseModal from '../../components/ui/BaseModal.vue';
 import ConfirmDialog from '../../components/ui/ConfirmDialog.vue';
-import { TENANT_STATUS, DEVICE_STATUS } from '../../utils/constants.js';
+import { USER_STATUS, DEVICE_STATUS } from '../../utils/constants.js';
 
 const props = defineProps({
   id: [Number, String]
@@ -19,10 +19,10 @@ const props = defineProps({
 const emit = defineEmits(['navigate']);
 
 const activeTab = ref('Overview');
-const tenant = ref(null);
+const User = ref(null);
 const isLoading = ref(true);
-const tenantUsers = ref([]);
-const tenantSites = ref([]);
+const UserUsers = ref([]);
+const UserSites = ref([]);
 const siteDevicesMap = ref({}); // { siteId: [devices] }
 
 const tabs = [
@@ -31,28 +31,28 @@ const tabs = [
   { id: 'Devices', label: 'Devices' }
 ];
 
-const tenantDevices = ref([]); // Company-level inventory
+const userDevices = ref([]); // Company-level inventory
 
 const fetchError = ref(null);
 
-const fetchTenantData = async () => {
+const fetchUserData = async () => {
   isLoading.value = true;
   fetchError.value = null;
   try {
-    const tenantData = await api.getTenantById(props.id);
-    if (!tenantData) throw new Error('Organization not found');
-    tenant.value = tenantData;
+    const UserData = await api.getUserById(props.id);
+    if (!UserData) throw new Error('Organization not found');
+    User.value = UserData;
 
     // Fetch others but don't block main render if they fail
     try {
-        const [workersData, sitesData, allTenantDevices] = await Promise.all([
-            api.getWorkers({ tenant_id: props.id }),
-            api.getSites({ tenant_id: props.id }),
-            api.getDevices({ tenant_id: props.id })
+        const [workersData, sitesData, alluserDevices] = await Promise.all([
+            api.getWorkers({ user_id: props.id }),
+            api.getSites({ user_id: props.id }),
+            api.getDevices({ user_id: props.id })
         ]);
-        tenantUsers.value = workersData || [];
-        tenantSites.value = sitesData || [];
-        tenantDevices.value = allTenantDevices || [];
+        UserUsers.value = workersData || [];
+        UserSites.value = sitesData || [];
+        userDevices.value = alluserDevices || [];
 
         // Fetch devices for each site
         const devicePromises = (sitesData || []).map(async (site) => {
@@ -64,24 +64,24 @@ const fetchTenantData = async () => {
         await Promise.all(devicePromises);
     } catch (innerErr) {
         console.warn('Partial load failed', innerErr);
-        // We still have tenant data, so we can show the page
+        // We still have User data, so we can show the page
     }
 
   } catch (err) {
-    console.error('Failed to fetch tenant data', err);
+    console.error('Failed to fetch User data', err);
     fetchError.value = err.message || 'Failed to load organization record';
   } finally {
     isLoading.value = false;
   }
 };
 
-onMounted(fetchTenantData);
+onMounted(fetchUserData);
 
-const tenantInfo = computed(() => [
-  { label: 'Company Name', value: tenant.value?.tenant_name || '---' },
-  { label: 'Contact Phone', value: tenant.value?.phone || '---' },
-  { label: 'Contact Email', value: tenant.value?.email || '---' },
-  { label: 'Company Address', value: tenant.value?.address || '---' }
+const UserInfo = computed(() => [
+  { label: 'Company Name', value: User.value?.user_name || '---' },
+  { label: 'Contact Phone', value: User.value?.phone || '---' },
+  { label: 'Contact Email', value: User.value?.email || '---' },
+  { label: 'Company Address', value: User.value?.address || '---' }
 ]);
 
 const userColumns = [
@@ -97,12 +97,12 @@ const deviceColumns = [
   { key: 'model', label: 'Device Model' },
   { key: 'sn', label: 'Device SN' },
   { key: 'last_heartbeat', label: 'Last Heartbeat' },
-  { key: 'tenant_id', label: 'Tenant ID' },
+  { key: 'user_id', label: 'User ID' },
   { key: 'site_id', label: 'Site ID' }
 ];
 
 const handleEdit = () => {
-  emit('navigate', 'tenant-add', { id: props.id, mode: 'edit' });
+  emit('navigate', 'user-add', { id: props.id, mode: 'edit' });
 };
 
 const showDeleteConfirm = ref(false);
@@ -111,11 +111,11 @@ const isDeleting = ref(false);
 const handleDelete = async () => {
   isDeleting.value = true;
   try {
-    await api.deleteTenant(props.id);
+    await api.deleteUser(props.id);
     notification.success('Organization deleted successfully');
-    emit('navigate', 'tenants');
+    emit('navigate', 'users');
   } catch (err) {
-    console.error('Failed to delete tenant', err);
+    console.error('Failed to delete User', err);
     notification.error(err.message || 'Failed to delete organization');
   } finally {
     isDeleting.value = false;
@@ -128,7 +128,7 @@ const handleDeviceRemove = async (deviceId) => {
         try {
             await api.deleteDevice(deviceId);
             notification.success(`Device ${deviceId} unassigned`);
-            await fetchTenantData();
+            await fetchUserData();
         } catch (err) {
             console.error('Failed to remove device', err);
             notification.error('Failed to unassign device');
@@ -138,14 +138,14 @@ const handleDeviceRemove = async (deviceId) => {
 </script>
 
 <template>
-  <div class="tenant-detail">
+  <div class="user-detail">
     <PageHeader 
-      :title="tenant?.tenant_name || 'Loading organization...'" 
+      :title="User?.user_name || 'Loading organization...'" 
       description="Administrative view of organization profile and resources"
       variant="detail"
     >
       <template #toolbar-left>
-        <BaseButton variant="ghost" size="sm" @click="$emit('navigate', 'tenants')">
+        <BaseButton variant="ghost" size="sm" @click="$emit('navigate', 'users')">
           <template #icon><i class="ri-arrow-left-line"></i></template>
           Back to List
         </BaseButton>
@@ -164,10 +164,10 @@ const handleDeviceRemove = async (deviceId) => {
     <div v-else-if="fetchError" class="error-state">
         <i class="ri-error-warning-line"></i>
         <p>{{ fetchError }}</p>
-        <BaseButton @click="fetchTenantData">Retry</BaseButton>
+        <BaseButton @click="fetchUserData">Retry</BaseButton>
     </div>
 
-    <div v-else-if="tenant" class="content-body">
+    <div v-else-if="User" class="content-body">
       <BaseTabs v-model="activeTab" :tabs="tabs" />
 
       <!-- Overview Tab -->
@@ -175,15 +175,15 @@ const handleDeviceRemove = async (deviceId) => {
         <div class="overview-layout">
           <DetailCard 
             title="Basic Organization Details" 
-            :badge-text="tenant.status" 
-            :badge-type="tenant.status === TENANT_STATUS.ACTIVE ? 'success' : 'inactive'"
-            :rows="tenantInfo"
+            :badge-text="User.status" 
+            :badge-type="User.status === USER_STATUS.ACTIVE ? 'success' : 'inactive'"
+            :rows="UserInfo"
             class="identity-card"
           />
           
           <div class="user-list-section">
             <h3 class="section-title">Associated Users</h3>
-            <DataTable :columns="userColumns" :data="tenantUsers">
+            <DataTable :columns="userColumns" :data="UserUsers">
               <template #cell-status="{ item }">
                 <BaseBadge :type="item.status === 'active' ? 'success' : 'warning'">{{ item.status }}</BaseBadge>
               </template>
@@ -194,11 +194,11 @@ const handleDeviceRemove = async (deviceId) => {
 
       <!-- Sites Tab -->
       <div v-show="activeTab === 'Sites'" class="tab-content">
-        <div v-if="tenantSites.length === 0" class="empty-state-lite">
+        <div v-if="UserSites.length === 0" class="empty-state-lite">
           <p>No sites registered for this organization.</p>
         </div>
         
-        <div v-for="site in tenantSites" :key="site.site_id" class="site-group">
+        <div v-for="site in UserSites" :key="site.site_id" class="site-group">
           <div class="site-header-card">
             <div class="site-title-row">
               <h3 class="site-name">{{ site.site_name }}</h3>
@@ -236,13 +236,13 @@ const handleDeviceRemove = async (deviceId) => {
       <div v-show="activeTab === 'Devices'" class="tab-content">
         <div class="tab-header-actions">
           <h3 class="section-title">Company Hardware Inventory</h3>
-          <BaseButton variant="primary" size="sm" icon="ri-add-line" @click="$emit('navigate', 'tenant-assign-device', { id: props.id })">
+          <BaseButton variant="primary" size="sm" icon="ri-add-line" @click="$emit('navigate', 'user-assign-device', { id: props.id })">
             Assign Device
           </BaseButton>
         </div>
 
 
-        <DataTable :columns="deviceColumns" :data="tenantDevices">
+        <DataTable :columns="deviceColumns" :data="userDevices">
           <template #cell-device_id="{ value }">
             <span class="mono-text">{{ value }}</span>
           </template>
@@ -255,7 +255,7 @@ const handleDeviceRemove = async (deviceId) => {
           <template #cell-last_heartbeat="{ value }">
             {{ value }}
           </template>
-          <template #cell-tenant_id="{ value }">
+          <template #cell-user_id="{ value }">
             <span class="mono-text">{{ value }}</span>
           </template>
           <template #cell-site_id="{ value }">
@@ -267,8 +267,8 @@ const handleDeviceRemove = async (deviceId) => {
       <ConfirmDialog
         :show="showDeleteConfirm"
         title="Delete Organization"
-        description="Are you sure you want to delete this tenant? This action will mark the organization as inactive."
-        confirm-label="Delete Tenant"
+        description="Are you sure you want to delete this User? This action will mark the organization as inactive."
+        confirm-label="Delete User"
         :loading="isDeleting"
         variant="danger"
         @close="showDeleteConfirm = false"

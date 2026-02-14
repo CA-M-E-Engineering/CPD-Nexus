@@ -1,10 +1,10 @@
 <template>
   <MaintenanceLayout
     title="Hardware Allocation"
-    description="Allocate IoT devices to this tenant. Devices checked are currently assigned to the organization."
+    description="Allocate IoT devices to this User. Devices checked are currently assigned to the organization."
     action-label="Update Hardware Allocation"
     :loading="isSaving"
-    @back="$emit('navigate', 'tenant-detail', { id: props.id })"
+    @back="$emit('navigate', 'user-detail', { id: props.id })"
     @action="handleSave"
   >
     <template #list>
@@ -44,7 +44,7 @@ import MaintenanceLayout from '../../components/ui/MaintenanceLayout.vue';
 import BaseBadge from '../../components/ui/BaseBadge.vue';
 
 const props = defineProps({
-  id: [Number, String] // Tenant ID
+  id: [Number, String] // User ID
 });
 
 const emit = defineEmits(['navigate']);
@@ -58,15 +58,15 @@ const selectedDevices = ref([]);
 const fetchData = async () => {
   isLoading.value = true;
   try {
-    const [devices, tenantDevices] = await Promise.all([
+    const [devices, userDevices] = await Promise.all([
       api.getDevices(),
-      api.getDevices({ tenant_id: props.id })
+      api.getDevices({ user_id: props.id })
     ]);
     
     allDevices.value = devices;
     
-    // Extract IDs from tenant devices
-    const assignedIds = tenantDevices.map(d => d.device_id);
+    // Extract IDs from User devices
+    const assignedIds = userDevices.map(d => d.device_id);
     initialSelectedDevices.value = assignedIds;
     selectedDevices.value = [...assignedIds];
   } finally {
@@ -87,7 +87,7 @@ const handleSave = async () => {
   try {
     await api.bulkAssign(props.id, selectedDevices.value);
     notification.success('Hardware allocation updated');
-    emit('navigate', 'tenant-detail', { id: props.id });
+    emit('navigate', 'user-detail', { id: props.id });
   } catch (err) {
     console.error('Failed to update allocation', err);
     notification.error(err.message || 'Failed to sync hardware allocation');

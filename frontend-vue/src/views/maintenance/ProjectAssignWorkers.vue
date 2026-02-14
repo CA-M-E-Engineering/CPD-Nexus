@@ -28,7 +28,7 @@
             <div class="selection-meta">
               {{ worker.role === 'pic' ? 'PIC' : 'Worker' }} • {{ worker.trade_code || 'General' }}
               <div v-if="worker.site_name" class="current-loc">
-                Currently at: {{ worker.site_name }} ({{ worker.tenant_name }})
+                Currently at: {{ worker.site_name }} ({{ worker.user_name }})
               </div>
               <div v-else class="current-loc unassigned">
                 Currently Unassigned
@@ -67,16 +67,16 @@ const fetchData = async () => {
   isLoading.value = true;
   try {
     const savedUser = localStorage.getItem('auth_user');
-    let tenantId = 'tenant-client-1';
+    let userId = 'User-client-1';
     if (savedUser) {
         try {
             const user = JSON.parse(savedUser);
-            tenantId = user.tenant_id || user.id;
+            userId = user.user_id || user.id;
         } catch (e) {
             console.error('Failed to parse auth_user', e);
         }
     }
-    const data = await api.getWorkers({ tenant_id: tenantId });
+    const data = await api.getWorkers({ user_id: userId });
     allWorkers.value = data || [];
     
     // Auto-detect workers currently assigned to this project ID

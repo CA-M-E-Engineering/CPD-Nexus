@@ -25,7 +25,7 @@ const isLoading = ref(true);
 const isSaving = ref(false);
 const fetchError = ref(null);
 const sites = ref([]);
-const tenants = ref([]);
+const Users = ref([]);
 
 const fetchDevice = async () => {
   if (!props.id) {
@@ -57,33 +57,33 @@ const fetchDevice = async () => {
 onMounted(fetchDevice);
 onMounted(async () => {
   try {
-    const tenantsData = await api.getTenants();
-    tenants.value = tenantsData;
+    const UsersData = await api.getUsers();
+    Users.value = UsersData;
   } catch (err) {
-    console.error('[DeviceDetail] Failed to fetch tenants:', err);
+    console.error('[DeviceDetail] Failed to fetch Users:', err);
   }
 
   if (!isAdmin.value) {
     try {
       const savedUser = localStorage.getItem('auth_user');
-      let tenantId = 'tenant-client-1'; // Default strong fallback
+      let userId = 'User-client-1'; // Default strong fallback
       
       if (savedUser) {
           try {
               const user = JSON.parse(savedUser);
-              // Only use user.tenant_id if present. Do NOT fallback to user.id which might be a worker UUID.
-              if (user.tenant_id) {
-                  tenantId = user.tenant_id;
+              // Only use user.user_id if present. Do NOT fallback to user.id which might be a worker UUID.
+              if (user.user_id) {
+                  userId = user.user_id;
               } else if (user.role === 'client' && user.id) {
-                  // If role is client, id is likely tenant_id
-                  tenantId = user.id;
+                  // If role is client, id is likely user_id
+                  userId = user.id;
               }
           } catch (e) {
               console.error("Failed to parse auth_user", e);
           }
       }
       
-      sites.value = await api.getSites({ tenant_id: tenantId });
+      sites.value = await api.getSites({ user_id: userId });
     } catch (err) {
       console.error('[DeviceDetail] Failed to fetch sites:', err);
     }
@@ -106,7 +106,7 @@ const deviceInfo = computed(() => [
 ]);
 
 const assignmentInfo = computed(() => [
-  { label: 'Current Tenant', value: device.value?.tenant_name || 'Internal Inventory' },
+  { label: 'Current User', value: device.value?.user_name || 'Internal Inventory' },
   { label: 'Assigned Site', value: device.value?.site_name || 'Unassigned' },
   { label: 'Last Deployed', value: 'Jan 22, 2024' }
 ]);
@@ -118,18 +118,18 @@ const activityStatus = computed(() => [
 ]);
 
 const showAssignModal = ref(false);
-const selectedTenantId = ref('');
+const selecteduserId = ref('');
 
-const onTenantChange = (event) => {
-  selectedTenantId.value = event.target.value;
+const onUserChange = (event) => {
+  selecteduserId.value = event.target.value;
 };
 
 const showAssignSiteModal = ref(false);
 const selectedSiteId = ref('');
 
 const handleAssign = async () => {
-  console.log('[DeviceDetail] handleAssign triggered. Selected Tenant:', selectedTenantId.value);
-  if (!selectedTenantId.value || selectedTenantId.value === '') {
+  console.log('[DeviceDetail] handleAssign triggered. Selected User:', selecteduserId.value);
+  if (!selecteduserId.value || selecteduserId.value === '') {
     notification.error('Please select an organization from the dropdown.');
     return;
   }
@@ -140,11 +140,11 @@ const handleAssign = async () => {
 
   isSaving.value = true;
   try {
-    await deviceStore.assignDeviceToTenant(selectedTenantId.value, [device.value.device_id]);
+    await deviceStore.assignDeviceToUser(selecteduserId.value, [device.value.device_id]);
     
     notification.success('Device reassigned successfully.');
     showAssignModal.value = false;
-    selectedTenantId.value = ''; // Reset selection
+    selecteduserId.value = ''; // Reset selection
     await fetchDevice();
   } catch (err) {
     console.error('[DeviceDetail] Reassignment failed:', err);
@@ -233,7 +233,7 @@ const handleEdit = () => {
           <div v-if="isAdmin" class="card-actions">
             <BaseButton variant="primary" size="sm" @click="showAssignModal = true">
               <template #icon><i class="ri-exchange-line"></i></template>
-              Reassign Tenant
+              Reassign User
             </BaseButton>
           </div>
           <div v-else class="card-actions">
@@ -248,15 +248,15 @@ const handleEdit = () => {
 
       <div v-if="showAssignModal" class="modal-overlay" @click="showAssignModal = false">
         <div class="modal-content" @click.stop>
-          <h3 class="modal-title">Reassign Tenant</h3>
+          <h3 class="modal-title">Reassign User</h3>
           <p class="modal-desc">Select the organization that will manage this device.</p>
           
           <div class="form-group">
             <label class="form-label">Organization</label>
-            <select :value="selectedTenantId" @change="onTenantChange" class="input">
-              <option value="">-- Choose Tenant --</option>
-              <option v-for="t in tenants" :key="t.tenant_id" :value="t.tenant_id">
-                {{ t.tenant_name }}
+            <select :value="selecteduserId" @change="onUserChange" class="input">
+              <option value="">-- Choose User --</option>
+              <option v-for="t in Users" :key="t.user_id" :value="t.user_id">
+                {{ t.user_name }}
               </option>
             </select>
           </div>

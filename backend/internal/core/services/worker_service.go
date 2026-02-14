@@ -21,26 +21,26 @@ func (s *WorkerService) GetWorker(ctx context.Context, id string) (*domain.Worke
 	return s.repo.Get(ctx, id)
 }
 
-func (s *WorkerService) ListWorkers(ctx context.Context, tenantID, siteID string) ([]domain.Worker, error) {
-	return s.repo.List(ctx, tenantID, siteID)
+func (s *WorkerService) ListWorkers(ctx context.Context, userID, siteID string) ([]domain.Worker, error) {
+	return s.repo.List(ctx, userID, siteID)
 }
 
 func (s *WorkerService) CreateWorker(ctx context.Context, w *domain.Worker) error {
 	if w.ID == "" {
-		w.ID = "user-" + uuid.New().String()
+		w.ID = "worker-" + uuid.New().String()
 	}
 
-	if w.TenantID == "" {
-		return fmt.Errorf("tenant_id is required")
+	if w.UserID == "" {
+		return fmt.Errorf("user_id is required")
 	}
 
 	if w.CurrentProjectID != "" {
-		projectTenantID, err := s.repo.GetProjectTenantID(ctx, w.CurrentProjectID)
+		projectUserID, err := s.repo.GetProjectUserID(ctx, w.CurrentProjectID)
 		if err != nil {
 			return fmt.Errorf("invalid project ID: %w", err)
 		}
-		if projectTenantID != w.TenantID {
-			return fmt.Errorf("tenant mismatch: project belongs to %s, worker belongs to %s", projectTenantID, w.TenantID)
+		if projectUserID != w.UserID {
+			return fmt.Errorf("user mismatch: project belongs to %s, worker belongs to %s", projectUserID, w.UserID)
 		}
 	}
 
@@ -78,8 +78,8 @@ func (s *WorkerService) UpdateWorker(ctx context.Context, id string, payload map
 	if v, ok := payload["company_name"].(string); ok {
 		existing.CompanyName = v
 	}
-	if v, ok := payload["tenant_id"].(string); ok {
-		existing.TenantID = v
+	if v, ok := payload["user_id"].(string); ok {
+		existing.UserID = v
 	}
 
 	// Project ID flexibility
@@ -95,12 +95,12 @@ func (s *WorkerService) UpdateWorker(ctx context.Context, id string, payload map
 	}
 
 	if newProjectID != "" && newProjectID != existing.CurrentProjectID {
-		projectTenantID, err := s.repo.GetProjectTenantID(ctx, newProjectID)
+		projectUserID, err := s.repo.GetProjectUserID(ctx, newProjectID)
 		if err != nil {
 			return fmt.Errorf("invalid project ID: %w", err)
 		}
-		if projectTenantID != existing.TenantID {
-			return fmt.Errorf("security violation: cannot assign project from different tenant")
+		if projectUserID != existing.UserID {
+			return fmt.Errorf("security violation: cannot assign project from different user")
 		}
 		existing.CurrentProjectID = newProjectID
 	} else if v, ok := payload["current_project_id"]; ok && v == nil {

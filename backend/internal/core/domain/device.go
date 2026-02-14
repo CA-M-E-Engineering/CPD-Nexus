@@ -22,12 +22,12 @@ type Device struct {
 	Status DeviceStatus `json:"status"`
 
 	// Associations
-	SiteID   *string `json:"site_id,omitempty"` // Pointer to allow NULL
-	TenantID string  `json:"tenant_id"`         // Required
+	SiteID *string `json:"site_id,omitempty"` // Pointer to allow NULL
+	UserID string  `json:"user_id"`           // Required
 
 	// Metadata (often joined)
-	SiteName   string `json:"site_name,omitempty"`
-	TenantName string `json:"tenant_name,omitempty"`
+	SiteName string `json:"site_name,omitempty"`
+	UserName string `json:"user_name,omitempty"`
 
 	// Telemetry
 	LastHeartbeat   *time.Time `json:"last_heartbeat,omitempty"`

@@ -29,8 +29,8 @@ func RegisterRoutes(r *mux.Router, db *sql.DB) {
 
 	// --- Handlers ---
 	// Auth Module Wiring
-	tenantRepo := mysql.NewTenantRepository(db)
-	authService := services.NewAuthService(tenantRepo)
+	userRepo := mysql.NewUserRepository(db)
+	authService := services.NewAuthService(userRepo)
 	authHandler := handlers.NewAuthHandler(authService)
 
 	// Workers Module Wiring
@@ -55,7 +55,7 @@ func RegisterRoutes(r *mux.Router, db *sql.DB) {
 
 	assignmentsHandler := handlers.NewAssignmentsHandler(db)
 	analyticsHandler := handlers.NewAnalyticsHandler(db)
-	tenantsHandler := handlers.NewTenantsHandler(db)
+	usersHandler := handlers.NewUsersHandler(db)
 	// Attendance Module Wiring
 	attendanceRepo := mysql.NewAttendanceRepository(db)
 	attendanceService := services.NewAttendanceService(attendanceRepo, workerRepo, deviceRepo)
@@ -69,7 +69,6 @@ func RegisterRoutes(r *mux.Router, db *sql.DB) {
 	// --- Auth Routes ---
 	api.HandleFunc("/auth/login", authHandler.Login).Methods("POST")
 	api.HandleFunc("/auth/me", authHandler.Me).Methods("GET")
-	// api.HandleFunc("/auth/logout", authHandler.Logout).Methods("POST") // Stateless JWT usually handles logout on client
 
 	// --- Workers Routes ---
 	api.HandleFunc("/workers", workersHandler.GetWorkers).Methods("GET")
@@ -99,12 +98,12 @@ func RegisterRoutes(r *mux.Router, db *sql.DB) {
 	api.HandleFunc("/devices/{id}", devicesHandler.UpdateDevice).Methods("PUT")
 	api.HandleFunc("/devices/{id}", devicesHandler.DeleteDevice).Methods("DELETE")
 
-	// --- Tenants Routes ---
-	api.HandleFunc("/tenants", tenantsHandler.GetTenants).Methods("GET")
-	api.HandleFunc("/tenants", tenantsHandler.CreateTenant).Methods("POST")
-	api.HandleFunc("/tenants/{id}", tenantsHandler.GetTenantById).Methods("GET")
-	api.HandleFunc("/tenants/{id}", tenantsHandler.UpdateTenant).Methods("PUT")
-	api.HandleFunc("/tenants/{id}", tenantsHandler.DeleteTenant).Methods("DELETE")
+	// --- Users Routes ---
+	api.HandleFunc("/users", usersHandler.GetUsers).Methods("GET")
+	api.HandleFunc("/users", usersHandler.CreateUser).Methods("POST")
+	api.HandleFunc("/users/{id}", usersHandler.GetUserById).Methods("GET")
+	api.HandleFunc("/users/{id}", usersHandler.UpdateUser).Methods("PUT")
+	api.HandleFunc("/users/{id}", usersHandler.DeleteUser).Methods("DELETE")
 
 	// --- Attendance Routes ---
 	api.HandleFunc("/attendance", attendanceHandler.GetAttendance).Methods("GET")
@@ -115,7 +114,7 @@ func RegisterRoutes(r *mux.Router, db *sql.DB) {
 
 	api.HandleFunc("/sites/{siteId}/assign-projects", assignmentsHandler.AssignProjects).Methods("POST")
 
-	api.HandleFunc("/tenants/{tenantId}/devices/bulk", assignmentsHandler.AssignDevicesToTenant).Methods("POST")
+	api.HandleFunc("/users/{userId}/devices/bulk", assignmentsHandler.AssignDevicesToUser).Methods("POST")
 
 	// --- Analytics Routes ---
 	api.HandleFunc("/analytics/dashboard", analyticsHandler.GetDashboardStats).Methods("GET")

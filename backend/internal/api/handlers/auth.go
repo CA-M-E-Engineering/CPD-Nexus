@@ -41,13 +41,13 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 
 	// Simple role mapping logic for frontend legacy compatibility
 	userMap := map[string]interface{}{
-		"id":        user.ID,
-		"tenant_id": user.ID,
-		"name":      user.Name,
-		"username":  user.Username,
-		"role":      "manager", // Default
+		"id":       user.ID,
+		"user_id":  user.ID,
+		"name":     user.Name,
+		"username": user.Username,
+		"role":     "manager", // Default
 	}
-	if user.TenantType == "client" {
+	if user.UserType == "client" {
 		userMap["role"] = "client"
 	}
 
@@ -63,11 +63,11 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 func (h *AuthHandler) Me(w http.ResponseWriter, r *http.Request) {
 	// For MVP: Return a static/mock user since we are not parsing JWT middleware yet
 	user := map[string]interface{}{
-		"id":        "testt.ltd",
-		"tenant_id": "testt.ltd",
-		"name":      "Test Tenant Admin",
-		"username":  "testt.ltd",
-		"role":      "client",
+		"id":       "testt.ltd",
+		"user_id":  "testt.ltd",
+		"name":     "Test User Admin",
+		"username": "testt.ltd",
+		"role":     "client",
 	}
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(user)

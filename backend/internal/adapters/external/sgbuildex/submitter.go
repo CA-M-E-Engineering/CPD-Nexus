@@ -111,11 +111,11 @@ func (w ManpowerUtilizationWrapper) ToPushRequest(ctx context.Context, db *sql.D
 	// Fetch site representative from the SAME COMPANY as the participant
 	var obNRIC, obName string
 	err := db.QueryRowContext(ctx, `
-		SELECT u.fin_nric, u.name
+		SELECT w2.fin_nric, w2.name
 		FROM site_roles sr
-		JOIN users u ON sr.user_id = u.user_id
-		JOIN users worker ON worker.user_id = ?
-		WHERE sr.site_id = ? AND u.tenant_id = worker.tenant_id
+		JOIN workers w2 ON sr.worker_id = w2.worker_id
+		JOIN workers worker ON worker.worker_id = ?
+		WHERE sr.site_id = ? AND w2.user_id = worker.user_id
 		ORDER BY sr.is_primary DESC
 		LIMIT 1
 	`, w.InternalWorkerID, w.InternalSiteID).Scan(&obNRIC, &obName)

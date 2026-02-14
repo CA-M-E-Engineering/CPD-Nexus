@@ -3,7 +3,7 @@ import { workersApi } from '../api/workers.api';
 import { projectsApi } from '../api/projects.api';
 import { sitesApi } from '../api/sites.api';
 import { devicesApi } from '../api/devices.api';
-import { tenantsApi } from '../api/tenants.api';
+import { usersApi } from '../api/users.api';
 import { assignmentsApi } from '../api/assignments.api';
 import { analyticsApi } from '../api/analytics.api';
 import { attendanceApi } from '../api/attendance.api';
@@ -47,12 +47,12 @@ export const liveApi = {
     deleteDevice: devicesApi.deleteDevice,
     bulkAssign: devicesApi.bulkAssign,
 
-    // --- Tenants ---
-    getTenants: tenantsApi.getTenants,
-    getTenantById: tenantsApi.getTenantById,
-    createTenant: tenantsApi.createTenant,
-    updateTenant: tenantsApi.updateTenant,
-    deleteTenant: tenantsApi.deleteTenant,
+    // --- Users ---
+    getUsers: usersApi.getUsers,
+    getUserById: usersApi.getUserById,
+    createUser: usersApi.createUser,
+    updateUser: usersApi.updateUser,
+    deleteUser: usersApi.deleteUser,
 
     // --- Assignments (Relations) ---
     assignWorkersToProject: assignmentsApi.assignWorkersToProject,

@@ -17,23 +17,28 @@ const deviceStore = useDeviceStore();
 
 const isSaving = ref(false);
   const isLoading = ref(false);
-  const tenants = ref([]);
+  const Users = ref([]);
 
   const formData = ref({
     sn: '',
     model: '',
     status: 'offline',
-    tenant_id: ''
+    user_id: ''
   });
 
   const isEdit = computed(() => props.mode === 'edit');
 
-  const fetchTenants = async () => {
+  const fetchUsers = async () => {
     try {
-      // Fetch all tenants for assignment
-      tenants.value = await api.getTenants();
+      // Fetch all Users for assignment
+      Users.value = await api.getUsers();
+      if (Users.value.length > 0 && !formData.value.user_id) {
+          // Default to vendor if available, or first user
+          const vendor = Users.value.find(u => u.user_type === 'vendor');
+          formData.value.user_id = vendor ? vendor.user_id : Users.value[0].user_id;
+      }
     } catch (err) {
-      console.error('Failed to fetch tenants', err);
+      console.error('Failed to fetch Users', err);
     }
   };
 
@@ -47,7 +52,7 @@ const isSaving = ref(false);
           sn: data.sn,
           model: data.model,
           status: data.status,
-          tenant_id: data.tenant_id || ''
+          user_id: data.user_id || ''
         };
       }
     } catch (err) {
@@ -58,7 +63,7 @@ const isSaving = ref(false);
   };
 
   onMounted(async () => {
-    await fetchTenants();
+    await fetchUsers();
     await fetchDevice();
   });
 
@@ -109,11 +114,11 @@ const handleSubmit = async () => {
         />
         
         <div class="form-group full-width">
-          <label class="form-label">Assigned Tenant</label>
-          <select v-model="formData.tenant_id" class="form-select">
-            <option value="">Unassigned</option>
-            <option v-for="tenant in tenants" :key="tenant.tenant_id" :value="tenant.tenant_id">
-              {{ tenant.tenant_name }}
+          <label class="form-label">Assigned User</label>
+          <select v-model="formData.user_id" class="form-select" required>
+            <option v-if="Users.length === 0" value="" disabled>No users available</option>
+            <option v-for="User in Users" :key="User.user_id" :value="User.user_id">
+              {{ User.user_name }} ({{ User.user_type }})
             </option>
           </select>
         </div>

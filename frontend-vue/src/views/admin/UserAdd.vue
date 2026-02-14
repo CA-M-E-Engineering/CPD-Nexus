@@ -2,7 +2,7 @@
 import { ref, onMounted, computed } from 'vue';
 import { api } from '../../services/api.js';
 import { notification } from '../../services/notification';
-import { MAP_MODES, TENANT_TYPES } from '../../utils/constants.js';
+import { MAP_MODES, USER_TYPES } from '../../utils/constants.js';
 import UnifiedMap from '../../components/ui/UnifiedMap.vue';
 import PageHeader from '../../components/ui/PageHeader.vue';
 import BaseInput from '../../components/ui/BaseInput.vue';
@@ -23,32 +23,34 @@ const isLoading = ref(false);
 const isSaving = ref(false);
 
 const formData = ref({
-  tenant_name: '',
-  tenant_type: TENANT_TYPES.CLIENT,
+  user_name: '',
+  user_type: USER_TYPES.CLIENT,
   username: '',
   password: '',
   email: '',
   phone: '',
   address: '',
   latitude: '',
-  longitude: ''
+  longitude: '',
+  status: 'active' // Default status
 });
 
-const fetchTenant = async () => {
+const fetchUser = async () => {
   if (!isEdit.value || !props.id) return;
   isLoading.value = true;
   try {
-    const data = await api.getTenantById(props.id);
+    const data = await api.getUserById(props.id);
     if (data) {
       formData.value = {
-        tenant_name: data.tenant_name,
-        tenant_type: data.tenant_type || TENANT_TYPES.CLIENT,
+        user_name: data.user_name,
+        user_type: data.user_type || USER_TYPES.CLIENT,
         username: data.username || '',
         email: data.email || '',
         phone: data.phone || '',
         address: data.address || '',
         latitude: data.lat || '',
-        longitude: data.lng || ''
+        longitude: data.lng || '',
+        status: data.status || 'active'
       };
     }
   } finally {
@@ -56,7 +58,7 @@ const fetchTenant = async () => {
   }
 };
 
-onMounted(fetchTenant);
+onMounted(fetchUser);
 
 const handleSubmit = async () => {
   isSaving.value = true;
@@ -68,15 +70,15 @@ const handleSubmit = async () => {
     };
 
     if (isEdit.value) {
-      await api.updateTenant(props.id, payload);
+      await api.updateUser(props.id, payload);
       notification.success('Organization updated successfully');
     } else {
-      await api.createTenant(payload);
+      await api.createUser(payload);
       notification.success('New organization registered successfully');
     }
-    emit('navigate', 'tenants');
+    emit('navigate', 'users');
   } catch (err) {
-    console.error('[TenantAdd] Save failed:', err);
+    console.error('[UserAdd] Save failed:', err);
     notification.error(err.message || 'Failed to save organization details');
   } finally {
     isSaving.value = false;
@@ -85,9 +87,9 @@ const handleSubmit = async () => {
 </script>
 
 <template>
-  <div class="tenant-add">
+  <div class="user-add">
     <PageHeader 
-      :title="isEdit ? 'Edit Organization' : 'Register New Tenant'" 
+      :title="isEdit ? 'Edit Organization' : 'Register New User'" 
       :description="isEdit ? 'Update details for this organization account' : 'Add a new client organization to the system'"
     />
 
@@ -98,14 +100,14 @@ const handleSubmit = async () => {
     <form v-else class="form-container" @submit.prevent="handleSubmit">
       <div class="form-info-banner">
         <i class="ri-information-line"></i>
-        <span>Creating a tenant will automatically generate a <strong>Login Account</strong> and a corresponding <strong>Primary Business Entity</strong>.</span>
+        <span>Creating a User will automatically generate a <strong>Login Account</strong> and a corresponding <strong>Primary Business Entity</strong>.</span>
       </div>
 
       <div class="form-grid">
         <div class="section-title full-width">Account & Identity</div>
-        <BaseInput v-model="formData.tenant_name" label="Tenant Name" placeholder="e.g., Acme Logistics" class="full-width" required />
+        <BaseInput v-model="formData.user_name" label="User Name" placeholder="e.g., Acme Logistics" class="full-width" required />
         
-        <BaseInput v-model="formData.email" label="Contact Email" type="email" placeholder="contact@tenant.com" required />
+        <BaseInput v-model="formData.email" label="Contact Email" type="email" placeholder="contact@User.com" required />
         <BaseInput v-model="formData.username" label="Username" placeholder="e.g., acme_admin" required />
         
         <BaseInput v-model="formData.password" label="Password" type="password" placeholder="At least 6 characters" class="full-width" :required="!isEdit" />
@@ -133,9 +135,9 @@ const handleSubmit = async () => {
       </div>
 
       <div class="form-actions">
-        <BaseButton variant="secondary" @click="$emit('navigate', 'tenants')">Cancel</BaseButton>
+        <BaseButton variant="secondary" @click="$emit('navigate', 'users')">Cancel</BaseButton>
         <BaseButton :loading="isSaving" @click="handleSubmit" variant="primary">
-          {{ isEdit ? 'Save Changes' : 'Register Tenant' }}
+          {{ isEdit ? 'Save Changes' : 'Register User' }}
         </BaseButton>
       </div>
     </form>

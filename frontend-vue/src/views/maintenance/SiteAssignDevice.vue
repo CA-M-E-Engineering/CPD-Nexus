@@ -105,18 +105,18 @@ const fetchData = async () => {
   isLoading.value = true;
   try {
     const savedUser = localStorage.getItem('auth_user');
-    let tenantId = 'tenant-client-1';
+    let userId = 'User-client-1';
     if (savedUser) {
         try {
             const user = JSON.parse(savedUser);
-            tenantId = user.tenant_id || user.id;
+            userId = user.user_id || user.id;
         } catch (e) {
             console.error("Failed to parse auth_user", e);
         }
     }
     const [sitesData, devicesData] = await Promise.all([
-      api.getSites({ tenant_id: tenantId }),
-      api.getDevices({ tenant_id: tenantId })
+      api.getSites({ user_id: userId }),
+      api.getDevices({ user_id: userId })
     ]);
     sites.value = sitesData || [];
     allDevices.value = devicesData || [];

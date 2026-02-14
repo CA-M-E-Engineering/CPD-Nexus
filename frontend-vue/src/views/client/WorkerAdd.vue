@@ -33,14 +33,14 @@ const fetchWorker = async () => {
   isLoading.value = true;
   try {
     const savedUser = localStorage.getItem('auth_user');
-    let contextTenantId = null;
+    let contextuserId = null;
     if (savedUser) {
         try {
             const user = JSON.parse(savedUser);
-            contextTenantId = user.tenant_id || user.id;
+            contextuserId = user.user_id || user.id;
         } catch (e) {}
     }
-    const data = await api.getWorkerById(props.id, { tenant_id: contextTenantId });
+    const data = await api.getWorkerById(props.id, { user_id: contextuserId });
     if (data) {
       formData.value = { 
         ...data,
@@ -66,17 +66,17 @@ const handleSubmit = async () => {
   isSaving.value = true;
   try {
     const savedUser = localStorage.getItem('auth_user');
-    let tenantId = null;
+    let userId = null;
     if (savedUser) {
         try {
             const user = JSON.parse(savedUser);
-            tenantId = user.tenant_id || user.id;
+            userId = user.user_id || user.id;
         } catch (e) {}
     }
 
     const payload = { 
         ...formData.value,
-        tenant_id: tenantId
+        user_id: userId
     };
 
     if (isEdit.value) {

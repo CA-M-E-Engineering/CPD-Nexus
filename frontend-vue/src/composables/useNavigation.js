@@ -15,7 +15,7 @@ const navigation = {
         {
             title: 'Management',
             items: [
-                { id: 'tenants', label: 'Tenants', icon: 'ri-building-line' },
+                { id: 'users', label: 'Users', icon: 'ri-building-line' },
                 { id: 'devices', label: 'IoT Devices', icon: 'ri-cpu-line' }
             ]
         },
@@ -49,9 +49,9 @@ const navigation = {
 
 const breadcrumbMapping = {
     'dashboard': 'Dashboard',
-    'tenants': 'Tenants / List',
-    'tenant-detail': 'Tenants / Detail',
-    'tenant-add': 'Tenants / Add New',
+    'users': 'Users / List',
+    'user-detail': 'Users / Detail',
+    'user-add': 'Users / Add New',
     'devices': 'Devices / Registry',
     'device-detail': 'Devices / Detail',
     'device-add': 'Devices / Provision',
@@ -72,7 +72,7 @@ const breadcrumbMapping = {
     'project-assign-workers': 'Workers / Assignment',
     'site-assign-project': 'Projects / Site Assignment',
     'site-assign-device': 'Devices / Site Assignment',
-    'tenant-assign-device': 'Devices / Tenant Allocation'
+    'user-assign-device': 'Devices / User Allocation'
 };
 
 export function useNavigation() {

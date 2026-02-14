@@ -7,6 +7,7 @@ import (
 	"log"
 	"sgbuildex/internal/core/domain"
 	"sgbuildex/internal/core/ports"
+	"sgbuildex/internal/pkg/idgen"
 )
 
 type ProjectRepository struct {
@@ -20,25 +21,25 @@ func NewProjectRepository(db *sql.DB) ports.ProjectRepository {
 func (r *ProjectRepository) Get(ctx context.Context, id string) (*domain.Project, error) {
 	query := `
 		SELECT 
-            p.project_id, p.site_id, p.tenant_id, p.project_title, p.status, 
+            p.project_id, p.site_id, p.user_id, p.project_title, p.status, 
             p.project_reference_number, p.project_contract_number, p.project_location_description, p.project_contract_name, p.hdb_precinct_name, 
             p.main_contractor_name, p.main_contractor_uen,
             p.offsite_fabricator_name, p.offsite_fabricator_uen, p.offsite_fabricator_location,
             p.worker_company_name, p.worker_company_uen,
             p.worker_company_client_name, p.worker_company_client_uen,
             p.created_at, p.updated_at, s.site_name,
-            (SELECT COUNT(*) FROM users u WHERE u.current_project_id = p.project_id) as worker_count,
+            (SELECT COUNT(*) FROM workers w WHERE w.current_project_id = p.project_id) as worker_count,
             (SELECT COUNT(*) FROM devices d WHERE d.site_id = p.site_id) as device_count
 		FROM projects p
 		LEFT JOIN sites s ON p.site_id = s.site_id
 		WHERE p.project_id = ?`
 
 	var p domain.Project
-	var siteID, tenantID, status, ref, cRef, loc, cName, hdb sql.NullString
+	var siteID, userID, status, ref, cRef, loc, cName, hdb sql.NullString
 	var mcName, mcUEN, ofName, ofUEN, ofLoc, wcName, wcUEN, wccName, wccUEN sql.NullString
 
 	err := r.db.QueryRowContext(ctx, query, id).Scan(
-		&p.ID, &siteID, &tenantID, &p.Title, &status,
+		&p.ID, &siteID, &userID, &p.Title, &status,
 		&ref, &cRef, &loc, &cName, &hdb,
 		&mcName, &mcUEN, &ofName, &ofUEN, &ofLoc, &wcName, &wcUEN, &wccName, &wccUEN,
 		&p.CreatedAt, &p.UpdatedAt, &p.SiteName, &p.WorkerCount, &p.DeviceCount,
@@ -53,8 +54,8 @@ func (r *ProjectRepository) Get(ctx context.Context, id string) (*domain.Project
 	if siteID.Valid {
 		p.SiteID = siteID.String
 	}
-	if tenantID.Valid {
-		p.TenantID = tenantID.String
+	if userID.Valid {
+		p.UserID = userID.String
 	}
 	if status.Valid {
 		p.Status = status.String
@@ -105,29 +106,29 @@ func (r *ProjectRepository) Get(ctx context.Context, id string) (*domain.Project
 	return &p, nil
 }
 
-func (r *ProjectRepository) List(ctx context.Context, tenantID string) ([]domain.Project, error) {
+func (r *ProjectRepository) List(ctx context.Context, userID string) ([]domain.Project, error) {
 	query := `
         SELECT 
-            p.project_id, p.site_id, p.tenant_id, p.project_title, p.status, 
+            p.project_id, p.site_id, p.user_id, p.project_title, p.status, 
             p.project_reference_number, p.project_contract_number, p.project_location_description, p.project_contract_name, p.hdb_precinct_name, 
             p.main_contractor_name, p.main_contractor_uen,
             p.offsite_fabricator_name, p.offsite_fabricator_uen, p.offsite_fabricator_location,
             p.worker_company_name, p.worker_company_uen,
             p.worker_company_client_name, p.worker_company_client_uen,
             p.created_at, p.updated_at, s.site_name,
-            (SELECT COUNT(*) FROM users u WHERE u.current_project_id = p.project_id) as worker_count,
+            (SELECT COUNT(*) FROM workers w WHERE w.current_project_id = p.project_id) as worker_count,
             (SELECT COUNT(*) FROM devices d WHERE d.site_id = p.site_id AND d.status != 'inactive') as device_count
         FROM projects p
         LEFT JOIN sites s ON p.site_id = s.site_id
         WHERE (p.status != 'inactive' OR p.status IS NULL)`
 
 	args := []interface{}{}
-	if tenantID != "" {
-		query += " AND p.tenant_id = ?"
-		args = append(args, tenantID)
+	if userID != "" {
+		query += " AND p.user_id = ?"
+		args = append(args, userID)
 	}
 
-	log.Printf("[SECURITY] ProjectRepository.List: tenantID='%s'", tenantID)
+	log.Printf("[SECURITY] ProjectRepository.List: userID='%s'", userID)
 	rows, err := r.db.QueryContext(ctx, query, args...)
 	if err != nil {
 		return nil, err
@@ -137,10 +138,10 @@ func (r *ProjectRepository) List(ctx context.Context, tenantID string) ([]domain
 	var projects []domain.Project
 	for rows.Next() {
 		var p domain.Project
-		var siteID, tenantID, status, ref, cRef, loc, cName, hdb sql.NullString
+		var siteID, uid, status, ref, cRef, loc, cName, hdb sql.NullString
 		var mcName, mcUEN, ofName, ofUEN, ofLoc, wcName, wcUEN, wccName, wccUEN sql.NullString
 		if err := rows.Scan(
-			&p.ID, &siteID, &tenantID, &p.Title, &status,
+			&p.ID, &siteID, &uid, &p.Title, &status,
 			&ref, &cRef, &loc, &cName, &hdb,
 			&mcName, &mcUEN, &ofName, &ofUEN, &ofLoc, &wcName, &wcUEN, &wccName, &wccUEN,
 			&p.CreatedAt, &p.UpdatedAt, &p.SiteName, &p.WorkerCount, &p.DeviceCount,
@@ -150,8 +151,8 @@ func (r *ProjectRepository) List(ctx context.Context, tenantID string) ([]domain
 		if siteID.Valid {
 			p.SiteID = siteID.String
 		}
-		if tenantID.Valid {
-			p.TenantID = tenantID.String
+		if uid.Valid {
+			p.UserID = uid.String
 		}
 		if status.Valid {
 			p.Status = status.String
@@ -205,8 +206,14 @@ func (r *ProjectRepository) List(ctx context.Context, tenantID string) ([]domain
 }
 
 func (r *ProjectRepository) Create(ctx context.Context, p *domain.Project) error {
+	id, err := idgen.GenerateNextID(r.db, "projects", "project_id", "project")
+	if err != nil {
+		return fmt.Errorf("failed to generate project ID: %w", err)
+	}
+	p.ID = id
+
 	query := `INSERT INTO projects (
-        project_id, site_id, tenant_id, project_title, status, project_reference_number, 
+        project_id, site_id, user_id, project_title, status, project_reference_number, 
         project_contract_number, project_location_description, project_contract_name, hdb_precinct_name, 
         main_contractor_name, main_contractor_uen,
         offsite_fabricator_name, offsite_fabricator_uen, offsite_fabricator_location,
@@ -215,8 +222,8 @@ func (r *ProjectRepository) Create(ctx context.Context, p *domain.Project) error
         created_at, updated_at
     ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())`
 
-	_, err := r.db.ExecContext(ctx, query,
-		p.ID, p.SiteID, p.TenantID, p.Title, p.Status, p.Reference,
+	_, err = r.db.ExecContext(ctx, query,
+		p.ID, p.SiteID, p.UserID, p.Title, p.Status, p.Reference,
 		p.ContractRef, p.Location, p.ContractName, toNullString(p.HDBPrecinct),
 		toNullString(p.MainContractorName), toNullString(p.MainContractorUEN),
 		toNullString(p.OffsiteFabricatorName), toNullString(p.OffsiteFabricatorUEN), toNullString(p.OffsiteFabricatorLocation),
@@ -228,7 +235,7 @@ func (r *ProjectRepository) Create(ctx context.Context, p *domain.Project) error
 
 func (r *ProjectRepository) Update(ctx context.Context, p *domain.Project) error {
 	query := `UPDATE projects SET 
-        site_id=?, tenant_id=?, project_title=?, status=?, project_reference_number=?, 
+        site_id=?, user_id=?, project_title=?, status=?, project_reference_number=?, 
         project_contract_number=?, project_location_description=?, project_contract_name=?, hdb_precinct_name=?, 
         main_contractor_name=?, main_contractor_uen=?,
         offsite_fabricator_name=?, offsite_fabricator_uen=?, offsite_fabricator_location=?,
@@ -238,7 +245,7 @@ func (r *ProjectRepository) Update(ctx context.Context, p *domain.Project) error
         WHERE project_id=?`
 
 	_, err := r.db.ExecContext(ctx, query,
-		p.SiteID, p.TenantID, p.Title, p.Status, p.Reference,
+		p.SiteID, p.UserID, p.Title, p.Status, p.Reference,
 		p.ContractRef, p.Location, p.ContractName, toNullString(p.HDBPrecinct),
 		toNullString(p.MainContractorName), toNullString(p.MainContractorUEN),
 		toNullString(p.OffsiteFabricatorName), toNullString(p.OffsiteFabricatorUEN), toNullString(p.OffsiteFabricatorLocation),

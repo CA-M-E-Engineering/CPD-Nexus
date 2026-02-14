@@ -12,7 +12,7 @@
         <p>Fetching project directory...</p>
       </div>
       <div v-else-if="projects.length === 0" class="loading-padding">
-        <p>No active projects found for this tenant.</p>
+        <p>No active projects found for this User.</p>
         <p><small>Create a project first to assign workers.</small></p>
       </div>
       <div v-else class="selection-grid">
@@ -80,19 +80,19 @@ const fetchData = async () => {
   isLoading.value = true;
   try {
     const savedUser = localStorage.getItem('auth_user');
-    let tenantId = 'tenant-client-1';
+    let userId = 'User-client-1';
     if (savedUser) {
         try {
             const user = JSON.parse(savedUser);
-            tenantId = user.tenant_id || user.id;
+            userId = user.user_id || user.id;
         } catch (e) {
             console.error('Failed to parse auth_user', e);
         }
     }
 
     const [workerData, projectsData] = await Promise.all([
-      api.getWorkerById(props.id, { tenant_id: tenantId }),
-      api.getProjects({ tenant_id: tenantId })
+      api.getWorkerById(props.id, { user_id: userId }),
+      api.getProjects({ user_id: userId })
     ]);
     worker.value = workerData;
     projects.value = projectsData || [];

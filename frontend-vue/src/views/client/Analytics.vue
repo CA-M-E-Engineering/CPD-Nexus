@@ -27,26 +27,26 @@ const fetchAnalytics = async () => {
   loading.value = true;
   try {
     const savedUser = localStorage.getItem('auth_user');
-    let tenantId = null;
+    let userId = null;
     
     if (savedUser) {
        try {
            const user = JSON.parse(savedUser);
-           tenantId = user.id || user.tenant_id; 
+           userId = user.id || user.user_id; 
        } catch (e) {
            console.error("Failed to parse auth_user", e);
        }
     }
 
-    if (!tenantId) {
-      console.warn("No tenant context found for analytics");
+    if (!userId) {
+      console.warn("No User context found for analytics");
       loading.value = false;
       return; 
     }
 
     const [statsData, detailedData] = await Promise.all([
-      api.getDashboardStats({ tenant_id: tenantId }),
-      api.getDetailedAnalytics({ tenant_id: tenantId })
+      api.getDashboardStats({ user_id: userId }),
+      api.getDetailedAnalytics({ user_id: userId })
     ]);
     
     // Top Stats
