@@ -1,0 +1,100 @@
+package handlers
+
+import (
+	"encoding/json"
+	"log"
+	"net/http"
+	"sgbuildex/internal/core/domain"
+	"sgbuildex/internal/core/ports"
+
+	"github.com/gorilla/mux"
+)
+
+type WorkersHandler struct {
+	service ports.WorkerService
+}
+
+func NewWorkersHandler(service ports.WorkerService) *WorkersHandler {
+	return &WorkersHandler{service: service}
+}
+
+func (h *WorkersHandler) GetWorkers(w http.ResponseWriter, r *http.Request) {
+	tenantID := r.URL.Query().Get("tenant_id")
+	siteID := r.URL.Query().Get("site_id")
+
+	log.Printf("[WorkersHandler] GetWorkers request: tenant_id=%s, site_id=%s", tenantID, siteID)
+	workers, err := h.service.ListWorkers(r.Context(), tenantID, siteID)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(workers)
+}
+
+func (h *WorkersHandler) GetWorkerById(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	id := vars["id"]
+
+	worker, err := h.service.GetWorker(r.Context(), id)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	if worker == nil {
+		http.Error(w, "Worker not found", http.StatusNotFound)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(worker)
+}
+
+func (h *WorkersHandler) CreateWorker(w http.ResponseWriter, r *http.Request) {
+	var worker domain.Worker
+	if err := json.NewDecoder(r.Body).Decode(&worker); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	if err := h.service.CreateWorker(r.Context(), &worker); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusCreated)
+	json.NewEncoder(w).Encode(worker)
+}
+
+func (h *WorkersHandler) UpdateWorker(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	id := vars["id"]
+
+	var payload map[string]interface{}
+	if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	if err := h.service.UpdateWorker(r.Context(), id, payload); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	json.NewEncoder(w).Encode(map[string]string{"status": "updated"})
+}
+
+func (h *WorkersHandler) DeleteWorker(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	id := vars["id"]
+
+	if err := h.service.DeleteWorker(r.Context(), id); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]string{"status": "deleted"})
+}

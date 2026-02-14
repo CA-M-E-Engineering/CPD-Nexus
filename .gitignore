@@ -1,0 +1,37 @@
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDEs and editors
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Environment variables (Always keep secrets out of git)
+.env
+.env.local
+.env.*.local
+
+# Node.js
+node_modules/
+dist/
+dist-ssr/
+*.local
+
+# Go
+bin/
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+backend/sgbuildex.db
+backend/backend_logs*.txt
+
+# Logs
+logs/
+*.log
+
+# Dependencies
+vendor/
