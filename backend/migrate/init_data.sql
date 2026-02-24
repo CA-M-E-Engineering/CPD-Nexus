@@ -1,7 +1,5 @@
 SET FOREIGN_KEY_CHECKS = 0;
 
-TRUNCATE TABLE site_roles;
-
 TRUNCATE TABLE attendance;
 
 TRUNCATE TABLE devices;
@@ -317,54 +315,18 @@ VALUES (
         'active',
         NOW(),
         NOW()
-    );
-
--- ======================
--- Site Roles
--- ======================
-INSERT INTO
-    site_roles (
-        site_role_id,
-        site_id,
-        worker_id,
-        role,
-        is_primary,
-        created_at,
-        updated_at
-    )
-VALUES (
-        'sr-1',
-        'site-uuid-1',
-        'user-worker-1',
-        'sub_contractor',
-        TRUE,
-        NOW(),
-        NOW()
     ),
     (
-        'sr-2',
-        'site-uuid-1',
-        'user-worker-2',
-        'sub_contractor',
-        TRUE,
-        NOW(),
-        NOW()
-    ),
-    (
-        'sr-3',
-        'site-uuid-2',
-        'user-worker-3',
-        'sub_contractor',
-        TRUE,
-        NOW(),
-        NOW()
-    ),
-    (
-        'sr-4',
-        'site-uuid-2',
-        'user-worker-4',
-        'sub_contractor',
-        TRUE,
+        'user-pic-2',
+        'tenant-client-1',
+        'PIC Jane Smith',
+        'jane@mega.com',
+        'pic',
+        'S7000002P',
+        'MGMT',
+        'project-uuid-2',
+        'Mega Engineering',
+        'active',
         NOW(),
         NOW()
     );

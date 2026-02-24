@@ -108,21 +108,19 @@ func (w ManpowerUtilizationWrapper) ToPushRequest(ctx context.Context, db *sql.D
 		projectRef = *w.ProjectReferenceNumber
 	}
 
-	// Fetch site representative from the SAME COMPANY as the participant
+	// Fetch PIC worker from the same project as the participant
 	var obNRIC, obName string
 	err := db.QueryRowContext(ctx, `
-		SELECT w2.fin_nric, w2.name
-		FROM site_roles sr
-		JOIN workers w2 ON sr.worker_id = w2.worker_id
-		JOIN workers worker ON worker.worker_id = ?
-		WHERE sr.site_id = ? AND w2.user_id = worker.user_id
-		ORDER BY sr.is_primary DESC
+		SELECT pic.fin_nric, pic.name
+		FROM workers worker
+		JOIN workers pic ON worker.current_project_id = pic.current_project_id
+		WHERE worker.worker_id = ? AND pic.role = 'pic'
 		LIMIT 1
-	`, w.InternalWorkerID, w.InternalSiteID).Scan(&obNRIC, &obName)
+	`, w.InternalWorkerID).Scan(&obNRIC, &obName)
 
 	var participantOnBehalf *OnBehalfWrapper
 	if err != nil {
-		fmt.Printf("Warning: No site representative found from same company for worker %s at site %s: %v\n", w.InternalWorkerID, w.InternalSiteID, err)
+		fmt.Printf("Warning: No PIC found for project associated with worker %s: %v\n", w.InternalWorkerID, err)
 	} else {
 		participantOnBehalf = &OnBehalfWrapper{
 			ID:   obNRIC,
@@ -142,9 +140,12 @@ func (w ManpowerUtilizationWrapper) ToPushRequest(ctx context.Context, db *sql.D
 		},
 	}
 
-	// Request level OnBehalfOf (must be the same company of the participant)
+	// Request level OnBehalfOf (Participant's company and Main Contractor)
 	onBehalfOf := []OnBehalfWrapper{
 		{ID: w.PersonEmployerCompanyUEN},
+	}
+	if w.MainContractorCompanyUEN != nil && *w.MainContractorCompanyUEN != "" {
+		onBehalfOf = append(onBehalfOf, OnBehalfWrapper{ID: *w.MainContractorCompanyUEN})
 	}
 
 	return &PushRequest{
