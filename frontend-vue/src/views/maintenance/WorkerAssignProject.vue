@@ -90,13 +90,16 @@ const fetchData = async () => {
         }
     }
 
-    const [workerData, projectsData] = await Promise.all([
+    const [workerResp, projectsResp] = await Promise.all([
       api.getWorkerById(props.id, { user_id: userId }),
       api.getProjects({ user_id: userId })
     ]);
+    const workerData = typeof workerResp === 'string' ? JSON.parse(workerResp) : workerResp;
+    const projectsData = typeof projectsResp === 'string' ? JSON.parse(projectsResp) : projectsResp;
+    
     worker.value = workerData;
     projects.value = projectsData || [];
-    selectedProjectId.value = workerData.current_project_id || '';
+    selectedProjectId.value = workerData?.current_project_id || '';
   } catch (err) {
     console.error('Failed to fetch data', err);
     notification.error('Failed to load project information');

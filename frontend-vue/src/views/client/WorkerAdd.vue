@@ -1,5 +1,5 @@
 <script setup>
-import { ref, onMounted, computed } from 'vue';
+import { ref, onMounted, computed, watch } from 'vue';
 import { api } from '../../services/api.js';
 import { notification } from '../../services/notification';
 import PageHeader from '../../components/ui/PageHeader.vue';
@@ -40,10 +40,13 @@ const fetchWorker = async () => {
             contextuserId = user.user_id || user.id;
         } catch (e) {}
     }
-    const data = await api.getWorkerById(props.id, { user_id: contextuserId });
+    const response = await api.getWorkerById(props.id, { user_id: contextuserId });
+    const data = typeof response === 'string' ? JSON.parse(response) : response;
+    
     if (data) {
       formData.value = { 
         ...data,
+        fin: data.fin || data.fin_nric || '',
         company_name: data.company_name || ''
       };
     }
@@ -53,12 +56,18 @@ const fetchWorker = async () => {
 };
 
 onMounted(async () => {
-    await fetchWorker();
-    
-    // Set default role/status if new
-    if (!isEdit.value) {
+    if (isEdit.value) {
+        await fetchWorker();
+    } else {
+        // Set default role/status if new
         if (!formData.value.role) formData.value.role = 'worker';
         if (!formData.value.status) formData.value.status = 'active';
+    }
+});
+
+watch(() => props.id, async (newId) => {
+    if (isEdit.value && newId) {
+        await fetchWorker();
     }
 });
 

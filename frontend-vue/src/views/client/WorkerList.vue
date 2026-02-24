@@ -82,11 +82,11 @@ const filteredWorkers = computed(() => {
 const emit = defineEmits(['navigate']);
 
 const handleRowClick = (worker) => {
-  emit('navigate', 'worker-detail', { id: worker.user_id });
+  emit('navigate', 'worker-detail', { id: worker.worker_id });
 };
 
 const handleEdit = (worker) => {
-  emit('navigate', 'worker-add', { id: worker.user_id, mode: 'edit' });
+  emit('navigate', 'worker-add', { id: worker.worker_id, mode: 'edit' });
 };
 
 const handleExport = async () => {
@@ -109,8 +109,8 @@ const deleteWorker = async () => {
   if (!workerToDelete.value) return;
   isDeleting.value = true;
   try {
-    await api.deleteWorker(workerToDelete.value.user_id);
-    workers.value = workers.value.filter(w => w.user_id !== workerToDelete.value.user_id);
+    await api.deleteWorker(workerToDelete.value.worker_id);
+    workers.value = workers.value.filter(w => w.worker_id !== workerToDelete.value.worker_id);
     showDeleteDialog.value = false;
   } catch (err) {
      console.error('Failed to delete worker', err);

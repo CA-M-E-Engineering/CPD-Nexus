@@ -171,7 +171,7 @@ func (r *WorkerRepository) List(ctx context.Context, userID, siteID string) ([]d
         LEFT JOIN projects p ON w.current_project_id = p.project_id
         LEFT JOIN sites s ON p.site_id = s.site_id
         LEFT JOIN users u ON w.user_id = u.user_id
-        WHERE w.role IN ('worker', 'pic', 'manager') AND (w.status != 'inactive' OR w.status IS NULL)`
+        WHERE w.role IN ('worker', 'pic', 'manager')`
 
 	args := []interface{}{}
 	if userID != "" {

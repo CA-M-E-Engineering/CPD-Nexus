@@ -19,7 +19,8 @@ const fetchWorker = async () => {
   if (!props.id) return;
   isLoading.value = true;
   try {
-    worker.value = await api.getWorkerById(props.id);
+    const response = await api.getWorkerById(props.id);
+    worker.value = typeof response === 'string' ? JSON.parse(response) : response;
   } catch (err) {
     console.error('[WorkerDetail] Failed to fetch worker:', err);
   } finally {
@@ -53,7 +54,7 @@ const assignmentInfo = computed(() => [
   { label: 'Site Name', value: worker.value?.site_name || '---' },
   { label: 'Site Location', value: worker.value?.site_location || '---' },
   { label: 'User Name', value: worker.value?.user_name || '---' },
-  { label: 'User Address', value: worker.value?.User_address || '---' }
+  { label: 'User Address', value: worker.value?.user_address || '---' }
 ]);
 
 const handleEdit = () => {

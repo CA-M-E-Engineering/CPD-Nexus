@@ -145,7 +145,7 @@ const handleAssignWorker = () => {
 };
 
 const handleManageWorker = (worker) => {
-  emit('navigate', 'worker-detail', { id: worker.user_id });
+  emit('navigate', 'worker-detail', { id: worker.worker_id });
 };
 
 const showDeleteConfirm = ref(false);
