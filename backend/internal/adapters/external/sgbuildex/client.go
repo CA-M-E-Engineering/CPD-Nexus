@@ -5,6 +5,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"os"
+	"strings"
 	"time"
 )
 
@@ -27,8 +29,9 @@ func NewClient(baseURL string) *Client {
 
 // GenerateJWT generates a JWT token for authentication
 func (c *Client) GenerateJWT() string {
-	// TODO: Implement real JWT creation using secret/key
-	return "dummy-token"
+	// Use a pre-provisioned bearer token from environment.
+	// Keeps local/dev usable without shipping a hardcoded token.
+	return strings.TrimSpace(os.Getenv("INGRESS_BEARER_TOKEN"))
 }
 
 // PostJSON sends a JSON payload to the specified endpoint
@@ -46,7 +49,9 @@ func (c *Client) PostJSON(endpoint string, payload any) (*http.Response, error) 
 	}
 
 	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Authorization", "Bearer "+c.JWT)
+	if c.JWT != "" {
+		req.Header.Set("Authorization", "Bearer "+c.JWT)
+	}
 
 	resp, err := c.HTTPClient.Do(req)
 	if err != nil {

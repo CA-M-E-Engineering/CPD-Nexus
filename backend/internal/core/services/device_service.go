@@ -31,7 +31,6 @@ func (s *DeviceService) RegisterDevice(ctx context.Context, sn, model, userID st
 	}
 
 	// Default user if missing (legacy behavior)
-	// Default user if missing (legacy behavior)
 	if userID == "" {
 		userID = "tenant-vendor-1"
 	}

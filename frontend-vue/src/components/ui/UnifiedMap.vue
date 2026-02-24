@@ -3,9 +3,6 @@ import { onMounted, ref, onUnmounted, watch, nextTick } from 'vue';
 import { api } from '../../services/api.js';
 import { MAP_MODES, USER_STATUS } from '../../utils/constants.js';
 
-// Add local constant if not in utils yet, or better, assumes it returns 'single-edit' 
-// actually I should check constants.js first but I can extend the validator.
-
 const props = defineProps({
     mode: {
         type: String,
@@ -40,8 +37,6 @@ const updateMapTheme = () => {
     if (!map || !window.L) return;
     const currentTheme = document.documentElement.getAttribute('data-theme') || 'dark';
     const newUrl = getThemeLayerUrl(currentTheme);
-    
-    console.log(`[UnifiedMap] Updating tile layer to: ${currentTheme}`);
     
     if (tileLayer) {
         tileLayer.setUrl(newUrl);
@@ -160,8 +155,6 @@ const initMap = async () => {
     } catch (err) {
         isMapError.value = true;
         errorMessage.value = 'Map initialization failed.';
-        isMapError.value = true;
-        errorMessage.value = 'Map initialization failed.';
         console.error(`[UnifiedMap] Init Fail:`, err);
     }
 };
@@ -268,7 +261,6 @@ onMounted(() => {
 
     // Theme Observer
     themeObserver = new MutationObserver(() => {
-        console.log('[UnifiedMap] Theme change detected');
         updateMapTheme();
     });
     themeObserver.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
