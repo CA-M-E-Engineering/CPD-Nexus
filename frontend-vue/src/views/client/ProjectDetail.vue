@@ -75,7 +75,7 @@ const resourceStats = computed(() => [
 const workerColumns = [
   { key: 'name', label: 'Worker Name' },
   { key: 'role', label: 'Role' },
-  { key: 'trade_code', label: 'Trade Code' },
+  { key: 'person_trade', label: 'Trade Code' },
   { key: 'status', label: 'Status' },
   { key: 'actions', label: 'Actions', width: '100px' }
 ];

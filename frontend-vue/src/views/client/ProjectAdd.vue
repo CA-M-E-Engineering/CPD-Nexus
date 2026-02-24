@@ -145,8 +145,10 @@ const handleSubmit = async () => {
             <div class="form-grid">
               <BaseInput v-model="formData.main_contractor_name" label="Main Contractor" placeholder="e.g., Mega Engineering Pte Ltd" />
               <BaseInput v-model="formData.main_contractor_uen" label="Main Contractor UEN" placeholder="e.g., 200012345X" />
-              <BaseInput v-model="formData.worker_company_name" label="Worker Company" placeholder="e.g., WorkForce Solutions" />
+              <BaseInput v-model="formData.worker_company_name" label="Worker Company Name" placeholder="e.g., WorkForce Solutions Pte Ltd" />
               <BaseInput v-model="formData.worker_company_uen" label="Worker Company UEN" placeholder="e.g., 201998765W" />
+              <BaseInput v-model="formData.worker_company_client_name" label="Worker Company Client Name" placeholder="e.g., HDB Infrastructure" />
+              <BaseInput v-model="formData.worker_company_client_uen" label="Worker Company Client UEN" placeholder="e.g., 196100018G" />
             </div>
           </div>
 

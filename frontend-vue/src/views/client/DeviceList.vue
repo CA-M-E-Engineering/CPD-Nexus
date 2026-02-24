@@ -105,8 +105,8 @@ const confirmAssignSite = async () => {
   if (!selectedDeviceId.value || !selectedSiteId.value) return;
   isLoading.value = true;
   try {
-    const siteId = selectedSiteId.value === 'unassign' ? 'unassign' : selectedSiteId.value;
-    await api.assignDevicesToSite(siteId, [selectedDeviceId.value]);
+    const siteId = selectedSiteId.value === 'unassign' ? null : selectedSiteId.value;
+    await api.updateDevice(selectedDeviceId.value, { site_id: siteId });
     showAssignModal.value = false;
     await fetchDevices();
   } finally {

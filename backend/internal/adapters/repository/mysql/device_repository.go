@@ -210,12 +210,8 @@ func (r *DeviceRepository) Create(ctx context.Context, d *domain.Device) error {
 }
 
 func (r *DeviceRepository) Update(ctx context.Context, d *domain.Device) error {
-	query := "UPDATE devices SET sn=?, model=?, status=?"
-	args := []interface{}{d.SN, d.Model, d.Status}
-	if d.SiteID != nil {
-		query += ", site_id=?"
-		args = append(args, *d.SiteID)
-	}
+	query := "UPDATE devices SET sn=?, model=?, status=?, site_id=?"
+	args := []interface{}{d.SN, d.Model, d.Status, d.SiteID}
 	if d.UserID != "" {
 		query += ", user_id=?"
 		args = append(args, d.UserID)

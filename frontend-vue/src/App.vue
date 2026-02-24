@@ -37,7 +37,6 @@ import ClientWorkerAdd from './views/client/WorkerAdd.vue';
 
 import ClientDeviceList from './views/client/DeviceList.vue';
 import ClientAttendanceList from './views/client/AttendanceList.vue';
-import ClientAnalytics from './views/client/Analytics.vue';
 
 // Maintenance Views
 import DeviceAddMaintenance from './views/maintenance/DeviceAddMaintenance.vue';
@@ -148,8 +147,7 @@ const currentComponent = computed(() => {
       'site-assign-device': SiteAssignDevice,
       'devices': ClientDeviceList,
       'device-detail': DeviceDetail,
-      'attendance': ClientAttendanceList,
-      'analytics': ClientAnalytics
+      'attendance': ClientAttendanceList
     };
     return componentMap[activeNavId.value];
   }

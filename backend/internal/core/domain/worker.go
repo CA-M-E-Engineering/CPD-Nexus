@@ -6,10 +6,13 @@ type Worker struct {
 	Email            string `json:"email"`
 	Role             string `json:"role"`
 	Status           string `json:"status"`
-	TradeCode        string `json:"trade_code,omitempty"`
 	CurrentProjectID string `json:"current_project_id,omitempty"`
-	CompanyName      string `json:"company_name,omitempty"`
-	FIN              string `json:"fin,omitempty"`
+
+	// SGBuildex Compliance Fields
+	PersonIDNo              string `json:"person_id_no,omitempty"`
+	PersonIDAndWorkPassType string `json:"person_id_and_work_pass_type,omitempty"`
+	PersonNationality       string `json:"person_nationality,omitempty"`
+	PersonTrade             string `json:"person_trade,omitempty"`
 
 	// Details for output (Joined fields)
 	ProjectName  string `json:"project_name,omitempty"`

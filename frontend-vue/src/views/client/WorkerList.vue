@@ -19,8 +19,7 @@ const filters = ['All', 'active', 'inactive'];
 const columns = [
   { key: 'name', label: 'Name', size: 'lg', bold: true },
   { key: 'role', label: 'Role', size: 'md', muted: true },
-  { key: 'trade_code', label: 'Trade', size: 'sm', muted: true },
-  { key: 'company_name', label: 'Employer', size: 'md' },
+  { key: 'person_trade', label: 'Trade', size: 'sm', muted: true },
   { key: 'project_name', label: 'Project Name', size: 'md' },
   { key: 'status', label: 'Status', size: 'sm' },
   { key: 'actions', label: 'Actions', width: '80px' }

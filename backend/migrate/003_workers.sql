@@ -8,10 +8,19 @@ CREATE TABLE IF NOT EXISTS `workers` (
     `name` varchar(255) NOT NULL,
     `email` varchar(255) DEFAULT NULL,
     `role` enum('pic', 'manager', 'worker') NOT NULL,
-    `fin_nric` varchar(50) DEFAULT NULL,
-    `trade_code` varchar(50) DEFAULT NULL,
+    `person_id_no` varchar(50) DEFAULT NULL,
+    `person_id_and_work_pass_type` enum(
+        'SP',
+        'SB',
+        'EP',
+        'SPASS',
+        'WP',
+        'ENTREPASS',
+        'LTVP'
+    ) DEFAULT NULL,
+    `person_nationality` char(2) DEFAULT NULL,
+    `person_trade` varchar(10) DEFAULT NULL,
     `current_project_id` varchar(50) DEFAULT NULL,
-    `company_name` varchar(255) DEFAULT NULL,
     `status` enum(
         'active',
         'inactive',

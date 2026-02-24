@@ -88,7 +88,7 @@ const userColumns = [
   { key: 'name', label: 'Full Name', bold: true },
   { key: 'email', label: 'Email Address' },
   { key: 'role', label: 'Designated Role' },
-  { key: 'trade_code', label: 'Trade Code', mono: true },
+  { key: 'person_trade', label: 'Trade Code', mono: true },
   { key: 'status', label: 'Status' }
 ];
 

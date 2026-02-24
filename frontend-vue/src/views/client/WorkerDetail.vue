@@ -35,26 +35,27 @@ watch(() => props.id, fetchWorker);
 
 const workerInfo = computed(() => [
   { label: 'Full Name', value: worker.value?.name || '---' },
-  { label: 'FIN/NRIC', value: worker.value?.fin || '---' },
+  { label: 'NRIC / FIN', value: worker.value?.person_id_no || '---' },
+  { label: 'Nationality', value: worker.value?.person_nationality || '---' },
   { 
-    label: 'Role', 
+    label: 'System Role', 
     value: worker.value?.role === 'pic' ? 'PIC (Person In Charge)' : 
            worker.value?.role === 'manager' ? 'Manager' : 
            worker.value?.role === 'worker' ? 'Worker' : 
            (worker.value?.role || '---') 
   },
-  { label: 'Employer', value: worker.value?.company_name || '---' },
-  { label: 'Trade Code', value: worker.value?.trade_code || '---' },
   { label: 'Email', value: worker.value?.email || '---' }
 ]);
 
+const complianceInfo = computed(() => [
+  { label: 'Pass Type', value: worker.value?.person_id_and_work_pass_type || '---' },
+  { label: 'Designated Trade', value: worker.value?.person_trade || '---' }
+]);
+
 const assignmentInfo = computed(() => [
-  { label: 'Project Name', value: worker.value?.project_name || '---' },
-  { label: 'Project ID', value: worker.value?.current_project_id || '---' },
+  { label: 'Project', value: worker.value?.project_name || '---' },
   { label: 'Site Name', value: worker.value?.site_name || '---' },
-  { label: 'Site Location', value: worker.value?.site_location || '---' },
-  { label: 'User Name', value: worker.value?.user_name || '---' },
-  { label: 'User Address', value: worker.value?.user_address || '---' }
+  { label: 'Site Location', value: worker.value?.site_location || '---' }
 ]);
 
 const handleEdit = () => {
@@ -95,6 +96,10 @@ const handleChangeProject = () => {
         :badge-text="worker.status" 
         :badge-type="worker.status === 'active' ? 'success' : 'inactive'"
         :rows="workerInfo"
+      />
+      <DetailCard 
+        title="Compliance Info" 
+        :rows="complianceInfo"
       />
       <DetailCard 
         title="Assignment" 

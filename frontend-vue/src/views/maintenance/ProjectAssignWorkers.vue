@@ -26,7 +26,7 @@
           <div class="selection-info">
             <div class="selection-name">{{ worker.name }}</div>
             <div class="selection-meta">
-              {{ worker.role === 'pic' ? 'PIC' : 'Worker' }} • {{ worker.trade_code || 'General' }}
+              {{ worker.role === 'pic' ? 'PIC' : 'Worker' }} • {{ worker.person_trade || 'General' }}
               <div v-if="worker.site_name" class="current-loc">
                 Currently at: {{ worker.site_name }} ({{ worker.user_name }})
               </div>

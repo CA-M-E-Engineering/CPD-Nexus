@@ -1,5 +1,5 @@
 <script setup>
-import { ref, onMounted, computed } from 'vue';
+import { ref, onMounted, computed, watch } from 'vue';
 import { api } from '../../services/api.js';
 import { notification } from '../../services/notification';
 import BaseButton from '../ui/BaseButton.vue';
@@ -21,26 +21,33 @@ const isSaving = ref(false);
 const columns = [
   { key: 'name', label: 'Name' },
   { key: 'role', label: 'Role' },
-  { key: 'company_name', label: 'Company' },
+  { key: 'user_name', label: 'Company' },
   { key: 'actions', label: 'Actions', width: '80px' }
 ];
 
 const modalColumns = [
   { key: 'name', label: 'Name' },
   { key: 'role', label: 'Role' },
-  { key: 'company_name', label: 'Company' },
+  { key: 'user_name', label: 'Company' },
   { key: 'status', label: 'Current Assignment' },
   { key: 'actions', label: '', width: '60px' }
 ];
 
 const fetchWorkers = async () => {
+  const uid = props.userId || (() => {
+    try { const u = JSON.parse(localStorage.getItem('auth_user') || '{}'); return u.user_id || u.id || ''; } catch { return ''; }
+  })();
+  if (!uid) return;
   try {
-    const response = await api.getWorkers({ user_id: props.userId });
-    allWorkers.value = typeof response === 'string' ? JSON.parse(response) : response;
+    const response = await api.getWorkers({ user_id: uid });
+    allWorkers.value = typeof response === 'string' ? JSON.parse(response) : (response || []);
   } catch (err) {
     console.error('Failed to fetch workers:', err);
   }
 };
+
+// Re-fetch when userId becomes available (async parent init)
+watch(() => props.userId, (val) => { if (val) fetchWorkers(); });
 
 const assignedPersonnel = computed(() => {
   return allWorkers.value.filter(w => String(w.current_project_id) === String(props.projectId));
@@ -52,7 +59,7 @@ const availablePersonnel = computed(() => {
     .filter(w => {
       if (!searchQuery.value) return true;
       const term = searchQuery.value.toLowerCase();
-      return w.name.toLowerCase().includes(term) || (w.company_name && w.company_name.toLowerCase().includes(term));
+      return w.name.toLowerCase().includes(term) || (w.user_name && w.user_name.toLowerCase().includes(term));
     });
 });
 
@@ -112,7 +119,7 @@ const getRoleBadge = (role) => {
       <template #cell-name="{ item }">
         <div class="worker-name-cell">
           <strong>{{ item.name }}</strong>
-          <span v-if="item.fin_nric" class="fin-text">{{ item.fin_nric }}</span>
+          <span v-if="item.person_id_no" class="fin-text">{{ item.person_id_no }}</span>
         </div>
       </template>
       <template #cell-role="{ item }">
@@ -134,15 +141,15 @@ const getRoleBadge = (role) => {
       <p>No workers assigned to this project yet.</p>
     </div>
 
-    <BaseModal v-model="isAdding" title="Assign Personnel" size="lg">
+    <BaseModal :show="isAdding" title="Assign Personnel" :max-width="'720px'" :show-footer="false" @close="isAdding = false">
       <div class="modal-search">
         <BaseInput v-model="searchQuery" placeholder="Search by name or company..." icon="ri-search-line" />
       </div>
 
       <DataTable :columns="modalColumns" :data="availablePersonnel" class="modal-table">
         <template #cell-status="{ item }">
-           <span v-if="item.project_title" class="assigned-status">
-             Assigned to: <strong>{{ item.project_title }}</strong>
+           <span v-if="item.project_name" class="assigned-status">
+             Assigned to: <strong>{{ item.project_name }}</strong>
            </span>
            <span v-else class="unassigned-status">Unassigned</span>
         </template>

@@ -74,7 +74,7 @@ func (s *AttendanceService) ProcessBridgeAttendance(ctx context.Context, deviceS
 		TimeIn:          &tIn,
 		TimeOut:         tOutPtr,
 		Direction:       "unknown",
-		TradeCode:       worker.TradeCode,
+		TradeCode:       worker.PersonTrade,
 		Status:          "pending",
 		SubmissionDate:  tIn.Format("2006-01-02"),
 		ResponsePayload: string(rawPayload),

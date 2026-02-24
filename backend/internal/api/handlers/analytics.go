@@ -68,7 +68,7 @@ func (h *AnalyticsHandler) GetDetailedAnalytics(w http.ResponseWriter, r *http.R
 	response := make(map[string]interface{})
 
 	// 1. Worker Distribution by Trade
-	tradeRows, err := h.DB.Query("SELECT trade_code, COUNT(*) FROM workers WHERE role IN ('worker', 'pic') AND user_id = ? GROUP BY trade_code", userID)
+	tradeRows, err := h.DB.Query("SELECT person_trade, COUNT(*) FROM workers WHERE role IN ('worker', 'pic') AND user_id = ? GROUP BY person_trade", userID)
 	if err == nil {
 		defer tradeRows.Close()
 		trades := make(map[string]int)

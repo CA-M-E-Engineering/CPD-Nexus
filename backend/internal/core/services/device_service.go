@@ -75,8 +75,12 @@ func (s *DeviceService) UpdateDevice(ctx context.Context, id string, params map[
 	if v, ok := params["status"].(string); ok {
 		d.Status = domain.DeviceStatus(v)
 	}
-	if v, ok := params["site_id"].(string); ok {
-		d.SiteID = &v
+	if val, ok := params["site_id"]; ok {
+		if val == nil {
+			d.SiteID = nil
+		} else if v, ok := val.(string); ok {
+			d.SiteID = &v
+		}
 	}
 	if v, ok := params["user_id"].(string); ok {
 		d.UserID = v

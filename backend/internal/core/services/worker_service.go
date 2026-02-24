@@ -69,17 +69,23 @@ func (s *WorkerService) UpdateWorker(ctx context.Context, id string, payload map
 	if v, ok := payload["status"].(string); ok {
 		existing.Status = v
 	}
-	if v, ok := payload["trade_code"].(string); ok {
-		existing.TradeCode = v
-	}
-	if v, ok := payload["fin"].(string); ok {
-		existing.FIN = v
-	}
-	if v, ok := payload["company_name"].(string); ok {
-		existing.CompanyName = v
+	if v, ok := payload["person_id_no"].(string); ok {
+		existing.PersonIDNo = v
 	}
 	if v, ok := payload["user_id"].(string); ok {
 		existing.UserID = v
+	}
+	if v, ok := payload["person_id_no"].(string); ok {
+		existing.PersonIDNo = v
+	}
+	if v, ok := payload["person_id_and_work_pass_type"].(string); ok {
+		existing.PersonIDAndWorkPassType = v
+	}
+	if v, ok := payload["person_nationality"].(string); ok {
+		existing.PersonNationality = v
+	}
+	if v, ok := payload["person_trade"].(string); ok {
+		existing.PersonTrade = v
 	}
 
 	// Project ID flexibility

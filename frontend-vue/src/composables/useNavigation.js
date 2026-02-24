@@ -39,10 +39,6 @@ const navigation = {
                 { id: 'devices', label: 'Devices', icon: 'ri-cpu-line' },
                 { id: 'attendance', label: 'Attendance', icon: 'ri-calendar-check-line' }
             ]
-        },
-        {
-            title: 'Insights',
-            items: [{ id: 'analytics', label: 'Analytics', icon: 'ri-bar-chart-line' }]
         }
     ]
 };

@@ -56,7 +56,7 @@ func ExtractPendingAttendance(ctx context.Context, db *sql.DB) ([]AttendanceRow,
 			p.project_reference_number,
 			p.offsite_fabricator_name, p.offsite_fabricator_uen, p.offsite_fabricator_location,
 			p.main_contractor_name, p.main_contractor_uen,
-			w.name AS worker_name, w.fin_nric, w.trade_code AS worker_trade,
+			w.name AS worker_name, w.person_id_no, w.person_trade AS worker_trade,
 			p.worker_company_name, p.worker_company_uen
 		FROM attendance a
 		JOIN sites s ON a.site_id = s.site_id

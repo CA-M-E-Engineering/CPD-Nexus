@@ -111,7 +111,7 @@ func (w ManpowerUtilizationWrapper) ToPushRequest(ctx context.Context, db *sql.D
 	// Fetch PIC worker from the same project as the participant
 	var obNRIC, obName string
 	err := db.QueryRowContext(ctx, `
-		SELECT pic.fin_nric, pic.name
+		SELECT pic.person_id_no, pic.name
 		FROM workers worker
 		JOIN workers pic ON worker.current_project_id = pic.current_project_id
 		WHERE worker.worker_id = ? AND pic.role = 'pic'
