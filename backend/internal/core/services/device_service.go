@@ -30,7 +30,7 @@ func (s *DeviceService) RegisterDevice(ctx context.Context, sn, model, userID st
 		return nil, fmt.Errorf("serial number and model are required")
 	}
 
-	// Default user if missing (legacy behavior)
+	// Default user if missing (legacy behavior restored per user request)
 	if userID == "" {
 		userID = "tenant-vendor-1"
 	}
@@ -45,10 +45,7 @@ func (s *DeviceService) RegisterDevice(ctx context.Context, sn, model, userID st
 		SiteID: nil, // Let it be null or handled by repository defaults if strict
 	}
 
-	// Legacy fallback: if DB constraint requires site_id being 'site-uuid-1'
-	// For now let's assume NULL is allowed or we set it
-	defaultSite := "site-uuid-1"
-	d.SiteID = &defaultSite
+	// Legacy fallback removed, devices are unassigned to sites by default
 
 	if err := s.repo.Create(ctx, d); err != nil {
 		return nil, err

@@ -24,6 +24,7 @@ type Project struct {
 	WorkerCompanyUEN          string `json:"worker_company_uen,omitempty"`
 	WorkerCompanyClientName   string `json:"worker_company_client_name,omitempty"`
 	WorkerCompanyClientUEN    string `json:"worker_company_client_uen,omitempty"`
+	WorkerCompanyTrade        string `json:"worker_company_trade,omitempty"`
 
 	CreatedAt time.Time `json:"created_at"`
 	UpdatedAt time.Time `json:"updated_at"`

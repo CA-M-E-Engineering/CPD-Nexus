@@ -2,6 +2,7 @@ package sgbuildex
 
 import (
 	"database/sql"
+	"strings"
 	"time"
 
 	"sgbuildex/internal/adapters/external/sgbuildex/payloads"
@@ -30,7 +31,7 @@ func MapAttendanceToManpower(rows []AttendanceRow) []payloads.ManpowerUtilizatio
 			PersonTrade:                     r.TradeCode,
 			PersonEmployerCompanyName:       r.EmployerName,
 			PersonEmployerCompanyUEN:        r.EmployerUEN,
-			PersonEmployerCompanyTrade:      []string{r.TradeCode},
+			PersonEmployerCompanyTrade:      parseTrades(r.EmployerTrade),
 			PersonEmployerClientCompanyName: r.SiteOwnerName,
 			PersonEmployerClientCompanyUEN:  r.SiteOwnerUEN,
 			PersonAttendanceDate:            r.TimeIn.Format("2006-01-02"),
@@ -116,4 +117,19 @@ func formatNullTime(t sql.NullTime) string {
 		return ""
 	}
 	return t.Time.Format(time.RFC3339)
+}
+
+func parseTrades(tradeStr string) []string {
+	if tradeStr == "" {
+		return []string{}
+	}
+	parts := strings.Split(tradeStr, ",")
+	var result []string
+	for _, p := range parts {
+		trimmed := strings.TrimSpace(p)
+		if trimmed != "" {
+			result = append(result, trimmed)
+		}
+	}
+	return result
 }

@@ -25,6 +25,7 @@ func (r *WorkerRepository) Get(ctx context.Context, id string) (*domain.Worker, 
             w.person_id_no, w.person_id_and_work_pass_type, w.person_nationality, w.person_trade, 
             p.project_title,
             s.site_name,
+            s.location,
             u.user_name,
             w.user_id,
             u.latitude,
@@ -39,12 +40,12 @@ func (r *WorkerRepository) Get(ctx context.Context, id string) (*domain.Worker, 
 	var w domain.Worker
 	var status, projID sql.NullString
 	var pPassType, pNationality, pTrade sql.NullString
-	var pName, sName, uName, uID, uLat, uLng, uAdd sql.NullString
+	var pName, sName, sLoc, uName, uID, uLat, uLng, uAdd sql.NullString
 
 	err := r.db.QueryRowContext(ctx, query, id).Scan(
 		&w.ID, &w.Name, &w.Email, &w.Role, &status, &projID,
 		&w.PersonIDNo, &pPassType, &pNationality, &pTrade,
-		&pName, &sName, &uName, &uID, &uLat, &uLng, &uAdd,
+		&pName, &sName, &sLoc, &uName, &uID, &uLat, &uLng, &uAdd,
 	)
 	if err == sql.ErrNoRows {
 		return nil, nil
@@ -56,11 +57,23 @@ func (r *WorkerRepository) Get(ctx context.Context, id string) (*domain.Worker, 
 	if status.Valid {
 		w.Status = status.String
 	}
+	if pPassType.Valid {
+		w.PersonIDAndWorkPassType = pPassType.String
+	}
+	if pNationality.Valid {
+		w.PersonNationality = pNationality.String
+	}
+	if pTrade.Valid {
+		w.PersonTrade = pTrade.String
+	}
 	if pName.Valid {
 		w.ProjectName = pName.String
 	}
 	if sName.Valid {
 		w.SiteName = sName.String
+	}
+	if sLoc.Valid {
+		w.SiteLocation = sLoc.String
 	}
 	if uName.Valid {
 		w.UserName = uName.String
@@ -85,6 +98,7 @@ func (r *WorkerRepository) GetByFIN(ctx context.Context, fin string) (*domain.Wo
             w.person_id_no, w.person_id_and_work_pass_type, w.person_nationality, w.person_trade, 
             p.project_title,
             s.site_name,
+            s.location,
             u.user_name,
             w.user_id,
             u.latitude,
@@ -99,12 +113,12 @@ func (r *WorkerRepository) GetByFIN(ctx context.Context, fin string) (*domain.Wo
 	var w domain.Worker
 	var status, projID sql.NullString
 	var pPassType, pNationality, pTrade sql.NullString
-	var pName, sName, uName, uID, uLat, uLng, uAdd sql.NullString
+	var pName, sName, sLoc, uName, uID, uLat, uLng, uAdd sql.NullString
 
 	err := r.db.QueryRowContext(ctx, query, fin).Scan(
 		&w.ID, &w.Name, &w.Email, &w.Role, &status, &projID,
 		&w.PersonIDNo, &pPassType, &pNationality, &pTrade,
-		&pName, &sName, &uName, &uID, &uLat, &uLng, &uAdd,
+		&pName, &sName, &sLoc, &uName, &uID, &uLat, &uLng, &uAdd,
 	)
 	if err == sql.ErrNoRows {
 		return nil, nil
@@ -136,6 +150,9 @@ func (r *WorkerRepository) GetByFIN(ctx context.Context, fin string) (*domain.Wo
 	if sName.Valid {
 		w.SiteName = sName.String
 	}
+	if sLoc.Valid {
+		w.SiteLocation = sLoc.String
+	}
 	if uName.Valid {
 		w.UserName = uName.String
 	}
@@ -159,6 +176,7 @@ func (r *WorkerRepository) List(ctx context.Context, userID, siteID string) ([]d
             w.person_id_no, w.person_id_and_work_pass_type, w.person_nationality, w.person_trade, 
             p.project_title,
             s.site_name,
+            s.location,
             u.user_name,
             w.user_id,
             u.latitude,
@@ -196,12 +214,12 @@ func (r *WorkerRepository) List(ctx context.Context, userID, siteID string) ([]d
 		var w domain.Worker
 		var status, projID sql.NullString
 		var pPassType, pNationality, pTrade sql.NullString
-		var pName, sName, uName, uID, uLat, uLng, uAdd sql.NullString
+		var pName, sName, sLoc, uName, uID, uLat, uLng, uAdd sql.NullString
 
 		if err := rows.Scan(
 			&w.ID, &w.Name, &w.Email, &w.Role, &status, &projID,
 			&w.PersonIDNo, &pPassType, &pNationality, &pTrade,
-			&pName, &sName, &uName, &uID, &uLat, &uLng, &uAdd,
+			&pName, &sName, &sLoc, &uName, &uID, &uLat, &uLng, &uAdd,
 		); err != nil {
 			log.Printf("[WorkerRepo] Scan error: %v", err)
 			continue
@@ -233,6 +251,9 @@ func (r *WorkerRepository) List(ctx context.Context, userID, siteID string) ([]d
 		}
 		if sName.Valid {
 			w.SiteName = sName.String
+		}
+		if sLoc.Valid {
+			w.SiteLocation = sLoc.String
 		}
 		if uName.Valid {
 			w.UserName = uName.String

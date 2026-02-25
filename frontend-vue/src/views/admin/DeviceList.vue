@@ -52,7 +52,7 @@ const filteredDevices = computed(() => {
   if (!devices.value) return [];
   return devices.value.filter(device => {
     if (activeFilter.value === 'All') return true;
-    const isAssigned = !!device.site_id;
+    const isAssigned = !!device.user_id && device.user_id !== 'tenant-vendor-1';
     return activeFilter.value === 'Assigned' ? isAssigned : !isAssigned;
   });
 });
@@ -84,7 +84,7 @@ const handleRowClick = (device) => {
 
 const unassignedDeviceCount = computed(() => {
   if (!devices.value) return 0;
-  return devices.value.filter(d => !d.site_id).length;
+  return devices.value.filter(d => !d.user_id || d.user_id === 'tenant-vendor-1').length;
 });
 
 const formatDate = (dateStr) => {
@@ -155,9 +155,9 @@ const formatDate = (dateStr) => {
       
       <template #cell-site_name="{ item }">
         <div class="assignment-info">
-          <div v-if="item.user_name" class="User-name">{{ item.user_name }}</div>
+          <div v-if="item.user_name && item.user_id !== 'tenant-vendor-1'" class="User-name">{{ item.user_name }}</div>
           <div v-if="item.site_name" class="site-name text-muted">{{ item.site_name }}</div>
-          <div v-if="!item.user_name && !item.site_name" class="text-muted">Unassigned</div>
+          <div v-if="(!item.user_name || item.user_id === 'tenant-vendor-1') && !item.site_name" class="text-muted">Unassigned</div>
         </div>
       </template>
 

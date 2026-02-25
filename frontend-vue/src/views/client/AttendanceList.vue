@@ -1,5 +1,5 @@
 <script setup>
-import { ref, onMounted } from 'vue';
+import { ref, computed, onMounted } from 'vue';
 import { api } from '../../services/api.js';
 import { notification } from '../../services/notification';
 import PageHeader from '../../components/ui/PageHeader.vue';
@@ -10,6 +10,7 @@ import TableToolbar from '../../components/ui/TableToolbar.vue';
 
 const selectedSite = ref('');
 const selectedDate = ref('');
+const selectedStatus = ref('');
 
 const sites = ref([]);
 const attendance = ref([]);
@@ -23,6 +24,15 @@ const columns = [
   { key: 'time_out', label: 'Time Out', size: 'md', muted: true },
   { key: 'status', label: 'Status', size: 'sm' }
 ];
+
+const filteredAttendance = computed(() => {
+  if (!selectedStatus.value) return attendance.value;
+  return attendance.value.filter(a => {
+    const s = (a.status || 'pending').toLowerCase();
+    // Some status might be 'success' instead of submitted depending on old data, handle if needed, but user asked for pending/submitted
+    return s === selectedStatus.value || (selectedStatus.value === 'submitted' && s === 'success');
+  });
+});
 
 const fetchData = async () => {
   isLoading.value = true;
@@ -91,18 +101,37 @@ defineEmits(['navigate']);
 
     <TableToolbar>
       <template #left>
-        <div class="filter-group">
-          <label>Site</label>
-          <select v-model="selectedSite" @change="handleFilter" class="filter-select">
-            <option value="">All Sites</option>
-            <option v-for="site in sites" :key="site.site_id" :value="site.site_id">
-              {{ site.site_name }}
-            </option>
-          </select>
-        </div>
-        <div class="filter-group">
-          <label>Date</label>
-          <input type="date" v-model="selectedDate" @change="handleFilter" class="filter-date" />
+        <div class="filter-bar">
+          <div class="filter-item">
+            <i class="ri-map-pin-line filter-icon"></i>
+            <select v-model="selectedSite" @change="handleFilter" class="filter-input">
+              <option value="">All Sites</option>
+              <option v-for="site in sites" :key="site.site_id" :value="site.site_id">
+                {{ site.site_name }}
+              </option>
+            </select>
+          </div>
+          <div class="filter-item">
+            <i class="ri-calendar-line filter-icon"></i>
+            <input type="date" v-model="selectedDate" @change="handleFilter" class="filter-input" />
+          </div>
+          <div class="segmented-control">
+            <button 
+              class="seg-btn" 
+              :class="{ active: selectedStatus === '' }" 
+              @click="selectedStatus = ''"
+            >All</button>
+            <button 
+              class="seg-btn" 
+              :class="{ active: selectedStatus === 'pending' }" 
+              @click="selectedStatus = 'pending'"
+            >Pending</button>
+            <button 
+              class="seg-btn" 
+              :class="{ active: selectedStatus === 'submitted' }" 
+              @click="selectedStatus = 'submitted'"
+            >Submitted</button>
+          </div>
         </div>
       </template>
       <template #right>
@@ -112,7 +141,7 @@ defineEmits(['navigate']);
       </template>
     </TableToolbar>
 
-    <DataTable :loading="isLoading" :columns="columns" :data="attendance">
+    <DataTable :loading="isLoading" :columns="columns" :data="filteredAttendance">
       <template #cell-status="{ item }">
         <BaseBadge :type="item.status === 'success' ? 'success' : 'warning'">
           {{ (item.status || 'PENDING').toUpperCase() }}
@@ -142,32 +171,79 @@ defineEmits(['navigate']);
   font-size: 18px;
 }
 
-.filter-group {
+.filter-bar {
   display: flex;
-  flex-direction: column;
-  gap: 6px;
+  align-items: center;
+  gap: 16px;
+  background: var(--color-surface);
+  padding: 6px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--color-border);
 }
 
-.filter-group label {
-  font-size: 11px;
-  font-weight: 600;
-  text-transform: uppercase;
-  color: var(--color-text-muted);
-}
-
-.filter-select, .filter-date {
+.filter-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
   background: var(--color-bg);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-sm);
-  padding: 8px 12px;
-  color: var(--color-text-primary);
-  font-size: 14px;
-  outline: none;
-  min-width: 160px;
+  padding: 6px 12px;
+  transition: all 0.2s ease;
 }
 
-.filter-select:focus, .filter-date:focus {
+.filter-item:focus-within {
   border-color: var(--color-accent);
+}
+
+.filter-icon {
+  color: var(--color-text-muted);
+  font-size: 16px;
+}
+
+.filter-input {
+  background: transparent;
+  border: none;
+  color: var(--color-text-primary);
+  font-size: 13px;
+  outline: none;
+  min-width: 140px;
+  cursor: pointer;
+}
+
+.filter-input[type="date"]::-webkit-calendar-picker-indicator {
+  cursor: pointer;
+  opacity: 0.6;
+}
+
+.segmented-control {
+  display: flex;
+  background: var(--color-bg);
+  border-radius: var(--radius-sm);
+  padding: 4px;
+  border: 1px solid var(--color-border);
+}
+
+.seg-btn {
+  background: transparent;
+  border: none;
+  color: var(--color-text-secondary);
+  padding: 6px 16px;
+  font-size: 13px;
+  font-weight: 500;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.seg-btn:hover {
+  color: var(--color-text-primary);
+}
+
+.seg-btn.active {
+  background: var(--color-surface-hover);
+  color: var(--color-accent);
+  box-shadow: var(--shadow-sm);
 }
 </style>
 

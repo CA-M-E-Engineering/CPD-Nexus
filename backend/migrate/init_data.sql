@@ -135,6 +135,7 @@ INSERT INTO
         worker_company_uen,
         worker_company_client_name,
         worker_company_client_uen,
+        worker_company_trade,
         status,
         created_at,
         updated_at
@@ -158,6 +159,7 @@ VALUES (
         'MEGA12345X',
         'CA M&E (Vendor)',
         'CAMEN1234A',
+        '1.1, 1.2',
         'active',
         NOW(),
         NOW()
@@ -179,6 +181,7 @@ VALUES (
         NULL,
         'Mega Engineering',
         'MEGA12345X',
+        NULL,
         NULL,
         NULL,
         'active',

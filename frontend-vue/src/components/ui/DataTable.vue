@@ -105,13 +105,13 @@ const handleRowClick = (row) => {
 }
 
 .table th { 
-  padding: 12px 16px; 
+  padding: 14px 16px; 
   text-align: left; 
-  font-size: 11px; 
+  font-size: 13px; 
   font-weight: 700; 
   text-transform: uppercase; 
   letter-spacing: 0.05em; 
-  color: var(--color-text-muted); 
+  color: var(--color-text-primary); 
   border-bottom: 1px solid var(--color-border);
   border-right: 1px solid var(--color-border-light);
   white-space: nowrap;

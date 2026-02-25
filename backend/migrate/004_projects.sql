@@ -21,6 +21,7 @@ CREATE TABLE IF NOT EXISTS `projects` (
     `worker_company_uen` varchar(50) DEFAULT NULL,
     `worker_company_client_name` varchar(255) DEFAULT NULL,
     `worker_company_client_uen` varchar(50) DEFAULT NULL,
+    `worker_company_trade` varchar(255) DEFAULT NULL,
     `status` enum(
         'active',
         'completed',

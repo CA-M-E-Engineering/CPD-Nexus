@@ -1,11 +1,44 @@
 <script setup>
-import { ref, onMounted, computed } from 'vue';
+import { ref, onMounted, computed, watch } from 'vue';
 import { api } from '../../services/api.js';
 import { notification } from '../../services/notification';
 import PageHeader from '../../components/ui/PageHeader.vue';
 import BaseInput from '../../components/ui/BaseInput.vue';
 import BaseButton from '../../components/ui/BaseButton.vue';
 import PersonnelAssignment from '../../components/project/PersonnelAssignment.vue';
+
+const TRADES = [
+  { value: '1.1', label: '1.1 - Site Management (Ancillary Works)' },
+  { value: '1.2', label: '1.2 - Site Support (Ancillary Works)' },
+  { value: '1.3', label: '1.3 - General Machine Operation (Ancillary Works)' },
+  { value: '1.4', label: '1.4 - Site Preparation (Ancillary Works)' },
+  { value: '1.5', label: '1.5 - Scaffolding (Ancillary Works)' },
+  { value: '2.1', label: '2.1 - Demolition (Civil & Structural Works)' },
+  { value: '2.2', label: '2.2 - Earthworks (Civil & Structural Works)' },
+  { value: '2.3', label: '2.3 - Foundation (Civil & Structural works)' },
+  { value: '2.4', label: '2.4 - Tunnelling (Civil & Structural Works)' },
+  { value: '2.5', label: '2.5 - Reinforced Concrete (Civil & Structural Works)' },
+  { value: '2.6', label: '2.6 - Structural Steel (Civil & Structural Works)' },
+  { value: '2.7', label: '2.7 - Mass Engineered Timber (Civil & Structural Works)' },
+  { value: '2.8', label: '2.8 - Road & Drainage (Civil & Structural Works)' },
+  { value: '3.1', label: '3.1 - Ceiling (Architectural Works)' },
+  { value: '3.2', label: '3.2 - Partition Wall (Architectural Works)' },
+  { value: '3.3', label: '3.3 - Floor (Architectural Works)' },
+  { value: '3.4', label: '3.4 - Roofing (Architectural Works)' },
+  { value: '3.5', label: '3.5 - Facade (Architectural Works)' },
+  { value: '3.6', label: '3.6 - Door (Architectural Works)' },
+  { value: '3.7', label: '3.7 - Window (Architectural Works)' },
+  { value: '3.8', label: '3.8 - Finishes (Architectural Works)' },
+  { value: '3.9', label: '3.9 - Waterproofing (Architectural Works)' },
+  { value: '3.10', label: '3.10 - Joinery & Fixtures (Architectural Works)' },
+  { value: '3.11', label: '3.11 - Landscaping (Architectural Works)' },
+  { value: '4.1', label: '4.1 - Plumbing, Sanitary & Gas (Service Works)' },
+  { value: '4.2', label: '4.2 - Fire Prevention & Protection (Service Works)' },
+  { value: '4.3', label: '4.3 - Electrical (Service Works)' },
+  { value: '4.4', label: '4.4 - Mechanical (Service Works)' },
+  { value: '4.5', label: '4.5 - Lift & Escalator (Service Works)' },
+  { value: '4.6', label: '4.6 - Prefab MEP (Service Works)' }
+];
 
 const props = defineProps({
   id: [Number, String],
@@ -35,6 +68,7 @@ const formData = ref({
   worker_company_uen: '',
   worker_company_client_name: '',
   worker_company_client_uen: '',
+  worker_company_trade: '',
   status: 'active'
 });
 
@@ -72,10 +106,41 @@ const fetchProject = async () => {
         ...data,
         site_id: data.site_id || ''
       };
+      if (data.worker_company_trade) {
+        selectedTrades.value = data.worker_company_trade.split(',').map(s => s.trim()).filter(Boolean);
+      }
     }
   } finally {
     isLoading.value = false;
   }
+};
+
+const selectedTrades = ref([]);
+
+watch(selectedTrades, (newVal) => {
+  formData.value.worker_company_trade = newVal.join(', ');
+}, { deep: true });
+
+const currentTradeSelection = ref('');
+
+const availableTrades = computed(() => {
+  return TRADES.filter(t => !selectedTrades.value.includes(t.value));
+});
+
+const getTradeLabel = (val) => {
+  const t = TRADES.find(t => t.value === val);
+  return t ? t.label : val;
+};
+
+const addTrade = () => {
+  if (currentTradeSelection.value && !selectedTrades.value.includes(currentTradeSelection.value)) {
+    selectedTrades.value.push(currentTradeSelection.value);
+  }
+  currentTradeSelection.value = '';
+};
+
+const removeTrade = (val) => {
+  selectedTrades.value = selectedTrades.value.filter(t => t !== val);
 };
 
 onMounted(async () => {
@@ -149,6 +214,25 @@ const handleSubmit = async () => {
               <BaseInput v-model="formData.worker_company_uen" label="Worker Company UEN" placeholder="e.g., 201998765W" />
               <BaseInput v-model="formData.worker_company_client_name" label="Worker Company Client Name" placeholder="e.g., HDB Infrastructure" />
               <BaseInput v-model="formData.worker_company_client_uen" label="Worker Company Client UEN" placeholder="e.g., 196100018G" />
+              <div class="form-group full-width">
+                  <label class="form-label">Worker Company Trade(s)</label>
+                  <div class="trade-selection-area">
+                    <select v-model="currentTradeSelection" class="form-select" @change="addTrade">
+                        <option value="" disabled>Select a trade to add...</option>
+                        <option v-for="t in availableTrades" :key="t.value" :value="t.value">
+                            {{ t.label }}
+                        </option>
+                    </select>
+                    <div class="selected-trades-container">
+                      <span v-for="trade in selectedTrades" :key="trade" class="trade-pill">
+                        {{ getTradeLabel(trade) }}
+                        <button type="button" class="remove-trade-btn" @click="removeTrade(trade)">
+                          <i class="ri-close-line"></i>
+                        </button>
+                      </span>
+                    </div>
+                  </div>
+              </div>
             </div>
           </div>
 
@@ -282,6 +366,53 @@ const handleSubmit = async () => {
 .form-select:focus {
   border-color: var(--color-accent);
   box-shadow: 0 0 0 3px rgba(var(--accent-rgb), 0.1);
+}
+
+.trade-selection-area {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.selected-trades-container {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.trade-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--color-surface-hover, #f3f4f6);
+  border: 1px solid var(--color-border);
+  padding: 6px 12px;
+  border-radius: 16px;
+  font-size: 13px;
+  color: var(--color-text-primary);
+}
+
+.remove-trade-btn {
+  background: none;
+  border: none;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  border-radius: 50%;
+  transition: all 0.2s;
+}
+
+.remove-trade-btn:hover {
+  color: #ef4444;
+}
+
+.help-text {
+  font-size: 12px;
+  color: var(--color-text-secondary);
+  margin-top: 4px;
 }
 
 .form-actions {

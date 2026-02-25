@@ -45,8 +45,11 @@ func (s *AttendanceService) ProcessBridgeAttendance(ctx context.Context, deviceS
 
 	// 2. Resolve Worker
 	worker, err := s.workerRepo.GetByFIN(ctx, personID)
-	if err != nil || worker == nil {
-		return fmt.Errorf("failed to resolve worker NRIC %s: %w", personID, err)
+	if err != nil {
+		return fmt.Errorf("database error resolving worker NRIC %s: %w", personID, err)
+	}
+	if worker == nil {
+		return fmt.Errorf("worker NRIC %s not found in the database", personID)
 	}
 
 	// 3. Parse Times
@@ -64,12 +67,17 @@ func (s *AttendanceService) ProcessBridgeAttendance(ctx context.Context, deviceS
 		tOutPtr = &tOut
 	}
 
+	var siteID string
+	if device.SiteID != nil {
+		siteID = *device.SiteID
+	}
+
 	// 4. Create Attendance Record
 	attendance := &domain.Attendance{
 		ID:              s.generateNextID(ctx),
 		DeviceID:        device.ID,
 		WorkerID:        worker.ID,
-		SiteID:          *device.SiteID,
+		SiteID:          siteID,
 		UserID:          device.UserID,
 		TimeIn:          &tIn,
 		TimeOut:         tOutPtr,

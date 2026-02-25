@@ -28,6 +28,34 @@ const formData = ref({
   person_trade: '1.2'
 });
 
+const authForm = ref({
+  authType: 'face',
+  cardNo: ''
+});
+const fileName = ref('');
+
+const handleFileUpload = (event) => {
+  const file = event.target.files[0];
+  if (file) {
+    fileName.value = file.name;
+  }
+};
+
+const handlePushToBridge = () => {
+  notification.success(`Auth profile for ${formData.value?.name || 'Worker'} has been queued for synchronization!`);
+  authForm.value.cardNo = '';
+  fileName.value = '';
+};
+
+// Sync Mock
+const handleSyncWorkers = () => {
+  notification.info(`Deploying profiles to assigned active sites...`);
+  setTimeout(() => {
+    notification.success("Site deployment push completed.");
+  }, 1200);
+};
+
+
 const passTypes = [
     { value: 'SP', label: 'Singapore Pink IC (SP)' },
     { value: 'SB', label: 'Singapore Blue IC (SB)' },
@@ -156,8 +184,12 @@ const handleSubmit = async () => {
       <p>Fetching worker data...</p>
     </div>
 
-    <form v-else class="form-container" @submit.prevent="handleSubmit">
+    <div v-else class="split-layout">
       
+      <form class="form-container" @submit.prevent="handleSubmit">
+        <h3 class="panel-title">Worker Details</h3>
+        <p class="panel-desc">Core workforce demographic and assignment info.</p>
+
       <div class="form-section">
           <h3 class="section-title">Personal Information</h3>
           <div class="form-grid">
@@ -220,22 +252,136 @@ const handleSubmit = async () => {
 
 
       <div class="form-actions">
-        <BaseButton variant="secondary" @click="$emit('navigate', 'workers')">Cancel</BaseButton>
+        <BaseButton variant="secondary" @click="$emit('navigate', 'workers')" type="button">Cancel</BaseButton>
         <BaseButton :loading="isSaving" type="submit">
           {{ isEdit ? 'Save Changes' : 'Register Worker' }}
         </BaseButton>
       </div>
-    </form>
+      </form>
+
+      <!-- Device Auth Panel -->
+      <div class="panel-right">
+        <h3 class="panel-title">IoT Authentication Setup</h3>
+        <p class="panel-desc">Push biometric/access credentials required for site entry.</p>
+
+        <form @submit.prevent="handlePushToBridge" class="auth-form-container">
+          
+          <div class="form-group">
+            <label class="form-label">Authentication Method</label>
+            <select v-model="authForm.authType" class="form-select">
+              <option value="face">Face Recognition</option>
+              <option value="card">Access Card (NFC/RFID)</option>
+              <option value="fingerprint">Fingerprint (On-device Setup)</option>
+            </select>
+          </div>
+
+          <div v-if="authForm.authType === 'face'" class="form-group">
+             <label class="form-label">Face Image Scan</label>
+             <div class="upload-area">
+                <i class="ri-image-add-line upload-icon"></i>
+                <span>Click or drag image here</span>
+                <input type="file" accept="image/*" class="file-input" @change="handleFileUpload" />
+             </div>
+             <p v-if="fileName" class="file-name">Staged: {{ fileName }}</p>
+          </div>
+
+          <BaseInput 
+            v-if="authForm.authType === 'card'"
+            v-model="authForm.cardNo" 
+            label="Hardware Access Card Number" 
+            placeholder="e.g., 0011223344" 
+            required 
+          />
+
+          <div class="form-actions">
+            <!-- Utilizing the Sync Handler locally to mock updating devices -->
+            <BaseButton variant="secondary" @click="handleSyncWorkers" type="button">
+              <template #icon><i class="ri-refresh-line"></i></template>
+              Sync Devices
+            </BaseButton>
+            <BaseButton type="submit">Deploy Profile</BaseButton>
+          </div>
+        </form>
+
+      </div>
+
+    </div>
   </div>
 </template>
 
 <style scoped>
+.split-layout {
+  display: grid;
+  grid-template-columns: 2fr 1fr;
+  gap: 32px;
+  align-items: start;
+}
+
+.panel-title {
+  margin: 0 0 8px;
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--color-text-primary);
+}
+
+.panel-desc {
+  margin: 0 0 24px;
+  font-size: 14px;
+  color: var(--color-text-secondary);
+}
+
 .form-container {
-  max-width: 800px;
   background: var(--color-surface);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
   padding: 32px;
+}
+
+.auth-form-container {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.upload-area {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 32px;
+  border: 2px dashed var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-bg);
+  cursor: pointer;
+  transition: border-color 0.2s;
+}
+
+.upload-area:hover {
+  border-color: var(--color-accent);
+}
+
+.upload-icon {
+  font-size: 32px;
+  color: var(--color-text-muted);
+  margin-bottom: 8px;
+}
+
+.file-input {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.file-name {
+    margin-top: 8px;
+    font-size: 12px;
+    color: var(--color-accent);
 }
 
 .form-grid {
@@ -305,6 +451,12 @@ const handleSubmit = async () => {
 .loading-state {
   padding: 48px;
   text-align: center;
+}
+
+@media (max-width: 1024px) {
+  .split-layout {
+    grid-template-columns: 1fr;
+  }
 }
 
 @media (max-width: 640px) {

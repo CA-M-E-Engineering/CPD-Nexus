@@ -35,7 +35,7 @@ func LoadConfig() *Config {
 		DBHost:     getEnv("DB_HOST", "127.0.0.1:3306"),
 		DBName:     getEnv("DB_NAME", "bas_mvp"),
 		APIPort:    getEnv("API_PORT", "3000"),
-		BridgeURL:  getEnv("BRIDGE_URL", "http://localhost:8080"),
+		BridgeURL:  getEnv("BRIDGE_URL", "ws://localhost:8080/ws"),
 		IngressURL: getEnv("INGRESS_URL", "https://specs-api.uat.dextech.ai/sgbuildex"),
 
 		BridgeIntervalSeconds: getEnvInt("BRIDGE_INTERVAL_SECONDS", 10),

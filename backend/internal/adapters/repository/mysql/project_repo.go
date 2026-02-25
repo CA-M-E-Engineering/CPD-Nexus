@@ -26,7 +26,7 @@ func (r *ProjectRepository) Get(ctx context.Context, id string) (*domain.Project
             p.main_contractor_name, p.main_contractor_uen,
             p.offsite_fabricator_name, p.offsite_fabricator_uen, p.offsite_fabricator_location,
             p.worker_company_name, p.worker_company_uen,
-            p.worker_company_client_name, p.worker_company_client_uen,
+            p.worker_company_client_name, p.worker_company_client_uen, p.worker_company_trade,
             p.created_at, p.updated_at, s.site_name,
             (SELECT COUNT(*) FROM workers w WHERE w.current_project_id = p.project_id) as worker_count,
             (SELECT COUNT(*) FROM devices d WHERE d.site_id = p.site_id) as device_count
@@ -36,12 +36,12 @@ func (r *ProjectRepository) Get(ctx context.Context, id string) (*domain.Project
 
 	var p domain.Project
 	var siteID, userID, status, ref, cRef, loc, cName, hdb sql.NullString
-	var mcName, mcUEN, ofName, ofUEN, ofLoc, wcName, wcUEN, wccName, wccUEN sql.NullString
+	var mcName, mcUEN, ofName, ofUEN, ofLoc, wcName, wcUEN, wccName, wccUEN, wcTrade sql.NullString
 
 	err := r.db.QueryRowContext(ctx, query, id).Scan(
 		&p.ID, &siteID, &userID, &p.Title, &status,
 		&ref, &cRef, &loc, &cName, &hdb,
-		&mcName, &mcUEN, &ofName, &ofUEN, &ofLoc, &wcName, &wcUEN, &wccName, &wccUEN,
+		&mcName, &mcUEN, &ofName, &ofUEN, &ofLoc, &wcName, &wcUEN, &wccName, &wccUEN, &wcTrade,
 		&p.CreatedAt, &p.UpdatedAt, &p.SiteName, &p.WorkerCount, &p.DeviceCount,
 	)
 	if err == sql.ErrNoRows {
@@ -102,6 +102,9 @@ func (r *ProjectRepository) Get(ctx context.Context, id string) (*domain.Project
 	if wccUEN.Valid {
 		p.WorkerCompanyClientUEN = wccUEN.String
 	}
+	if wcTrade.Valid {
+		p.WorkerCompanyTrade = wcTrade.String
+	}
 
 	return &p, nil
 }
@@ -114,7 +117,7 @@ func (r *ProjectRepository) List(ctx context.Context, userID string) ([]domain.P
             p.main_contractor_name, p.main_contractor_uen,
             p.offsite_fabricator_name, p.offsite_fabricator_uen, p.offsite_fabricator_location,
             p.worker_company_name, p.worker_company_uen,
-            p.worker_company_client_name, p.worker_company_client_uen,
+            p.worker_company_client_name, p.worker_company_client_uen, p.worker_company_trade,
             p.created_at, p.updated_at, s.site_name,
             (SELECT COUNT(*) FROM workers w WHERE w.current_project_id = p.project_id) as worker_count,
             (SELECT COUNT(*) FROM devices d WHERE d.site_id = p.site_id AND d.status != 'inactive') as device_count
@@ -139,11 +142,11 @@ func (r *ProjectRepository) List(ctx context.Context, userID string) ([]domain.P
 	for rows.Next() {
 		var p domain.Project
 		var siteID, uid, status, ref, cRef, loc, cName, hdb sql.NullString
-		var mcName, mcUEN, ofName, ofUEN, ofLoc, wcName, wcUEN, wccName, wccUEN sql.NullString
+		var mcName, mcUEN, ofName, ofUEN, ofLoc, wcName, wcUEN, wccName, wccUEN, wcTrade sql.NullString
 		if err := rows.Scan(
 			&p.ID, &siteID, &uid, &p.Title, &status,
 			&ref, &cRef, &loc, &cName, &hdb,
-			&mcName, &mcUEN, &ofName, &ofUEN, &ofLoc, &wcName, &wcUEN, &wccName, &wccUEN,
+			&mcName, &mcUEN, &ofName, &ofUEN, &ofLoc, &wcName, &wcUEN, &wccName, &wccUEN, &wcTrade,
 			&p.CreatedAt, &p.UpdatedAt, &p.SiteName, &p.WorkerCount, &p.DeviceCount,
 		); err != nil {
 			return nil, err
@@ -199,6 +202,9 @@ func (r *ProjectRepository) List(ctx context.Context, userID string) ([]domain.P
 		if wccUEN.Valid {
 			p.WorkerCompanyClientUEN = wccUEN.String
 		}
+		if wcTrade.Valid {
+			p.WorkerCompanyTrade = wcTrade.String
+		}
 
 		projects = append(projects, p)
 	}
@@ -218,9 +224,9 @@ func (r *ProjectRepository) Create(ctx context.Context, p *domain.Project) error
         main_contractor_name, main_contractor_uen,
         offsite_fabricator_name, offsite_fabricator_uen, offsite_fabricator_location,
         worker_company_name, worker_company_uen,
-        worker_company_client_name, worker_company_client_uen,
+        worker_company_client_name, worker_company_client_uen, worker_company_trade,
         created_at, updated_at
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())`
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())`
 
 	_, err = r.db.ExecContext(ctx, query,
 		p.ID, p.SiteID, p.UserID, p.Title, p.Status, p.Reference,
@@ -228,7 +234,7 @@ func (r *ProjectRepository) Create(ctx context.Context, p *domain.Project) error
 		toNullString(p.MainContractorName), toNullString(p.MainContractorUEN),
 		toNullString(p.OffsiteFabricatorName), toNullString(p.OffsiteFabricatorUEN), toNullString(p.OffsiteFabricatorLocation),
 		toNullString(p.WorkerCompanyName), toNullString(p.WorkerCompanyUEN),
-		toNullString(p.WorkerCompanyClientName), toNullString(p.WorkerCompanyClientUEN),
+		toNullString(p.WorkerCompanyClientName), toNullString(p.WorkerCompanyClientUEN), toNullString(p.WorkerCompanyTrade),
 	)
 	return err
 }
@@ -240,7 +246,7 @@ func (r *ProjectRepository) Update(ctx context.Context, p *domain.Project) error
         main_contractor_name=?, main_contractor_uen=?,
         offsite_fabricator_name=?, offsite_fabricator_uen=?, offsite_fabricator_location=?,
         worker_company_name=?, worker_company_uen=?,
-        worker_company_client_name=?, worker_company_client_uen=?,
+        worker_company_client_name=?, worker_company_client_uen=?, worker_company_trade=?,
         updated_at=NOW()
         WHERE project_id=?`
 
@@ -250,7 +256,7 @@ func (r *ProjectRepository) Update(ctx context.Context, p *domain.Project) error
 		toNullString(p.MainContractorName), toNullString(p.MainContractorUEN),
 		toNullString(p.OffsiteFabricatorName), toNullString(p.OffsiteFabricatorUEN), toNullString(p.OffsiteFabricatorLocation),
 		toNullString(p.WorkerCompanyName), toNullString(p.WorkerCompanyUEN),
-		toNullString(p.WorkerCompanyClientName), toNullString(p.WorkerCompanyClientUEN),
+		toNullString(p.WorkerCompanyClientName), toNullString(p.WorkerCompanyClientUEN), toNullString(p.WorkerCompanyTrade),
 		p.ID,
 	)
 	return err

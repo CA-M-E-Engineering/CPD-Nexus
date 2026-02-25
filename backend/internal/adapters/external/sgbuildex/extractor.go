@@ -36,11 +36,12 @@ type AttendanceRow struct {
 	SiteOwnerUEN  string
 
 	// Joined Worker fields
-	WorkerName   string
-	WorkerFIN    string
-	WorkerTrade  string
-	EmployerName string
-	EmployerUEN  string
+	WorkerName    string
+	WorkerFIN     string
+	WorkerTrade   string
+	EmployerName  string
+	EmployerUEN   string
+	EmployerTrade string
 
 	SubmissionDate time.Time
 }
@@ -57,7 +58,7 @@ func ExtractPendingAttendance(ctx context.Context, db *sql.DB) ([]AttendanceRow,
 			p.offsite_fabricator_name, p.offsite_fabricator_uen, p.offsite_fabricator_location,
 			p.main_contractor_name, p.main_contractor_uen,
 			w.name AS worker_name, w.person_id_no, w.person_trade AS worker_trade,
-			p.worker_company_name, p.worker_company_uen
+			p.worker_company_name, p.worker_company_uen, p.worker_company_trade
 		FROM attendance a
 		JOIN sites s ON a.site_id = s.site_id
 		JOIN workers w ON a.worker_id = w.worker_id
@@ -75,7 +76,7 @@ func ExtractPendingAttendance(ctx context.Context, db *sql.DB) ([]AttendanceRow,
 	var results []AttendanceRow
 	for rows.Next() {
 		var r AttendanceRow
-		var mcName, mcUEN, wcName, wcUEN sql.NullString
+		var mcName, mcUEN, wcName, wcUEN, wcTrade sql.NullString
 		err := rows.Scan(
 			&r.AttendanceID,
 			&r.DeviceID,
@@ -101,6 +102,7 @@ func ExtractPendingAttendance(ctx context.Context, db *sql.DB) ([]AttendanceRow,
 			&r.WorkerTrade,
 			&wcName,
 			&wcUEN,
+			&wcTrade,
 		)
 		if err != nil {
 			return nil, err
@@ -116,6 +118,9 @@ func ExtractPendingAttendance(ctx context.Context, db *sql.DB) ([]AttendanceRow,
 		}
 		if wcUEN.Valid {
 			r.EmployerUEN = wcUEN.String
+		}
+		if wcTrade.Valid {
+			r.EmployerTrade = wcTrade.String
 		}
 
 		results = append(results, r)
