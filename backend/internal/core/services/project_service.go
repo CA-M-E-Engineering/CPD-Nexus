@@ -2,10 +2,10 @@ package services
 
 import (
 	"context"
+	"time"
+
 	"sgbuildex/internal/core/domain"
 	"sgbuildex/internal/core/ports"
-
-	"github.com/google/uuid"
 )
 
 type ProjectService struct {
@@ -26,7 +26,7 @@ func (s *ProjectService) ListProjects(ctx context.Context, userID string) ([]dom
 
 func (s *ProjectService) CreateProject(ctx context.Context, p *domain.Project) error {
 	if p.ID == "" {
-		p.ID = "project-" + uuid.New().String()
+		p.ID = "p" + time.Now().Format("20060102150405")
 	}
 	return s.repo.Create(ctx, p)
 }

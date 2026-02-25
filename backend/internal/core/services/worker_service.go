@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"sgbuildex/internal/core/domain"
 	"sgbuildex/internal/core/ports"
-
-	"github.com/google/uuid"
+	"strings"
+	"time"
 )
 
 type WorkerService struct {
@@ -27,11 +27,16 @@ func (s *WorkerService) ListWorkers(ctx context.Context, userID, siteID string) 
 
 func (s *WorkerService) CreateWorker(ctx context.Context, w *domain.Worker) error {
 	if w.ID == "" {
-		w.ID = "worker-" + uuid.New().String()
+		w.ID = "w" + time.Now().Format("20060102150405")
 	}
 
 	if w.UserID == "" {
 		return fmt.Errorf("user_id is required")
+	}
+
+	// Default user_type if not set
+	if w.UserType == "" {
+		w.UserType = "user"
 	}
 
 	if w.CurrentProjectID != "" {
@@ -42,6 +47,12 @@ func (s *WorkerService) CreateWorker(ctx context.Context, w *domain.Worker) erro
 		if projectUserID != w.UserID {
 			return fmt.Errorf("user mismatch: project belongs to %s, worker belongs to %s", projectUserID, w.UserID)
 		}
+	}
+
+	// If worker has auth data, mark as pending registration (is_synced=2)
+	hasAuthData := w.FaceImgLoc != "" || w.CardNumber != ""
+	if hasAuthData {
+		w.IsSynced = 2
 	}
 
 	return s.repo.Create(ctx, w)
@@ -56,8 +67,14 @@ func (s *WorkerService) UpdateWorker(ctx context.Context, id string, payload map
 		return fmt.Errorf("worker not found")
 	}
 
+	requiresSync := false
+	wasRegistered := existing.FaceImgLoc != "" || existing.CardNumber != ""
+
 	// Dynamic overlay logic
 	if v, ok := payload["name"].(string); ok {
+		if existing.Name != v {
+			requiresSync = true
+		}
 		existing.Name = v
 	}
 	if v, ok := payload["email"].(string); ok {
@@ -66,17 +83,20 @@ func (s *WorkerService) UpdateWorker(ctx context.Context, id string, payload map
 	if v, ok := payload["role"].(string); ok {
 		existing.Role = v
 	}
+	if v, ok := payload["user_type"].(string); ok {
+		existing.UserType = v
+	}
 	if v, ok := payload["status"].(string); ok {
 		existing.Status = v
+		if v == "inactive" {
+			existing.CurrentProjectID = ""
+		}
 	}
 	if v, ok := payload["person_id_no"].(string); ok {
 		existing.PersonIDNo = v
 	}
 	if v, ok := payload["user_id"].(string); ok {
 		existing.UserID = v
-	}
-	if v, ok := payload["person_id_no"].(string); ok {
-		existing.PersonIDNo = v
 	}
 	if v, ok := payload["person_id_and_work_pass_type"].(string); ok {
 		existing.PersonIDAndWorkPassType = v
@@ -86,6 +106,65 @@ func (s *WorkerService) UpdateWorker(ctx context.Context, id string, payload map
 	}
 	if v, ok := payload["person_trade"].(string); ok {
 		existing.PersonTrade = v
+	}
+
+	if v, ok := payload["auth_start_time"].(string); ok {
+		if cleanDateStr(existing.AuthStartTime) != cleanDateStr(v) {
+			requiresSync = true
+		}
+		existing.AuthStartTime = v
+	}
+	if v, ok := payload["auth_end_time"].(string); ok {
+		if cleanDateStr(existing.AuthEndTime) != cleanDateStr(v) {
+			requiresSync = true
+		}
+		existing.AuthEndTime = v
+	}
+	if v, ok := payload["face_img_loc"].(string); ok {
+		if existing.FaceImgLoc != v {
+			requiresSync = true
+		}
+		existing.FaceImgLoc = v
+	}
+	if v, ok := payload["card_number"].(string); ok {
+		if existing.CardNumber != v {
+			requiresSync = true
+		}
+		existing.CardNumber = v
+	}
+	if v, ok := payload["card_type"].(string); ok {
+		if existing.CardType != v {
+			requiresSync = true
+		}
+		existing.CardType = v
+	}
+	if v, ok := payload["fdid"].(float64); ok {
+		if existing.FDID != int(v) {
+			requiresSync = true
+		}
+		existing.FDID = int(v)
+	}
+	if v, ok := payload["fdid"].(int); ok {
+		if existing.FDID != v {
+			requiresSync = true
+		}
+		existing.FDID = v
+	}
+
+	isRegistered := existing.FaceImgLoc != "" || existing.CardNumber != ""
+
+	if requiresSync && (wasRegistered || isRegistered) {
+		// If worker is still pending registration (is_synced=2), keep it at 2.
+		// Only set to 0 (pending update) if it was previously synced (is_synced=1).
+		if existing.IsSynced != 2 {
+			existing.IsSynced = 0
+		}
+	} else {
+		if v, ok := payload["is_synced"].(float64); ok {
+			existing.IsSynced = int(v)
+		} else if v, ok := payload["is_synced"].(int); ok {
+			existing.IsSynced = v
+		}
 	}
 
 	// Project ID flexibility
@@ -118,4 +197,28 @@ func (s *WorkerService) UpdateWorker(ctx context.Context, id string, payload map
 
 func (s *WorkerService) DeleteWorker(ctx context.Context, id string) error {
 	return s.repo.Delete(ctx, id)
+}
+
+func (s *WorkerService) ListPendingSyncWorkers(ctx context.Context, userID string) ([]domain.Worker, error) {
+	// Fetch workers needing registration (is_synced=2) and update (is_synced=0)
+	registerWorkers, err := s.repo.ListByIsSynced(ctx, userID, 2)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list register-pending workers: %w", err)
+	}
+
+	updateWorkers, err := s.repo.ListByIsSynced(ctx, userID, 0)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list update-pending workers: %w", err)
+	}
+
+	return append(registerWorkers, updateWorkers...), nil
+}
+
+func cleanDateStr(ds string) string {
+	if len(ds) >= 19 {
+		tmp := strings.Replace(ds, "T", " ", 1)
+		tmp = strings.Replace(tmp, "Z", "", 1)
+		return tmp
+	}
+	return ds
 }

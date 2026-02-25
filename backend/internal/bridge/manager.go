@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"sgbuildex/internal/core/domain"
 	"time"
 )
 
@@ -82,6 +83,55 @@ func (rm *RequestManager) RequestAttendance() error {
 			reqMsg, _ := json.MarshalIndent(req, "", "  ")
 			log.Printf("\n--- [BRIDGE OUTBOUND REQUEST] ---\n%s\n---------------------------------", string(reqMsg))
 		}
+	}
+
+	return nil
+}
+
+// RequestUserSync sends REGISTER_USER and UPDATE_USER commands for pending workers
+func (rm *RequestManager) RequestUserSync(ctx context.Context, builder interface {
+	BuildSyncRequests(ctx context.Context, userID string) ([]Message, []string, []domain.Worker, []domain.Worker, error)
+	MarkWorkersSynced(ctx context.Context, workerIDs []string)
+}) error {
+	log.Println("RequestManager: Starting user sync check")
+
+	// For background sync, we pass empty userID to sync all
+	messages, workerIDs, invalidWorkers, _, err := builder.BuildSyncRequests(ctx, "")
+	if err != nil {
+		return fmt.Errorf("failed to build user sync requests: %w", err)
+	}
+
+	if len(invalidWorkers) > 0 {
+		log.Printf("RequestManager: %d workers are missing devices and cannot be synced", len(invalidWorkers))
+		for _, w := range invalidWorkers {
+			log.Printf("  - Worker %s (%s) at site %s", w.ID, w.Name, w.SiteID)
+		}
+	}
+
+	if len(messages) == 0 {
+		log.Println("RequestManager: No pending user sync requests")
+		return nil
+	}
+
+	log.Printf("RequestManager: Sending %d user sync requests", len(messages))
+
+	var successIDs []string
+	for i, msg := range messages {
+		if err := rm.Transport.Write(msg); err != nil {
+			log.Printf("RequestManager: Failed to send user sync request %d: %v", i, err)
+		} else {
+			respMsg, _ := json.MarshalIndent(msg, "", "  ")
+			log.Printf("\n--- [BRIDGE OUTBOUND USER SYNC] ---\n%s\n-----------------------------------", string(respMsg))
+			if i < len(workerIDs) {
+				successIDs = append(successIDs, workerIDs[i])
+			}
+		}
+	}
+
+	// Mark successfully sent workers as synced
+	if len(successIDs) > 0 {
+		builder.MarkWorkersSynced(ctx, successIDs)
+		log.Printf("RequestManager: Marked %d workers as synced", len(successIDs))
 	}
 
 	return nil

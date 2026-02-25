@@ -3,10 +3,10 @@ package services
 import (
 	"context"
 	"fmt"
+	"time"
+
 	"sgbuildex/internal/core/domain"
 	"sgbuildex/internal/core/ports"
-
-	"github.com/google/uuid"
 )
 
 type DeviceService struct {
@@ -36,7 +36,7 @@ func (s *DeviceService) RegisterDevice(ctx context.Context, sn, model, userID st
 	}
 
 	d := &domain.Device{
-		ID:     "device-" + uuid.New().String(),
+		ID:     "d" + time.Now().Format("20060102150405"),
 		SN:     sn,
 		Model:  model,
 		Status: domain.DeviceStatusOffline,

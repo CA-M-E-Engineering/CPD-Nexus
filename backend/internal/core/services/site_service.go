@@ -2,10 +2,10 @@ package services
 
 import (
 	"context"
+	"time"
+
 	"sgbuildex/internal/core/domain"
 	"sgbuildex/internal/core/ports"
-
-	"github.com/google/uuid"
 )
 
 type SiteService struct {
@@ -26,7 +26,7 @@ func (s *SiteService) ListSites(ctx context.Context, userID string) ([]domain.Si
 
 func (s *SiteService) CreateSite(ctx context.Context, site *domain.Site) error {
 	if site.ID == "" {
-		site.ID = "site-" + uuid.New().String()
+		site.ID = "s" + time.Now().Format("20060102150405")
 	}
 	return s.repo.Create(ctx, site)
 }

@@ -31,7 +31,7 @@ func (h *AnalyticsHandler) GetDashboardStats(w http.ResponseWriter, r *http.Requ
 	var totalWorkers, activeSites, activeProjects, totalDevices int
 
 	// Simple counts with user isolation
-	h.DB.QueryRow("SELECT COUNT(*) FROM workers WHERE role IN ('worker', 'pic', 'manager') AND user_id = ?", userID).Scan(&totalWorkers)
+	h.DB.QueryRow("SELECT COUNT(*) FROM workers WHERE status = 'active' AND role IN ('worker', 'pic', 'manager') AND user_id = ?", userID).Scan(&totalWorkers)
 	h.DB.QueryRow("SELECT COUNT(*) FROM sites WHERE status='active' AND user_id = ?", userID).Scan(&activeSites)
 	h.DB.QueryRow("SELECT COUNT(*) FROM projects WHERE status='active' AND user_id = ?", userID).Scan(&activeProjects)
 	h.DB.QueryRow("SELECT COUNT(*) FROM devices WHERE user_id = ?", userID).Scan(&totalDevices)
@@ -68,7 +68,7 @@ func (h *AnalyticsHandler) GetDetailedAnalytics(w http.ResponseWriter, r *http.R
 	response := make(map[string]interface{})
 
 	// 1. Worker Distribution by Trade
-	tradeRows, err := h.DB.Query("SELECT person_trade, COUNT(*) FROM workers WHERE role IN ('worker', 'pic') AND user_id = ? GROUP BY person_trade", userID)
+	tradeRows, err := h.DB.Query("SELECT person_trade, COUNT(*) FROM workers WHERE status = 'active' AND role IN ('worker', 'pic') AND user_id = ? GROUP BY person_trade", userID)
 	if err == nil {
 		defer tradeRows.Close()
 		trades := make(map[string]int)
@@ -87,7 +87,7 @@ func (h *AnalyticsHandler) GetDetailedAnalytics(w http.ResponseWriter, r *http.R
 	}
 
 	// 2. Worker Status Distribution
-	statusRows, err := h.DB.Query("SELECT status, COUNT(*) FROM workers WHERE role IN ('worker', 'pic') AND user_id = ? GROUP BY status", userID)
+	statusRows, err := h.DB.Query("SELECT status, COUNT(*) FROM workers WHERE status = 'active' AND role IN ('worker', 'pic') AND user_id = ? GROUP BY status", userID)
 	if err == nil {
 		defer statusRows.Close()
 		statuses := make(map[string]int)

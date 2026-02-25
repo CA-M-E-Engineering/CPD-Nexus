@@ -18,13 +18,13 @@ const handleClose = () => {
 
 <template>
   <Transition name="toast">
-    <div v-if="isVisible" class="base-toast" :class="data.type" @click="handleClose">
+    <div v-if="isVisible" class="base-toast" :class="[data.type, { 'large': data.isLarge }]" @click="handleClose">
       <div class="toast-icon">
         <i v-if="data.type === 'success'" class="ri-checkbox-circle-fill"></i>
         <i v-else-if="data.type === 'error'" class="ri-error-warning-fill"></i>
         <i v-else class="ri-information-fill"></i>
       </div>
-      <div class="toast-message">
+      <div class="toast-message" :class="{ 'large-text': data.isLarge }">
         {{ data.message }}
       </div>
       <button class="toast-close" @click.stop="handleClose">
@@ -53,6 +53,12 @@ const handleClose = () => {
   cursor: pointer;
 }
 
+.base-toast.large {
+  max-width: 600px;
+  min-width: 400px;
+  padding: 20px 24px;
+}
+
 .base-toast.success {
   border-left: 4px solid var(--color-success);
 }
@@ -64,6 +70,10 @@ const handleClose = () => {
 .toast-icon {
   font-size: 20px;
   flex-shrink: 0;
+}
+
+.large .toast-icon {
+  font-size: 24px;
 }
 
 .success .toast-icon {
@@ -79,6 +89,12 @@ const handleClose = () => {
   font-size: 14px;
   font-weight: 500;
   color: var(--color-text-primary);
+}
+
+.toast-message.large-text {
+  font-size: 18px;
+  white-space: pre-wrap;
+  line-height: 1.5;
 }
 
 .toast-close {

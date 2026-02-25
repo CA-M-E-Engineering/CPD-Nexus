@@ -53,7 +53,7 @@ func (h *AssignmentsHandler) AssignWorkers(w http.ResponseWriter, r *http.Reques
 	}
 
 	// Step 2: Assign new workers
-	stmt, err := h.DB.Prepare("UPDATE workers SET current_project_id = ? WHERE worker_id = ? AND user_id = ?")
+	stmt, err := h.DB.Prepare("UPDATE workers SET current_project_id = ? WHERE worker_id = ? AND user_id = ? AND status = 'active'")
 	if err != nil {
 		log.Printf("[Assignments] ERROR preparing stmt: %v", err)
 		http.Error(w, err.Error(), http.StatusInternalServerError)

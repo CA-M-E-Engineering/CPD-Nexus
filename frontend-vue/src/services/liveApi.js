@@ -8,6 +8,7 @@ import { assignmentsApi } from '../api/assignments.api';
 import { analyticsApi } from '../api/analytics.api';
 import { attendanceApi } from '../api/attendance.api';
 import { settingsApi } from '../api/settings.api';
+import { bridgeApi } from '../api/bridge.api';
 
 import { http } from '../api/http';
 
@@ -68,6 +69,9 @@ export const liveApi = {
     // --- System Settings ---
     getSettings: settingsApi.getSettings,
     updateSettings: settingsApi.updateSettings,
+
+    // --- Bridge ---
+    syncUsers: bridgeApi.syncUsers,
 
     // --- Utilities ---
     async simulateExport(label) {

@@ -1,5 +1,7 @@
 <script setup>
 import { ref, computed } from 'vue';
+import { api } from '../../services/api.js';
+import { notification } from '../../services/notification';
 
 const isDarkMode = ref(true);
 const isSyncing = ref(false);
@@ -9,13 +11,54 @@ const toggleTheme = () => {
   document.documentElement.setAttribute('data-theme', isDarkMode.value ? 'dark' : 'light');
 };
 
-const handleSync = () => {
+const handleSync = async () => {
+  if (isSyncing.value) return;
+
+  // Get current user ID for scoped sync
+  const savedUser = localStorage.getItem('auth_user');
+  const userObj = savedUser ? JSON.parse(savedUser) : null;
+  const userID = userObj?.user_id || '';
+
   isSyncing.value = true;
-  emit('sync');
-  // Visual feedback - stop spinning after 1.5s
-  setTimeout(() => {
+  try {
+    const response = await api.syncUsers(userID);
+    
+    let sections = [];
+    if (response.sent > 0) {
+      sections.push(`✅ Successfully Synced: ${response.sent} worker(s)`);
+    }
+
+    if (response.unauthenticated_workers && response.unauthenticated_workers.length > 0) {
+      const list = response.unauthenticated_workers.map(w => `  • ${w.name} (${w.worker_id})`).join('\n');
+      sections.push(`⚠️ Missing Biometric/Card Data (${response.unauthenticated_workers.length}):\n${list}`);
+    }
+
+    if (response.invalid_workers && response.invalid_workers.length > 0) {
+      const list = response.invalid_workers.map(w => `  • ${w.name} (${w.worker_id})`).join('\n');
+      sections.push(`❌ Missing Site Devices (${response.invalid_workers.length}):\n${list}`);
+    }
+
+    if (sections.length === 0) {
+      notification.success("No workers found that require synchronization.");
+    } else {
+      const message = sections.join('\n\n');
+      const isError = response.invalid_workers?.length > 0 || response.unauthenticated_workers?.length > 0;
+      
+      if (isError) {
+        notification.error(message, 10000, true);
+      } else {
+        notification.success(message, 5000, true);
+      }
+    }
+  } catch (err) {
+    console.error('Sync error:', err);
+    const errorMsg = err.data?.error || err.data?.message || err.message || 'Synchronization failed. Please check bridge connection.';
+    notification.error(errorMsg, 5000, true);
+  } finally {
     isSyncing.value = false;
-  }, 1500);
+  }
+  
+  emit('sync');
 };
 
 const props = defineProps({

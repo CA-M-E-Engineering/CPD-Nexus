@@ -10,6 +10,7 @@ type DeviceRepository interface {
 	Get(ctx context.Context, id string) (*domain.Device, error)
 	GetBySN(ctx context.Context, sn string) (*domain.Device, error)
 	List(ctx context.Context, userID string) ([]domain.Device, error)
+	ListSNsBySiteID(ctx context.Context, siteID string) ([]string, error)
 	Create(ctx context.Context, device *domain.Device) error
 	Update(ctx context.Context, device *domain.Device) error
 	Delete(ctx context.Context, id string) error

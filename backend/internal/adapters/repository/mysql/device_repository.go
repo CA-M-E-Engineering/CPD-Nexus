@@ -198,6 +198,26 @@ func (r *DeviceRepository) List(ctx context.Context, userID string) ([]domain.De
 	return devices, nil
 }
 
+func (r *DeviceRepository) ListSNsBySiteID(ctx context.Context, siteID string) ([]string, error) {
+	query := `SELECT sn FROM devices WHERE site_id = ? AND status != 'inactive'`
+	rows, err := r.db.QueryContext(ctx, query, siteID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list device SNs by site: %w", err)
+	}
+	defer rows.Close()
+
+	var sns []string
+	for rows.Next() {
+		var sn string
+		if err := rows.Scan(&sn); err != nil {
+			log.Printf("[DeviceRepo] ListSNsBySiteID scan error: %v", err)
+			continue
+		}
+		sns = append(sns, sn)
+	}
+	return sns, nil
+}
+
 func (r *DeviceRepository) Create(ctx context.Context, d *domain.Device) error {
 	id, err := idgen.GenerateNextID(r.db, "devices", "device_id", "device")
 	if err != nil {

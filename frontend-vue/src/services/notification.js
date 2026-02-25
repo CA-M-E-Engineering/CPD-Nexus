@@ -5,19 +5,20 @@ const activeNotification = ref(null);
 export const notification = {
     state: activeNotification,
 
-    success(message, duration = 3000) {
-        this.notify(message, 'success', duration);
+    success(message, duration = 3000, isLarge = false) {
+        this.notify(message, 'success', duration, isLarge);
     },
 
-    error(message, duration = 4000) {
-        this.notify(message, 'error', duration);
+    error(message, duration = 4000, isLarge = false) {
+        this.notify(message, 'error', duration, isLarge);
     },
 
-    notify(message, type = 'success', duration = 3000) {
+    notify(message, type = 'success', duration = 3000, isLarge = false) {
         activeNotification.value = {
             id: Date.now(),
             message,
-            type
+            type,
+            isLarge
         };
 
         if (duration > 0) {

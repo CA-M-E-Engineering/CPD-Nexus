@@ -5,6 +5,7 @@ import { notification } from '../../services/notification';
 import PageHeader from '../../components/ui/PageHeader.vue';
 import BaseInput from '../../components/ui/BaseInput.vue';
 import BaseButton from '../../components/ui/BaseButton.vue';
+import BaseBadge from '../../components/ui/BaseBadge.vue';
 
 const props = defineProps({
   id: [Number, String],
@@ -28,32 +29,50 @@ const formData = ref({
   person_trade: '1.2'
 });
 
+const getTodayStr = () => {
+    const d = new Date();
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day} 00:00:00`;
+};
+const getEndStr = () => {
+    return '2037-12-31 23:59:59';
+};
+
 const authForm = ref({
   authType: 'face',
+  userType: 'user',
+  authStart: getTodayStr(),
+  authEnd: getEndStr(),
+  cardType: 'normal',
   cardNo: ''
 });
 const fileName = ref('');
 
-const handleFileUpload = (event) => {
+const handleFileUpload = async (event) => {
   const file = event.target.files[0];
   if (file) {
-    fileName.value = file.name;
+    fileName.value = "Uploading...";
+    const formData = new FormData();
+    formData.append('image', file);
+    try {
+        const response = await fetch('/api/upload/face', { method: 'POST', body: formData });
+        if (response.ok) {
+            const data = await response.json();
+            fileName.value = data.path;
+            notification.success("Image uploaded to node target");
+        } else {
+            throw new Error(`Upload returned status ${response.status}`);
+        }
+    } catch (err) {
+        fileName.value = "";
+        notification.error("Failed to upload image. " + err.message);
+    }
   }
 };
 
-const handlePushToBridge = () => {
-  notification.success(`Auth profile for ${formData.value?.name || 'Worker'} has been queued for synchronization!`);
-  authForm.value.cardNo = '';
-  fileName.value = '';
-};
-
-// Sync Mock
-const handleSyncWorkers = () => {
-  notification.info(`Deploying profiles to assigned active sites...`);
-  setTimeout(() => {
-    notification.success("Site deployment push completed.");
-  }, 1200);
-};
+// Sync and Deployment handlers removed as backend handles saving together
 
 
 const passTypes = [
@@ -108,6 +127,19 @@ const fetchWorker = async () => {
         person_id_and_work_pass_type: data.person_id_and_work_pass_type || 'WP',
         person_trade: data.person_trade || '1.2'
       };
+
+      if (data.auth_start_time) authForm.value.authStart = data.auth_start_time;
+      if (data.auth_end_time) authForm.value.authEnd = data.auth_end_time;
+      if (data.card_number) authForm.value.cardNo = data.card_number;
+      if (data.card_type) authForm.value.cardType = data.card_type;
+      
+      if (data.face_img_loc) {
+        fileName.value = data.face_img_loc;
+        authForm.value.authType = 'face';
+      } else if (data.card_number) {
+        authForm.value.authType = 'card';
+      }
+      if (data.user_type) authForm.value.userType = data.user_type;
     }
   } finally {
     isLoading.value = false;
@@ -153,7 +185,13 @@ const handleSubmit = async () => {
 
     const payload = { 
         ...formData.value,
-        user_id: userId
+        user_id: userId,
+        user_type: authForm.value.userType,
+        auth_start_time: authForm.value.authStart,
+        auth_end_time: authForm.value.authEnd,
+        card_number: authForm.value.cardNo,
+        card_type: authForm.value.cardType,
+        face_img_loc: fileName.value
     };
 
     if (isEdit.value) {
@@ -205,14 +243,6 @@ const handleSubmit = async () => {
                 </select>
             </div>
 
-            <div class="form-group">
-                <label class="form-label">System Status</label>
-                <select v-model="formData.status" class="form-select">
-                    <option value="active">Active</option>
-                    <option value="inactive">Inactive</option>
-                    <option value="suspended">Suspended</option>
-                </select>
-            </div>
           </div>
       </div>
 
@@ -261,17 +291,48 @@ const handleSubmit = async () => {
 
       <!-- Device Auth Panel -->
       <div class="panel-right">
-        <h3 class="panel-title">IoT Authentication Setup</h3>
-        <p class="panel-desc">Push biometric/access credentials required for site entry.</p>
-
-        <form @submit.prevent="handlePushToBridge" class="auth-form-container">
+        <div class="auth-form-container">
+          <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 24px;">
+            <div>
+              <h3 class="panel-title" style="margin-bottom: 4px;">IoT Authentication Setup</h3>
+              <p class="panel-desc" style="margin-bottom: 0;">Push biometric/access credentials required for site entry.</p>
+            </div>
+            <BaseBadge v-if="isEdit" :type="formData.is_synced === 1 ? 'success' : 'warning'" style="margin-top: 4px;">
+                {{ formData.is_synced === 1 ? 'Synced' : 'Pending Sync' }}
+            </BaseBadge>
+          </div>
           
+          <div v-if="formData.worker_id" class="form-group">
+            <label class="form-label">System Worker ID</label>
+            <BaseInput v-model="formData.worker_id" disabled />
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">User Type</label>
+            <select v-model="authForm.userType" class="form-select">
+              <option value="user">User</option>
+              <option value="visitor">Visitor</option>
+              <option value="blocklist">Blocklist</option>
+            </select>
+          </div>
+
+          <BaseInput 
+            v-model="authForm.authStart" 
+            label="Authorization Start Time (YYYY-MM-DD HH:MM:SS)" 
+            placeholder="e.g., 2026-02-25 00:00:00"
+          />
+
+          <BaseInput 
+            v-model="authForm.authEnd" 
+            label="Authorization End Time (YYYY-MM-DD HH:MM:SS)" 
+            placeholder="e.g., 2037-12-31 23:59:59"
+          />
+
           <div class="form-group">
             <label class="form-label">Authentication Method</label>
             <select v-model="authForm.authType" class="form-select">
               <option value="face">Face Recognition</option>
               <option value="card">Access Card (NFC/RFID)</option>
-              <option value="fingerprint">Fingerprint (On-device Setup)</option>
             </select>
           </div>
 
@@ -285,23 +346,22 @@ const handleSubmit = async () => {
              <p v-if="fileName" class="file-name">Staged: {{ fileName }}</p>
           </div>
 
-          <BaseInput 
-            v-if="authForm.authType === 'card'"
-            v-model="authForm.cardNo" 
-            label="Hardware Access Card Number" 
-            placeholder="e.g., 0011223344" 
-            required 
-          />
-
-          <div class="form-actions">
-            <!-- Utilizing the Sync Handler locally to mock updating devices -->
-            <BaseButton variant="secondary" @click="handleSyncWorkers" type="button">
-              <template #icon><i class="ri-refresh-line"></i></template>
-              Sync Devices
-            </BaseButton>
-            <BaseButton type="submit">Deploy Profile</BaseButton>
-          </div>
-        </form>
+          <template v-if="authForm.authType === 'card'">
+              <BaseInput 
+                v-model="authForm.cardNo" 
+                label="Hardware Access Card Number" 
+                placeholder="e.g., 0011223344" 
+                required 
+              />
+              <div class="form-group">
+                <label class="form-label">Card Type</label>
+                <select v-model="authForm.cardType" class="form-select">
+                  <option value="normal">Normal Card</option>
+                  <option value="super">Super Card</option>
+                </select>
+              </div>
+          </template>
+        </div>
 
       </div>
 
@@ -341,7 +401,7 @@ const handleSubmit = async () => {
   background: var(--color-surface);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
-  padding: 24px;
+  padding: 32px;
   display: flex;
   flex-direction: column;
   gap: 20px;

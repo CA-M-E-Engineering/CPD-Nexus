@@ -9,6 +9,7 @@ import (
 	"sgbuildex/internal/adapters/external/sgbuildex"
 	"sgbuildex/internal/adapters/repository/mysql"
 	"sgbuildex/internal/api"
+	apiHandlers "sgbuildex/internal/api/handlers"
 	"sgbuildex/internal/bridge"
 	bridgeHandlers "sgbuildex/internal/bridge/handlers"
 	"sgbuildex/internal/core/ports"
@@ -48,17 +49,23 @@ func main() {
 	settingsRepo := mysql.NewMySQLSettingsRepository(db)
 
 	// Services
+	workerService := services.NewWorkerService(workerRepo)
 	attendanceService := services.NewAttendanceService(attendanceRepo, workerRepo, deviceRepo)
 
 	// Context for graceful shutdown
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
+	// Bridge transport & user sync builder (shared between API and Bridge)
+	transport := bridge.NewTransport(cfg.BridgeURL)
+	userSyncBuilder := bridgeHandlers.NewUserSyncBuilder(workerService, workerRepo, deviceRepo)
+	bridgeSyncHandler := apiHandlers.NewBridgeSyncHandler(userSyncBuilder, transport)
+
 	// --- 3. Component A: REST API ---
-	go startAPI(cfg, db)
+	go startAPI(cfg, db, bridgeSyncHandler)
 
 	// --- 4. Component B: Bridge Connector ---
-	go startBridge(ctx, cfg, db, attendanceService)
+	go startBridge(ctx, cfg, transport, db, attendanceService, userSyncBuilder)
 
 	// --- 5. Component C: Submission Worker ---
 	go startWorker(ctx, cfg, db, settingsRepo)
@@ -76,9 +83,9 @@ func main() {
 	logger.Infof("Final shutdown complete.")
 }
 
-func startAPI(cfg *config.Config, db *sql.DB) {
+func startAPI(cfg *config.Config, db *sql.DB, bridgeSyncHandler *apiHandlers.BridgeSyncHandler) {
 	router := mux.NewRouter()
-	api.RegisterRoutes(router, db)
+	api.RegisterRoutes(router, db, bridgeSyncHandler)
 
 	c := cors.New(cors.Options{
 		AllowedOrigins: []string{
@@ -103,8 +110,7 @@ func startAPI(cfg *config.Config, db *sql.DB) {
 	}
 }
 
-func startBridge(ctx context.Context, cfg *config.Config, db *sql.DB, attendanceService ports.AttendanceService) {
-	transport := bridge.NewTransport(cfg.BridgeURL)
+func startBridge(ctx context.Context, cfg *config.Config, transport *bridge.Transport, db *sql.DB, attendanceService ports.AttendanceService, userSyncBuilder *bridgeHandlers.UserSyncBuilder) {
 	requestMgr := bridge.NewRequestManager(transport, db)
 
 	handler := bridgeHandlers.NewAttendanceHandler(attendanceService)
@@ -145,9 +151,13 @@ func startBridge(ctx context.Context, cfg *config.Config, db *sql.DB, attendance
 		select {
 		case <-ticker.C:
 			if transport.IsConnected() {
-				if err := requestMgr.RequestAttendance(); err != nil {
-					logger.Errorf("[Bridge] Fetch request failed: %v", err)
-				}
+				// if err := requestMgr.RequestAttendance(); err != nil {
+				// 	logger.Errorf("[Bridge] Fetch request failed: %v", err)
+				// }
+				// // Sync pending user registrations/updates
+				// if err := requestMgr.RequestUserSync(ctx, userSyncBuilder); err != nil {
+				// 	logger.Errorf("[Bridge] User sync failed: %v", err)
+				// }
 			}
 		case <-ctx.Done():
 			return

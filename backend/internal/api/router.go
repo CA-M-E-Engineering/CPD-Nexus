@@ -13,7 +13,7 @@ import (
 )
 
 // RegisterRoutes sets up all API endpoints
-func RegisterRoutes(r *mux.Router, db *sql.DB) {
+func RegisterRoutes(r *mux.Router, db *sql.DB, bridgeSyncHandler *handlers.BridgeSyncHandler) {
 	r.Use(func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			log.Printf("ROUTER DEBUG: %s %s", r.Method, r.URL.Path)
@@ -108,6 +108,9 @@ func RegisterRoutes(r *mux.Router, db *sql.DB) {
 	// --- Attendance Routes ---
 	api.HandleFunc("/attendance", attendanceHandler.GetAttendance).Methods("GET")
 
+	// --- Uploads ---
+	api.HandleFunc("/upload/face", handlers.UploadFaceHandler).Methods("POST")
+
 	// --- Assignments Routes ---
 	api.HandleFunc("/projects/{projectId}/assign-workers", assignmentsHandler.AssignWorkers).Methods("POST")
 	api.HandleFunc("/sites/{siteId}/assign-devices", assignmentsHandler.AssignDevices).Methods("POST")
@@ -124,4 +127,9 @@ func RegisterRoutes(r *mux.Router, db *sql.DB) {
 	// --- Settings Routes ---
 	api.HandleFunc("/settings", settingsHandler.GetSettings).Methods("GET")
 	api.HandleFunc("/settings", settingsHandler.UpdateSettings).Methods("PUT")
+
+	// --- Bridge Sync Routes ---
+	if bridgeSyncHandler != nil {
+		api.HandleFunc("/bridge/sync-users", bridgeSyncHandler.SyncUsers).Methods("POST")
+	}
 }

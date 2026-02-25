@@ -13,7 +13,7 @@ import ConfirmDialog from '../../components/ui/ConfirmDialog.vue';
 
 
 const activeFilter = ref('All');
-const filters = ['All', 'active', 'inactive'];
+const filters = ['All', 'Synced', 'Pending'];
 
 
 const columns = [
@@ -21,7 +21,7 @@ const columns = [
   { key: 'role', label: 'Role', size: 'md', muted: true },
   { key: 'person_trade', label: 'Trade', size: 'sm', muted: true },
   { key: 'project_name', label: 'Project Name', size: 'md' },
-  { key: 'status', label: 'Status', size: 'sm' },
+  { key: 'is_synced', label: 'Bridge Sync', size: 'sm' },
   { key: 'actions', label: 'Actions', width: '80px' }
 ];
 
@@ -74,7 +74,10 @@ onMounted(fetchWorkers);
 
 const filteredWorkers = computed(() => {
   return workers.value.filter(worker => {
-    return activeFilter.value === 'All' || worker.status === activeFilter.value;
+    if (activeFilter.value === 'All') return true;
+    if (activeFilter.value === 'Synced') return worker.is_synced === 1;
+    if (activeFilter.value === 'Pending') return worker.is_synced === 0;
+    return true;
   });
 });
 
@@ -189,9 +192,9 @@ const deleteWorker = async () => {
         <span v-else class="text-unassigned">Not Assigned</span>
       </template>
 
-      <template #cell-status="{ item }">
-        <BaseBadge :type="item.status === 'active' ? 'success' : 'inactive'">
-          {{ item.status.charAt(0).toUpperCase() + item.status.slice(1) }}
+      <template #cell-is_synced="{ item }">
+        <BaseBadge :type="item.is_synced === 1 ? 'success' : 'warning'">
+          {{ item.is_synced === 1 ? 'Synced' : 'Pending' }}
         </BaseBadge>
       </template>
 
