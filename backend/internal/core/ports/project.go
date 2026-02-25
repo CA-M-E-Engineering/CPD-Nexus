@@ -11,6 +11,7 @@ type ProjectRepository interface {
 	Create(ctx context.Context, p *domain.Project) error
 	Update(ctx context.Context, p *domain.Project) error
 	Delete(ctx context.Context, id string) error
+	AssignToSite(ctx context.Context, siteID string, projectIDs []string) error
 }
 
 type ProjectService interface {
@@ -19,4 +20,5 @@ type ProjectService interface {
 	CreateProject(ctx context.Context, p *domain.Project) error
 	UpdateProject(ctx context.Context, id string, p *domain.Project) error
 	DeleteProject(ctx context.Context, id string) error
+	AssignProjectsToSite(ctx context.Context, siteID string, projectIDs []string) error
 }

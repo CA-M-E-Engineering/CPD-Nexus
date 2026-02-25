@@ -92,3 +92,7 @@ func (s *DeviceService) DecommissionDevice(ctx context.Context, id string) error
 func (s *DeviceService) AssignDevicesToUser(ctx context.Context, userID string, deviceIDs []string) error {
 	return s.repo.AssignToUser(ctx, userID, deviceIDs)
 }
+
+func (s *DeviceService) AssignDevicesToSite(ctx context.Context, siteID string, deviceIDs []string) error {
+	return s.repo.AssignToSite(ctx, siteID, deviceIDs)
+}

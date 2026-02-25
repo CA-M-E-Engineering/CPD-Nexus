@@ -273,3 +273,34 @@ func (r *ProjectRepository) Delete(ctx context.Context, id string) error {
 	_, err := r.db.ExecContext(ctx, "UPDATE projects SET status = 'inactive' WHERE project_id = ?", id)
 	return err
 }
+
+func (r *ProjectRepository) AssignToSite(ctx context.Context, siteID string, projectIDs []string) error {
+	tx, err := r.db.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+
+	// 1. Unassign all projects currently on this site
+	_, err = tx.ExecContext(ctx, "UPDATE projects SET site_id = NULL WHERE site_id = ?", siteID)
+	if err != nil {
+		return fmt.Errorf("failed to clear old project assignments: %w", err)
+	}
+
+	// 2. Assign new projects
+	if len(projectIDs) > 0 {
+		stmt, err := tx.PrepareContext(ctx, "UPDATE projects SET site_id = ? WHERE project_id = ?")
+		if err != nil {
+			return err
+		}
+		defer stmt.Close()
+
+		for _, projId := range projectIDs {
+			if _, err := stmt.ExecContext(ctx, siteID, projId); err != nil {
+				return err
+			}
+		}
+	}
+
+	return tx.Commit()
+}

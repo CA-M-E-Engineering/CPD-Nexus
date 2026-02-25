@@ -17,6 +17,7 @@ type DeviceRepository interface {
 
 	// Bulk operations
 	AssignToUser(ctx context.Context, userID string, deviceIDs []string) error
+	AssignToSite(ctx context.Context, siteID string, deviceIDs []string) error
 }
 
 // DeviceService defines the business logic for devices
@@ -28,4 +29,5 @@ type DeviceService interface {
 	DecommissionDevice(ctx context.Context, id string) error
 
 	AssignDevicesToUser(ctx context.Context, userID string, deviceIDs []string) error
+	AssignDevicesToSite(ctx context.Context, siteID string, deviceIDs []string) error
 }

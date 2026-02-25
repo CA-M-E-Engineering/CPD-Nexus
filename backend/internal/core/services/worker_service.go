@@ -214,6 +214,15 @@ func (s *WorkerService) ListPendingSyncWorkers(ctx context.Context, userID strin
 	return append(registerWorkers, updateWorkers...), nil
 }
 
+func (s *WorkerService) AssignWorkersToProject(ctx context.Context, projectID string, workerIDs []string) error {
+	userID, err := s.repo.GetProjectUserID(ctx, projectID)
+	if err != nil {
+		return fmt.Errorf("failed to verify project: %w", err)
+	}
+
+	return s.repo.AssignToProject(ctx, projectID, workerIDs, userID)
+}
+
 func cleanDateStr(ds string) string {
 	if len(ds) >= 19 {
 		tmp := strings.Replace(ds, "T", " ", 1)

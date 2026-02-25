@@ -11,6 +11,10 @@ import (
 	"strings"
 )
 
+type Scanner interface {
+	Scan(dest ...interface{}) error
+}
+
 type WorkerRepository struct {
 	db *sql.DB
 }
@@ -20,232 +24,36 @@ func NewWorkerRepository(db *sql.DB) ports.WorkerRepository {
 }
 
 func (r *WorkerRepository) Get(ctx context.Context, id string) (*domain.Worker, error) {
-	query := `
-        SELECT 
-            w.worker_id, w.name, w.email, w.role, w.user_type, w.status, w.current_project_id,
-            w.person_id_no, w.person_id_and_work_pass_type, w.person_nationality, w.person_trade, 
-            w.auth_start_time, w.auth_end_time, w.fdid, w.face_img_loc, w.card_number, w.card_type, w.is_synced,
-            p.project_title,
-            s.site_name,
-            s.location,
-            u.user_name,
-            w.user_id,
-            u.latitude,
-            u.longitude,
-            u.address
-        FROM workers w
-        LEFT JOIN projects p ON w.current_project_id = p.project_id
-        LEFT JOIN sites s ON p.site_id = s.site_id
-        LEFT JOIN users u ON w.user_id = u.user_id
-        WHERE w.worker_id = ?`
-
-	var w domain.Worker
-	var status, projID sql.NullString
-	var userType sql.NullString
-	var pPassType, pNationality, pTrade sql.NullString
-	var pName, sName, sLoc, uName, uID, uLat, uLng, uAdd sql.NullString
-	var aStart, aEnd, fImg, cNum, cType sql.NullString
-	var fdid sql.NullInt64
-	var isSynced sql.NullInt64
-
-	err := r.db.QueryRowContext(ctx, query, id).Scan(
-		&w.ID, &w.Name, &w.Email, &w.Role, &userType, &status, &projID,
-		&w.PersonIDNo, &pPassType, &pNationality, &pTrade,
-		&aStart, &aEnd, &fdid, &fImg, &cNum, &cType, &isSynced,
-		&pName, &sName, &sLoc, &uName, &uID, &uLat, &uLng, &uAdd,
-	)
-	if err == sql.ErrNoRows {
-		return nil, nil
-	}
-	if err != nil {
-		return nil, fmt.Errorf("failed to get worker: %w", err)
-	}
-
-	if userType.Valid {
-		w.UserType = userType.String
-	}
-	if status.Valid {
-		w.Status = status.String
-	}
-	if pPassType.Valid {
-		w.PersonIDAndWorkPassType = pPassType.String
-	}
-	if pNationality.Valid {
-		w.PersonNationality = pNationality.String
-	}
-	if pTrade.Valid {
-		w.PersonTrade = pTrade.String
-	}
-	if aStart.Valid {
-		w.AuthStartTime = formatMySQLDate(aStart.String)
-	}
-	if aEnd.Valid {
-		w.AuthEndTime = formatMySQLDate(aEnd.String)
-	}
-	if fdid.Valid {
-		w.FDID = int(fdid.Int64)
-	}
-	if isSynced.Valid {
-		w.IsSynced = int(isSynced.Int64)
-	}
-	if fImg.Valid {
-		w.FaceImgLoc = fImg.String
-	}
-	if cNum.Valid {
-		w.CardNumber = cNum.String
-	}
-	if cType.Valid {
-		w.CardType = cType.String
-	}
-	if pName.Valid {
-		w.ProjectName = pName.String
-	}
-	if sName.Valid {
-		w.SiteName = sName.String
-	}
-	if sLoc.Valid {
-		w.SiteLocation = sLoc.String
-	}
-	if uName.Valid {
-		w.UserName = uName.String
-	}
-	if uID.Valid {
-		w.UserID = uID.String
-	}
-	if uLat.Valid && uLng.Valid {
-		w.UserLocation = uLat.String + ", " + uLng.String
-	}
-	if uAdd.Valid {
-		w.UserAddress = uAdd.String
-	}
-
-	return &w, nil
+	query := workerBaseSelect + " WHERE w.worker_id = ?"
+	return r.scanRow(r.db.QueryRowContext(ctx, query, id))
 }
 
 func (r *WorkerRepository) GetByFIN(ctx context.Context, fin string) (*domain.Worker, error) {
-	query := `
-        SELECT 
-            w.worker_id, w.name, w.email, w.role, w.user_type, w.status, w.current_project_id,
-            w.person_id_no, w.person_id_and_work_pass_type, w.person_nationality, w.person_trade, 
-            w.auth_start_time, w.auth_end_time, w.fdid, w.face_img_loc, w.card_number, w.card_type, w.is_synced,
-            p.project_title,
-            s.site_name,
-            s.location,
-            u.user_name,
-            w.user_id,
-            u.latitude,
-            u.longitude,
-            u.address
-        FROM workers w
-        LEFT JOIN projects p ON w.current_project_id = p.project_id
-        LEFT JOIN sites s ON p.site_id = s.site_id
-        LEFT JOIN users u ON w.user_id = u.user_id
-        WHERE w.person_id_no = ? LIMIT 1`
-
-	var w domain.Worker
-	var status, projID sql.NullString
-	var userType sql.NullString
-	var pPassType, pNationality, pTrade sql.NullString
-	var pName, sName, sLoc, uName, uID, uLat, uLng, uAdd sql.NullString
-	var aStart, aEnd, fImg, cNum, cType sql.NullString
-	var fdid sql.NullInt64
-	var isSynced sql.NullInt64
-
-	err := r.db.QueryRowContext(ctx, query, fin).Scan(
-		&w.ID, &w.Name, &w.Email, &w.Role, &userType, &status, &projID,
-		&w.PersonIDNo, &pPassType, &pNationality, &pTrade,
-		&aStart, &aEnd, &fdid, &fImg, &cNum, &cType, &isSynced,
-		&pName, &sName, &sLoc, &uName, &uID, &uLat, &uLng, &uAdd,
-	)
-	if err == sql.ErrNoRows {
-		return nil, nil
-	}
-	if err != nil {
-		return nil, fmt.Errorf("failed to get worker by fin: %w", err)
-	}
-	if userType.Valid {
-		w.UserType = userType.String
-	}
-	if projID.Valid {
-		w.CurrentProjectID = projID.String
-	}
-	if w.PersonIDNo != "" {
-		// already scanned into struct
-	}
-	if pPassType.Valid {
-		w.PersonIDAndWorkPassType = pPassType.String
-	}
-	if pNationality.Valid {
-		w.PersonNationality = pNationality.String
-	}
-	if pTrade.Valid {
-		w.PersonTrade = pTrade.String
-	}
-	if aStart.Valid {
-		w.AuthStartTime = formatMySQLDate(aStart.String)
-	}
-	if aEnd.Valid {
-		w.AuthEndTime = formatMySQLDate(aEnd.String)
-	}
-	if fdid.Valid {
-		w.FDID = int(fdid.Int64)
-	}
-	if isSynced.Valid {
-		w.IsSynced = int(isSynced.Int64)
-	}
-	if fImg.Valid {
-		w.FaceImgLoc = fImg.String
-	}
-	if cNum.Valid {
-		w.CardNumber = cNum.String
-	}
-	if cType.Valid {
-		w.CardType = cType.String
-	}
-	if pName.Valid {
-		w.ProjectName = pName.String
-	}
-	if sName.Valid {
-		w.SiteName = sName.String
-	}
-	if sLoc.Valid {
-		w.SiteLocation = sLoc.String
-	}
-	if uName.Valid {
-		w.UserName = uName.String
-	}
-	if uID.Valid {
-		w.UserID = uID.String
-	}
-	if uLat.Valid && uLng.Valid {
-		w.UserLocation = uLat.String + ", " + uLng.String
-	}
-	if uAdd.Valid {
-		w.UserAddress = uAdd.String
-	}
-
-	return &w, nil
+	query := workerBaseSelect + " WHERE w.person_id_no = ? LIMIT 1"
+	return r.scanRow(r.db.QueryRowContext(ctx, query, fin))
 }
 
+const workerBaseSelect = `
+    SELECT 
+        w.worker_id, w.name, w.email, w.role, w.user_type, w.status, w.current_project_id,
+        w.person_id_no, w.person_id_and_work_pass_type, w.person_nationality, w.person_trade, 
+        w.auth_start_time, w.auth_end_time, w.fdid, w.face_img_loc, w.card_number, w.card_type, w.is_synced,
+        p.project_title,
+        s.site_name,
+        s.location,
+        u.user_name,
+        w.user_id,
+        u.latitude,
+        u.longitude,
+        u.address,
+        p.site_id
+    FROM workers w
+    LEFT JOIN projects p ON w.current_project_id = p.project_id
+    LEFT JOIN sites s ON p.site_id = s.site_id
+    LEFT JOIN users u ON w.user_id = u.user_id`
+
 func (r *WorkerRepository) List(ctx context.Context, userID, siteID string) ([]domain.Worker, error) {
-	query := `
-        SELECT 
-            w.worker_id, w.name, w.email, w.role, w.user_type, w.status, w.current_project_id,
-            w.person_id_no, w.person_id_and_work_pass_type, w.person_nationality, w.person_trade, 
-            w.auth_start_time, w.auth_end_time, w.fdid, w.face_img_loc, w.card_number, w.card_type, w.is_synced,
-            p.project_title,
-            s.site_name,
-            s.location,
-            u.user_name,
-            w.user_id,
-            u.latitude,
-            u.longitude,
-            u.address
-        FROM workers w
-        LEFT JOIN projects p ON w.current_project_id = p.project_id
-        LEFT JOIN sites s ON p.site_id = s.site_id
-        LEFT JOIN users u ON w.user_id = u.user_id
-        WHERE w.status = 'active' AND w.role IN ('worker', 'pic', 'manager')`
+	query := workerBaseSelect + " WHERE w.status = '" + domain.StatusActive + "' AND w.role IN ('worker', 'pic', 'manager')"
 
 	args := []interface{}{}
 	if userID != "" {
@@ -270,90 +78,12 @@ func (r *WorkerRepository) List(ctx context.Context, userID, siteID string) ([]d
 
 	var workers []domain.Worker
 	for rows.Next() {
-		var w domain.Worker
-		var status, projID sql.NullString
-		var userType sql.NullString
-		var pPassType, pNationality, pTrade sql.NullString
-		var pName, sName, sLoc, uName, uID, uLat, uLng, uAdd sql.NullString
-		var aStart, aEnd, fImg, cNum, cType sql.NullString
-		var fdid sql.NullInt64
-		var isSynced sql.NullInt64
-
-		if err := rows.Scan(
-			&w.ID, &w.Name, &w.Email, &w.Role, &userType, &status, &projID,
-			&w.PersonIDNo, &pPassType, &pNationality, &pTrade,
-			&aStart, &aEnd, &fdid, &fImg, &cNum, &cType, &isSynced,
-			&pName, &sName, &sLoc, &uName, &uID, &uLat, &uLng, &uAdd,
-		); err != nil {
+		w, err := r.scanRow(rows)
+		if err != nil {
 			log.Printf("[WorkerRepo] Scan error: %v", err)
 			continue
 		}
-
-		if userType.Valid {
-			w.UserType = userType.String
-		}
-		if status.Valid {
-			w.Status = status.String
-		}
-		if projID.Valid {
-			w.CurrentProjectID = projID.String
-		}
-		if w.PersonIDNo != "" {
-			// already scanned
-		}
-		if pPassType.Valid {
-			w.PersonIDAndWorkPassType = pPassType.String
-		}
-		if pNationality.Valid {
-			w.PersonNationality = pNationality.String
-		}
-		if pTrade.Valid {
-			w.PersonTrade = pTrade.String
-		}
-		if aStart.Valid {
-			w.AuthStartTime = formatMySQLDate(aStart.String)
-		}
-		if aEnd.Valid {
-			w.AuthEndTime = formatMySQLDate(aEnd.String)
-		}
-		if fdid.Valid {
-			w.FDID = int(fdid.Int64)
-		}
-		if isSynced.Valid {
-			w.IsSynced = int(isSynced.Int64)
-		}
-		if fImg.Valid {
-			w.FaceImgLoc = fImg.String
-		}
-		if cNum.Valid {
-			w.CardNumber = cNum.String
-		}
-		if cType.Valid {
-			w.CardType = cType.String
-		}
-		if pName.Valid {
-			w.ProjectName = pName.String
-		}
-		if sName.Valid {
-			w.SiteName = sName.String
-		}
-		if sLoc.Valid {
-			w.SiteLocation = sLoc.String
-		}
-		if uName.Valid {
-			w.UserName = uName.String
-		}
-		if uID.Valid {
-			w.UserID = uID.String
-		}
-		if uLat.Valid && uLng.Valid {
-			w.UserLocation = uLat.String + ", " + uLng.String
-		}
-		if uAdd.Valid {
-			w.UserAddress = uAdd.String
-		}
-
-		workers = append(workers, w)
+		workers = append(workers, *w)
 	}
 	return workers, nil
 }
@@ -383,7 +113,7 @@ func (r *WorkerRepository) Create(ctx context.Context, w *domain.Worker) error {
 
 	userType := w.UserType
 	if userType == "" {
-		userType = "user"
+		userType = domain.UserTypeUser
 	}
 
 	_, err = r.db.ExecContext(ctx, query,
@@ -443,7 +173,7 @@ func (r *WorkerRepository) Update(ctx context.Context, w *domain.Worker) error {
 }
 
 func (r *WorkerRepository) Delete(ctx context.Context, id string) error {
-	_, err := r.db.ExecContext(ctx, "UPDATE workers SET status = 'inactive', current_project_id = NULL WHERE worker_id = ?", id)
+	_, err := r.db.ExecContext(ctx, "UPDATE workers SET status = ?, current_project_id = NULL WHERE worker_id = ?", domain.StatusInactive, id)
 	if err != nil {
 		return fmt.Errorf("failed to deactivate worker and clear project: %w", err)
 	}
@@ -451,25 +181,7 @@ func (r *WorkerRepository) Delete(ctx context.Context, id string) error {
 }
 
 func (r *WorkerRepository) ListByIsSynced(ctx context.Context, userID string, syncStatus int) ([]domain.Worker, error) {
-	query := `
-        SELECT 
-            w.worker_id, w.name, w.email, w.role, w.user_type, w.status, w.current_project_id,
-            w.person_id_no, w.person_id_and_work_pass_type, w.person_nationality, w.person_trade, 
-            w.auth_start_time, w.auth_end_time, w.fdid, w.face_img_loc, w.card_number, w.card_type, w.is_synced,
-            p.project_title,
-            s.site_name,
-            s.location,
-            u.user_name,
-            w.user_id,
-            u.latitude,
-            u.longitude,
-            u.address,
-            p.site_id
-        FROM workers w
-        LEFT JOIN projects p ON w.current_project_id = p.project_id
-        LEFT JOIN sites s ON p.site_id = s.site_id
-        LEFT JOIN users u ON w.user_id = u.user_id
-        WHERE w.is_synced = ? AND w.status = 'active'`
+	query := workerBaseSelect + " WHERE w.is_synced = ? AND w.status = '" + domain.StatusActive + "'"
 
 	args := []interface{}{syncStatus}
 	if userID != "" {
@@ -485,88 +197,137 @@ func (r *WorkerRepository) ListByIsSynced(ctx context.Context, userID string, sy
 
 	var workers []domain.Worker
 	for rows.Next() {
-		var w domain.Worker
-		var status, projID sql.NullString
-		var userType sql.NullString
-		var pPassType, pNationality, pTrade sql.NullString
-		var pName, sName, sLoc, uName, uID, uLat, uLng, uAdd sql.NullString
-		var aStart, aEnd, fImg, cNum, cType sql.NullString
-		var fdid sql.NullInt64
-		var isSynced sql.NullInt64
-		var siteID sql.NullString
-
-		if err := rows.Scan(
-			&w.ID, &w.Name, &w.Email, &w.Role, &userType, &status, &projID,
-			&w.PersonIDNo, &pPassType, &pNationality, &pTrade,
-			&aStart, &aEnd, &fdid, &fImg, &cNum, &cType, &isSynced,
-			&pName, &sName, &sLoc, &uName, &uID, &uLat, &uLng, &uAdd,
-			&siteID,
-		); err != nil {
+		w, err := r.scanRow(rows)
+		if err != nil {
 			log.Printf("[WorkerRepo] ListByIsSynced scan error: %v", err)
 			continue
 		}
-
-		if userType.Valid {
-			w.UserType = userType.String
-		}
-		if status.Valid {
-			w.Status = status.String
-		}
-		if projID.Valid {
-			w.CurrentProjectID = projID.String
-		}
-		if pPassType.Valid {
-			w.PersonIDAndWorkPassType = pPassType.String
-		}
-		if pNationality.Valid {
-			w.PersonNationality = pNationality.String
-		}
-		if pTrade.Valid {
-			w.PersonTrade = pTrade.String
-		}
-		if aStart.Valid {
-			w.AuthStartTime = formatMySQLDate(aStart.String)
-		}
-		if aEnd.Valid {
-			w.AuthEndTime = formatMySQLDate(aEnd.String)
-		}
-		if fdid.Valid {
-			w.FDID = int(fdid.Int64)
-		}
-		if isSynced.Valid {
-			w.IsSynced = int(isSynced.Int64)
-		}
-		if fImg.Valid {
-			w.FaceImgLoc = fImg.String
-		}
-		if cNum.Valid {
-			w.CardNumber = cNum.String
-		}
-		if cType.Valid {
-			w.CardType = cType.String
-		}
-		if pName.Valid {
-			w.ProjectName = pName.String
-		}
-		if sName.Valid {
-			w.SiteName = sName.String
-		}
-		if sLoc.Valid {
-			w.SiteLocation = sLoc.String
-		}
-		if uName.Valid {
-			w.UserName = uName.String
-		}
-		if uID.Valid {
-			w.UserID = uID.String
-		}
-		if siteID.Valid {
-			w.SiteID = siteID.String
-		}
-
-		workers = append(workers, w)
+		workers = append(workers, *w)
 	}
 	return workers, nil
+}
+
+func (r *WorkerRepository) scanRow(scanner Scanner) (*domain.Worker, error) {
+	var w domain.Worker
+	var status, projID, siteID sql.NullString
+	var userType sql.NullString
+	var pPassType, pNationality, pTrade sql.NullString
+	var pName, sName, sLoc, uName, uID, uLat, uLng, uAdd sql.NullString
+	var aStart, aEnd, fImg, cNum, cType sql.NullString
+	var fdid, isSynced sql.NullInt64
+
+	err := scanner.Scan(
+		&w.ID, &w.Name, &w.Email, &w.Role, &userType, &status, &projID,
+		&w.PersonIDNo, &pPassType, &pNationality, &pTrade,
+		&aStart, &aEnd, &fdid, &fImg, &cNum, &cType, &isSynced,
+		&pName, &sName, &sLoc, &uName, &uID, &uLat, &uLng, &uAdd,
+		&siteID,
+	)
+	if err == sql.ErrNoRows {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+
+	if userType.Valid {
+		w.UserType = userType.String
+	}
+	if status.Valid {
+		w.Status = status.String
+	}
+	if projID.Valid {
+		w.CurrentProjectID = projID.String
+	}
+	if pPassType.Valid {
+		w.PersonIDAndWorkPassType = pPassType.String
+	}
+	if pNationality.Valid {
+		w.PersonNationality = pNationality.String
+	}
+	if pTrade.Valid {
+		w.PersonTrade = pTrade.String
+	}
+	if aStart.Valid {
+		w.AuthStartTime = formatMySQLDate(aStart.String)
+	}
+	if aEnd.Valid {
+		w.AuthEndTime = formatMySQLDate(aEnd.String)
+	}
+	if fdid.Valid {
+		w.FDID = int(fdid.Int64)
+	}
+	if isSynced.Valid {
+		w.IsSynced = int(isSynced.Int64)
+	}
+	if fImg.Valid {
+		w.FaceImgLoc = fImg.String
+	}
+	if cNum.Valid {
+		w.CardNumber = cNum.String
+	}
+	if cType.Valid {
+		w.CardType = cType.String
+	}
+	if pName.Valid {
+		w.ProjectName = pName.String
+	}
+	if sName.Valid {
+		w.SiteName = sName.String
+	}
+	if sLoc.Valid {
+		w.SiteLocation = sLoc.String
+	}
+	if uName.Valid {
+		w.UserName = uName.String
+	}
+	if uID.Valid {
+		w.UserID = uID.String
+	}
+	if siteID.Valid {
+		w.SiteID = siteID.String
+	}
+	if uLat.Valid && uLng.Valid {
+		w.UserLocation = uLat.String + ", " + uLng.String
+	}
+	if uAdd.Valid {
+		w.UserAddress = uAdd.String
+	}
+
+	return &w, nil
+}
+
+func (r *WorkerRepository) AssignToProject(ctx context.Context, projectID string, workerIDs []string, userID string) error {
+	tx, err := r.db.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+
+	// 1. Unassign all workers currently on this project for this user
+	_, err = tx.ExecContext(ctx, "UPDATE workers SET current_project_id = NULL WHERE current_project_id = ? AND user_id = ?", projectID, userID)
+	if err != nil {
+		return fmt.Errorf("failed to clear old assignments: %w", err)
+	}
+
+	// 2. Assign new workers (only if they are active)
+	if len(workerIDs) > 0 {
+		query := "UPDATE workers SET current_project_id = ? WHERE worker_id = ? AND user_id = ? AND status = ?"
+		stmt, err := tx.PrepareContext(ctx, query)
+		if err != nil {
+			return err
+		}
+		defer stmt.Close()
+
+		for _, wid := range workerIDs {
+			_, err = stmt.ExecContext(ctx, projectID, wid, userID, domain.StatusActive)
+			if err != nil {
+				return fmt.Errorf("failed to assign worker %s: %w", wid, err)
+			}
+		}
+	}
+
+	return tx.Commit()
 }
 
 func (r *WorkerRepository) GetProjectUserID(ctx context.Context, projectID string) (string, error) {

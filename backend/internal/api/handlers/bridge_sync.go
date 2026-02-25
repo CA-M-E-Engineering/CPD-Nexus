@@ -1,10 +1,10 @@
 package handlers
 
 import (
-	"context"
 	"encoding/json"
 	"log"
 	"net/http"
+	"sgbuildex/internal/api/middleware"
 	"sgbuildex/internal/bridge"
 	bridgeHandlers "sgbuildex/internal/bridge/handlers"
 )
@@ -24,16 +24,16 @@ func NewBridgeSyncHandler(builder *bridgeHandlers.UserSyncBuilder, transport *br
 
 // SyncUsers handles POST /api/bridge/sync-users
 func (h *BridgeSyncHandler) SyncUsers(w http.ResponseWriter, r *http.Request) {
-	ctx := context.Background()
+	ctx := r.Context()
 	w.Header().Set("Content-Type", "application/json")
 
-	// Get UserID from header (passed by frontend)
-	userID := r.Header.Get("X-User-ID")
+	// Use middleware to get UserID
+	userID := middleware.GetUserID(ctx)
 	if userID == "" {
 		w.WriteHeader(http.StatusBadRequest)
 		json.NewEncoder(w).Encode(map[string]interface{}{
 			"success": false,
-			"error":   "Missing X-User-ID header",
+			"error":   "Missing User-ID scope",
 		})
 		return
 	}

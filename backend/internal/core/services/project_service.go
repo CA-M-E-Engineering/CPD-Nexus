@@ -39,3 +39,7 @@ func (s *ProjectService) UpdateProject(ctx context.Context, id string, p *domain
 func (s *ProjectService) DeleteProject(ctx context.Context, id string) error {
 	return s.repo.Delete(ctx, id)
 }
+
+func (s *ProjectService) AssignProjectsToSite(ctx context.Context, siteID string, projectIDs []string) error {
+	return s.repo.AssignToSite(ctx, siteID, projectIDs)
+}

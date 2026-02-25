@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"sgbuildex/internal/adapters/repository/mysql"
 	"sgbuildex/internal/api/handlers"
+	"sgbuildex/internal/api/middleware"
 	"sgbuildex/internal/core/services"
 
 	"github.com/gorilla/mux"
@@ -26,6 +27,7 @@ func RegisterRoutes(r *mux.Router, db *sql.DB, bridgeSyncHandler *handlers.Bridg
 	}).Methods("GET")
 
 	api := r.PathPrefix("/api").Subrouter()
+	api.Use(middleware.UserScopeMiddleware)
 
 	// --- Handlers ---
 	// Auth Module Wiring
@@ -53,9 +55,12 @@ func RegisterRoutes(r *mux.Router, db *sql.DB, bridgeSyncHandler *handlers.Bridg
 	deviceService := services.NewDeviceService(deviceRepo)
 	devicesHandler := handlers.NewDevicesHandler(deviceService)
 
-	assignmentsHandler := handlers.NewAssignmentsHandler(db)
+	// Users Module Wiring
+	usersService := services.NewUserService(userRepo)
+	usersHandler := handlers.NewUsersHandler(usersService, db)
+
+	assignmentsHandler := handlers.NewAssignmentsHandler(workerService, deviceService, projectService)
 	analyticsHandler := handlers.NewAnalyticsHandler(db)
-	usersHandler := handlers.NewUsersHandler(db)
 	// Attendance Module Wiring
 	attendanceRepo := mysql.NewAttendanceRepository(db)
 	attendanceService := services.NewAttendanceService(attendanceRepo, workerRepo, deviceRepo)

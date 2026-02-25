@@ -260,3 +260,34 @@ func (r *DeviceRepository) AssignToUser(ctx context.Context, userID string, devi
 	}
 	return nil
 }
+
+func (r *DeviceRepository) AssignToSite(ctx context.Context, siteID string, deviceIDs []string) error {
+	tx, err := r.db.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+
+	// 1. Unassign all devices currently on this site
+	_, err = tx.ExecContext(ctx, "UPDATE devices SET site_id = NULL WHERE site_id = ?", siteID)
+	if err != nil {
+		return fmt.Errorf("failed to clear old device assignments: %w", err)
+	}
+
+	// 2. Assign new devices
+	if len(deviceIDs) > 0 {
+		stmt, err := tx.PrepareContext(ctx, "UPDATE devices SET site_id = ? WHERE device_id = ?")
+		if err != nil {
+			return err
+		}
+		defer stmt.Close()
+
+		for _, devId := range deviceIDs {
+			if _, err := stmt.ExecContext(ctx, siteID, devId); err != nil {
+				return err
+			}
+		}
+	}
+
+	return tx.Commit()
+}

@@ -95,7 +95,7 @@ func startAPI(cfg *config.Config, db *sql.DB, bridgeSyncHandler *apiHandlers.Bri
 			"http://localhost:5176", "http://127.0.0.1:5176",
 		},
 		AllowedMethods:   []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
-		AllowedHeaders:   []string{"Authorization", "Content-Type"},
+		AllowedHeaders:   []string{"Authorization", "Content-Type", "X-User-ID"},
 		AllowCredentials: true,
 	})
 

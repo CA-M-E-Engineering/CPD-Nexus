@@ -14,6 +14,7 @@ type WorkerRepository interface {
 	Update(ctx context.Context, w *domain.Worker) error
 	Delete(ctx context.Context, id string) error
 	GetProjectUserID(ctx context.Context, projectID string) (string, error)
+	AssignToProject(ctx context.Context, projectID string, workerIDs []string, userID string) error
 }
 
 type WorkerService interface {
@@ -23,4 +24,5 @@ type WorkerService interface {
 	CreateWorker(ctx context.Context, w *domain.Worker) error
 	UpdateWorker(ctx context.Context, id string, payload map[string]interface{}) error
 	DeleteWorker(ctx context.Context, id string) error
+	AssignWorkersToProject(ctx context.Context, projectID string, workerIDs []string) error
 }
