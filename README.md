@@ -30,6 +30,25 @@ A robust, high-currency unified server written in **Go (Golang)** featuring:
 * **Real-Time Device Allocation**: Map, unassign, and redeploy IoT devices seamlessly across multiple construction sites.
 * **BCA Compliance (CPD)**: Automated daily submission of worker attendance data tailored to government API standards.
 * **Dynamic Trade Categorization**: Supports detailed BCA-compliant designated trade mapping for both local and foreign workers.
+* **User-Scoped Manual Sync**: Strict bi-directional data flow ensuring users only synchronize workforce data belonging to their own organization.
+* **Granular Sync Intelligence**: Real-time validation layer that identifies and reports missing biometrics or unassigned site hardware before attempting IoT deployment.
+
+---
+
+## ⚙️ Core Workflows
+
+### 🔄 Manual Synchronization Protocol
+Synchronization is triggered manually via the UI to ensure administrative control. The backend implements a granular validation pipeline:
+1. **Validation**: Checks for biometric availability (Face/Card) and active site hardware.
+2. **Categorization**: Reports workers missing biometrics or devices without blocking the entire sync batch.
+3. **Deployment**: Issues `REGISTER_USER` or `UPDATE_USER` commands to all online devices at the worker's assigned site.
+4. **Security**: All sync requests require a valid `X-User-ID` header to maintain multi-tenant isolation.
+
+### 👥 Worker Lifecycle Management
+The system enforces strict data integrity rules for personnel:
+- **Deactivation**: Setting a worker to `inactive` automatically wipes their `current_project_id`.
+- **Global Visibility**: Inactive workers are automatically omitted from the Worker Management list, site personnel Overviews, and all Analytics dashboards.
+- **Project Assignment**: Only workers with an `active` status can be redeployed to construction projects.
 
 ---
 
