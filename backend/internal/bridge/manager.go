@@ -30,29 +30,40 @@ func (rm *RequestManager) RegisterHandler(msgType string, h Handler) {
 	rm.Handlers[msgType] = h
 }
 
-// RequestAttendance sends high-level commands to the bridge for each registered device
+// RequestAttendance sends high-level commands to the bridge for each active worker
 func (rm *RequestManager) RequestAttendance() error {
-	log.Println("RequestManager: Starting attendance fetch for all devices")
+	log.Println("RequestManager: Starting attendance fetch for all workers")
 
-	// 1. Get all device SNs from database
-	rows, err := rm.DB.Query("SELECT sn FROM devices")
+	// 1. Get all active workers
+	// We use the DB directly or a repo if passed in. Since we only have rm.DB, we query directly.
+	query := `
+		SELECT w.worker_id, p.site_id 
+		FROM workers w
+		JOIN projects p ON w.current_project_id = p.project_id
+		WHERE w.status = 'active' AND w.current_project_id IS NOT NULL`
+
+	rows, err := rm.DB.Query(query)
 	if err != nil {
-		return fmt.Errorf("failed to query devices: %w", err)
+		return fmt.Errorf("failed to query active workers: %w", err)
 	}
 	defer rows.Close()
 
-	var sns []string
+	type workerTask struct {
+		workerID string
+		siteID   string
+	}
+	var tasks []workerTask
 	for rows.Next() {
-		var sn string
-		if err := rows.Scan(&sn); err != nil {
-			log.Printf("RequestManager: Error scanning device SN: %v", err)
+		var t workerTask
+		if err := rows.Scan(&t.workerID, &t.siteID); err != nil {
+			log.Printf("RequestManager: Error scanning worker: %v", err)
 			continue
 		}
-		sns = append(sns, sn)
+		tasks = append(tasks, t)
 	}
 
-	if len(sns) == 0 {
-		log.Println("RequestManager: No devices found in database")
+	if len(tasks) == 0 {
+		log.Println("RequestManager: No active workers with assigned projects found")
 		return nil
 	}
 
@@ -64,24 +75,48 @@ func (rm *RequestManager) RequestAttendance() error {
 		"to":   now.Format(time.RFC3339),
 	}
 
-	// 3. Send a request for each device
-	for _, sn := range sns {
-		payload := map[string]interface{}{
-			"device_id":  sn,
-			"time_range": timeRange,
+	// 3. For each worker, get their site's devices and send a request
+	for _, task := range tasks {
+		// Get device SNs for this site
+		deviceRows, err := rm.DB.Query("SELECT sn FROM devices WHERE site_id = ? AND status != 'inactive'", task.siteID)
+		if err != nil {
+			log.Printf("RequestManager: Failed to query devices for site %s: %v", task.siteID, err)
+			continue
 		}
 
-		req, err := NewRequest("FETCH_ATTENDANCE", payload)
+		var sns []string
+		for deviceRows.Next() {
+			var sn string
+			if err := deviceRows.Scan(&sn); err == nil {
+				sns = append(sns, sn)
+			}
+		}
+		deviceRows.Close()
+
+		if len(sns) == 0 {
+			log.Printf("RequestManager: No devices found for worker %s at site %s", task.workerID, task.siteID)
+			continue
+		}
+
+		payload := map[string]interface{}{
+			"worker_id":  task.workerID,
+			"devices":    sns,
+			"start_time": timeRange["from"],
+			"end_time":   timeRange["to"],
+		}
+
+		req, err := NewRequest("GET_ATTENDANCE", payload)
 		if err != nil {
-			log.Printf("RequestManager: Failed to create request for device %s: %v", sn, err)
+			log.Printf("RequestManager: Failed to create request for worker %s: %v", task.workerID, err)
 			continue
 		}
 
 		if err := rm.Transport.Write(req); err != nil {
-			log.Printf("RequestManager: Failed to send request for device %s: %v", sn, err)
+			log.Printf("RequestManager: Failed to send request for worker %s: %v", task.workerID, err)
 		} else {
-			reqMsg, _ := json.MarshalIndent(req, "", "  ")
-			log.Printf("\n--- [BRIDGE OUTBOUND REQUEST] ---\n%s\n---------------------------------", string(reqMsg))
+			reqJSON, _ := json.MarshalIndent(req, "", "  ")
+			log.Printf("\n--- [BRIDGE OUTBOUND REQUEST] ---\n%s\n---------------------------------", string(reqJSON))
+			log.Printf("RequestManager: Sent GET_ATTENDANCE request for worker %s on %d devices", task.workerID, len(sns))
 		}
 	}
 

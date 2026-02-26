@@ -9,8 +9,8 @@ import (
 
 // Meta contains common request/response metadata
 type Meta struct {
-	RequestID string    `json:"request_id"`
-	SentAt    time.Time `json:"sent_at"`
+	RequestID string `json:"request_id"`
+	SentAt    string `json:"sent_at"`
 }
 
 // Message is the standard envelope for all bridge communication
@@ -35,7 +35,7 @@ func NewRequest(action string, payload interface{}) (Message, error) {
 	return Message{
 		Meta: Meta{
 			RequestID: fmt.Sprintf("req-%s", time.Now().Format("20060102150405")),
-			SentAt:    time.Now(),
+			SentAt:    time.Now().Format(time.RFC3339),
 		},
 		Action:  action,
 		Payload: rawPayload,

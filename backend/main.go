@@ -140,7 +140,7 @@ func startBridge(ctx context.Context, cfg *config.Config, transport *bridge.Tran
 	requestMgr := bridge.NewRequestManager(transport, db)
 
 	handler := bridgeHandlers.NewAttendanceHandler(attendanceService)
-	requestMgr.RegisterHandler("FETCH_ATTENDANCE_RESULT", handler)
+	requestMgr.RegisterHandler("GET_ATTENDANCE_RESPONSE", handler)
 
 	// Connection maintenance loop
 	go func() {
@@ -177,10 +177,10 @@ func startBridge(ctx context.Context, cfg *config.Config, transport *bridge.Tran
 		select {
 		case <-ticker.C:
 			if transport.IsConnected() {
-				// if err := requestMgr.RequestAttendance(); err != nil {
-				// 	logger.Errorf("[Bridge] Fetch request failed: %v", err)
-				// }
-				// // Sync pending user registrations/updates
+				if err := requestMgr.RequestAttendance(); err != nil {
+					logger.Errorf("[Bridge] Fetch request failed: %v", err)
+				}
+				// Sync pending user registrations/updates
 				// if err := requestMgr.RequestUserSync(ctx, userSyncBuilder); err != nil {
 				// 	logger.Errorf("[Bridge] User sync failed: %v", err)
 				// }

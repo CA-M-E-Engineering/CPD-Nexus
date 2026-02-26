@@ -7,20 +7,21 @@ import (
 	"log"
 	"sgbuildex/internal/bridge"
 	"sgbuildex/internal/core/ports"
-	"time"
 )
 
 // AttendanceResult matches the top-level payload from the bridge
 type AttendanceResult struct {
-	DeviceID string            `json:"device_id"`
+	WorkerID string            `json:"worker_id"`
+	Devices  []string          `json:"devices"`
 	Records  []AttendanceEvent `json:"records"`
 }
 
 // AttendanceEvent matches the individual record structure from the bridge
 type AttendanceEvent struct {
-	PersonID string    `json:"person_id"`
-	TimeIn   time.Time `json:"time_in"`
-	TimeOut  time.Time `json:"time_out"`
+	DeviceID string `json:"device_id"`
+	PersonID string `json:"person_id"`
+	TimeIn   string `json:"time_in"`
+	TimeOut  string `json:"time_out"`
 }
 
 type AttendanceHandler struct {
@@ -32,29 +33,48 @@ func NewAttendanceHandler(service ports.AttendanceService) *AttendanceHandler {
 }
 
 func (h *AttendanceHandler) Handle(ctx context.Context, msg bridge.Message) (*bridge.Message, error) {
-	var result AttendanceResult
-	if err := json.Unmarshal(msg.Payload, &result); err != nil {
-		return nil, fmt.Errorf("failed to unmarshal attendance result: %w", err)
+	// The bridge returns a wrapped response: { "code": 200, "msg": "...", "content": AttendanceResult }
+	var envelope struct {
+		Code    int              `json:"code"`
+		Msg     string           `json:"msg"`
+		Content AttendanceResult `json:"content"`
 	}
 
+	if err := json.Unmarshal(msg.Payload, &envelope); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal attendance envelope: %w", err)
+	}
+
+	if envelope.Code != 200 {
+		log.Printf("AttendanceHandler: Bridge returned error %d: %s", envelope.Code, envelope.Msg)
+		return nil, nil
+	}
+
+	result := envelope.Content
+	// Since the backend sends one request per worker and the bridge filters by worker_id,
+	// we can process these records directly.
 	for _, rec := range result.Records {
+		// Ensure we only process records for the requested worker (extra safety)
+		if result.WorkerID != "" && rec.PersonID != result.WorkerID {
+			continue
+		}
+
 		// Use the service to process and persist the attendance record
 		rawPayload, _ := json.Marshal(rec)
 
 		err := h.service.ProcessBridgeAttendance(
 			ctx,
-			result.DeviceID,
+			rec.DeviceID,
 			rec.PersonID,
-			rec.TimeIn.Format(time.RFC3339),
-			rec.TimeOut.Format(time.RFC3339),
+			rec.TimeIn,
+			rec.TimeOut,
 			rawPayload,
 		)
 
 		if err != nil {
-			log.Printf("AttendanceHandler: Service error for %s: %v", rec.PersonID, err)
+			log.Printf("AttendanceHandler: Service error for worker %s on device %s: %v", rec.PersonID, rec.DeviceID, err)
 		}
 	}
-	log.Printf("AttendanceHandler: Finished processing %d records for device %s", len(result.Records), result.DeviceID)
+	log.Printf("AttendanceHandler: Finished processing %d records for worker %s", len(result.Records), result.WorkerID)
 
 	return nil, nil
 }
