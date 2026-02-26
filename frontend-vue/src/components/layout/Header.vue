@@ -50,6 +50,8 @@ const handleSync = async () => {
         notification.success(message, 5000, true);
       }
     }
+    // Only trigger page refresh if the sync request was successful (200 OK)
+    emit('sync');
   } catch (err) {
     console.error('Sync error:', err);
     const errorMsg = err.data?.error || err.data?.message || err.message || 'Synchronization failed. Please check bridge connection.';
@@ -57,8 +59,6 @@ const handleSync = async () => {
   } finally {
     isSyncing.value = false;
   }
-  
-  emit('sync');
 };
 
 const props = defineProps({
