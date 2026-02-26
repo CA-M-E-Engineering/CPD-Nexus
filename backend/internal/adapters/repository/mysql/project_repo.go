@@ -270,8 +270,23 @@ func toNullString(s string) interface{} {
 }
 
 func (r *ProjectRepository) Delete(ctx context.Context, id string) error {
-	_, err := r.db.ExecContext(ctx, "UPDATE projects SET status = 'inactive' WHERE project_id = ?", id)
-	return err
+	tx, err := r.db.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+
+	// 1. Deactivate project
+	if _, err := tx.ExecContext(ctx, "UPDATE projects SET status = 'inactive' WHERE project_id = ?", id); err != nil {
+		return err
+	}
+
+	// 2. Unassign workers
+	if _, err := tx.ExecContext(ctx, "UPDATE workers SET current_project_id = NULL WHERE current_project_id = ?", id); err != nil {
+		return err
+	}
+
+	return tx.Commit()
 }
 
 func (r *ProjectRepository) AssignToSite(ctx context.Context, siteID string, projectIDs []string) error {

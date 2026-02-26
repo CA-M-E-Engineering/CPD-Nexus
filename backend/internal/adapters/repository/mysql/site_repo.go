@@ -150,6 +150,26 @@ func (r *SiteRepository) Update(ctx context.Context, s *domain.Site) error {
 }
 
 func (r *SiteRepository) Delete(ctx context.Context, id string) error {
-	_, err := r.db.ExecContext(ctx, "DELETE FROM sites WHERE site_id = ?", id)
-	return err
+	tx, err := r.db.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+
+	// 1. Unassign projects from this site
+	if _, err := tx.ExecContext(ctx, "UPDATE projects SET site_id = NULL WHERE site_id = ?", id); err != nil {
+		return fmt.Errorf("failed to unassign projects: %w", err)
+	}
+
+	// 2. Unassign devices from this site
+	if _, err := tx.ExecContext(ctx, "UPDATE devices SET site_id = NULL WHERE site_id = ?", id); err != nil {
+		return fmt.Errorf("failed to unassign devices: %w", err)
+	}
+
+	// 3. Delete the site
+	if _, err := tx.ExecContext(ctx, "DELETE FROM sites WHERE site_id = ?", id); err != nil {
+		return fmt.Errorf("failed to delete site: %w", err)
+	}
+
+	return tx.Commit()
 }

@@ -78,8 +78,28 @@ func (r *UserRepository) Update(ctx context.Context, u *domain.User) error {
 }
 
 func (r *UserRepository) Delete(ctx context.Context, id string) error {
-	_, err := r.db.ExecContext(ctx, "UPDATE users SET status = ? WHERE user_id = ?", domain.StatusInactive, id)
-	return err
+	tx, err := r.db.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+
+	// 1. Deactivate user
+	if _, err := tx.ExecContext(ctx, "UPDATE users SET status = ? WHERE user_id = ?", domain.StatusInactive, id); err != nil {
+		return err
+	}
+
+	// 2. Deactivate all workers for this user
+	if _, err := tx.ExecContext(ctx, "UPDATE workers SET status = ?, current_project_id = NULL WHERE user_id = ?", domain.StatusInactive, id); err != nil {
+		return err
+	}
+
+	// 3. Deactivate all projects for this user
+	if _, err := tx.ExecContext(ctx, "UPDATE projects SET status = 'inactive' WHERE user_id = ?", id); err != nil {
+		return err
+	}
+
+	return tx.Commit()
 }
 
 func (r *UserRepository) scanRow(scanner Scanner) (*domain.User, error) {

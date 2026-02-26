@@ -243,7 +243,7 @@ func (r *DeviceRepository) Update(ctx context.Context, d *domain.Device) error {
 }
 
 func (r *DeviceRepository) Delete(ctx context.Context, id string) error {
-	_, err := r.db.ExecContext(ctx, "UPDATE devices SET status = 'inactive' WHERE device_id = ?", id)
+	_, err := r.db.ExecContext(ctx, "UPDATE devices SET status = 'inactive', site_id = NULL WHERE device_id = ?", id)
 	return err
 }
 
