@@ -132,7 +132,7 @@ func (b *UserSyncBuilder) BuildSyncRequests(ctx context.Context, userID string) 
 		payload := UserSyncPayload{
 			Devices: deviceSNs,
 			User: UserSyncData{
-				EmployeeNo: w.PersonIDNo,
+				EmployeeNo: w.ID,
 				Name:       w.Name,
 				UserType:   w.UserType,
 				Validity: UserValidity{
