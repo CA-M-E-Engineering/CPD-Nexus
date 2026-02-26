@@ -152,6 +152,11 @@ const currentComponent = computed(() => {
     return componentMap[activeNavId.value];
   }
 });
+
+const refreshKey = ref(0);
+const handleSync = () => {
+    refreshKey.value++;
+};
 </script>
 
 <template>
@@ -167,10 +172,12 @@ const currentComponent = computed(() => {
     @navigate="navigate"
     @logout="handleLogout"
     @update:role="setRole"
+    @sync="handleSync"
   >
     <template v-if="currentComponent">
       <component 
         :is="currentComponent" 
+        :key="refreshKey"
         v-bind="componentProps"
         @navigate="navigate" 
       />

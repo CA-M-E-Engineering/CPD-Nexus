@@ -24,7 +24,7 @@ defineEmits(['navigate', 'update:role', 'logout']);
     />
     
     <div class="main-container">
-      <Header :user-name="userName" @logout="$emit('logout')">
+      <Header :user-name="userName" @logout="$emit('logout')" @sync="$emit('sync')">
         <template #breadcrumb>
           <span>{{ breadcrumbPath }}</span>
         </template>
