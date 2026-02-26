@@ -54,14 +54,18 @@ const handleFileUpload = async (event) => {
   const file = event.target.files[0];
   if (file) {
     fileName.value = "Uploading...";
-    const formData = new FormData();
-    formData.append('image', file);
+    const uploadFormData = new FormData();
+    uploadFormData.append('image', file);
+    // 1. Pass the trade to the backend for directoy organization
+    uploadFormData.append('trade', formData.value.person_trade || 'general');
+
     try {
-        const response = await fetch('/api/upload/face', { method: 'POST', body: formData });
+        const response = await fetch('/api/upload/face', { method: 'POST', body: uploadFormData });
         if (response.ok) {
             const data = await response.json();
-            fileName.value = data.path;
-            notification.success("Image uploaded to node target");
+            // 2. Store the full URL address as requested
+            fileName.value = data.url; 
+            notification.success("Image uploaded and stored in trade folder");
         } else {
             throw new Error(`Upload returned status ${response.status}`);
         }

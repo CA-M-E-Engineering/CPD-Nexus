@@ -137,4 +137,7 @@ func RegisterRoutes(r *mux.Router, db *sql.DB, bridgeSyncHandler *handlers.Bridg
 	if bridgeSyncHandler != nil {
 		api.HandleFunc("/bridge/sync-users", bridgeSyncHandler.SyncUsers).Methods("POST")
 	}
+
+	// Serve Static Files
+	r.PathPrefix("/uploads/").Handler(http.StripPrefix("/uploads/", http.FileServer(http.Dir("./uploads"))))
 }
