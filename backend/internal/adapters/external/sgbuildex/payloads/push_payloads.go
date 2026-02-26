@@ -6,6 +6,8 @@ type ManpowerUtilization struct {
 	InternalAttendanceID string `json:"-"`
 	InternalWorkerID     string `json:"-"`
 	InternalSiteID       string `json:"-"`
+	InternalPICName      string `json:"-"`
+	InternalPICFIN       string `json:"-"`
 
 	SubmissionEntity int    `json:"submission_entity"`
 	SubmissionMonth  string `json:"submission_month"` // YYYY-MM

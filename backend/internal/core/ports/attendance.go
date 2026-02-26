@@ -10,6 +10,8 @@ type AttendanceRepository interface {
 	List(ctx context.Context, userID, siteID, workerID, date string) ([]domain.Attendance, error)
 	Create(ctx context.Context, a *domain.Attendance) error
 	GetMaxID(ctx context.Context, pattern string) (string, error)
+	ExtractPendingAttendance(ctx context.Context) ([]domain.AttendanceRow, error)
+	ExtractMonthlyDistributionData(ctx context.Context) ([]domain.MonthlyDistributionRow, error)
 }
 
 type AttendanceService interface {

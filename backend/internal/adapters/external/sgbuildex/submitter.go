@@ -2,27 +2,25 @@ package sgbuildex
 
 import (
 	"context"
-	"database/sql"
 	"encoding/json"
 	"fmt"
 	"sgbuildex/internal/adapters/external/sgbuildex/payloads"
-	"time"
+	"sgbuildex/internal/core/ports"
 )
 
 // Submittable defines the behavior for any payload that can be pushed to SGBuildex
 type Submittable interface {
 	DataElementID() string
-	ToPushRequest(ctx context.Context, db *sql.DB) (*PushRequest, error)
+	ToPushRequest(ctx context.Context) (*PushRequest, error)
 	GetInternalID() string
-	GetUpdateQuery() string
 }
 
 // SubmitPayloads submits any submittable payloads to SGBuildex
-// and updates the database with status, response payload, and errors.
-func SubmitPayloads[T Submittable](ctx context.Context, db *sql.DB, client *Client, submittables []T) error {
+// and updates the database with status, response payload, and errors via the repository.
+func SubmitPayloads[T Submittable](ctx context.Context, repo ports.SubmissionRepository, client *Client, submittables []T) error {
 	for _, s := range submittables {
 		// Prepare Push Request
-		pushReq, err := s.ToPushRequest(ctx, db)
+		pushReq, err := s.ToPushRequest(ctx)
 		if err != nil {
 			fmt.Printf("Failed to prepare push request for %s: %v\n", s.GetInternalID(), err)
 			continue
@@ -52,25 +50,15 @@ func SubmitPayloads[T Submittable](ctx context.Context, db *sql.DB, client *Clie
 			fmt.Println("Payload submitted successfully")
 		}
 
-		// 1. Log to central submission_logs table
-		logQuery := `
-			INSERT INTO submission_logs (data_element_id, internal_id, status, payload, error_message)
-			VALUES (?, ?, ?, ?, ?)
-		`
-		_, logErr := db.ExecContext(ctx, logQuery,
-			s.DataElementID(), s.GetInternalID(), status, fullJSON, errorMessage,
-		)
+		// 1. Log to central submission_logs table via Repo
+		logErr := repo.LogSubmission(ctx, s.DataElementID(), s.GetInternalID(), status, string(fullJSON), errorMessage)
 		if logErr != nil {
 			fmt.Printf("Failed to write to submission_logs: %v\n", logErr)
 		}
 
 		// 2. Update specific source table if needed
-		updateQuery := s.GetUpdateQuery()
-		if updateQuery != "" {
-			_, dbErr := db.ExecContext(ctx, updateQuery,
-				status, fullJSON, errorMessage, time.Now(),
-				s.GetInternalID(),
-			)
+		if s.DataElementID() == "manpower_utilization" {
+			dbErr := repo.UpdateAttendanceStatus(ctx, s.GetInternalID(), status, string(fullJSON), errorMessage)
 			if dbErr != nil {
 				fmt.Printf("Failed to update status for %s: %s\n", s.GetInternalID(), dbErr)
 			}
@@ -93,39 +81,22 @@ func (w ManpowerUtilizationWrapper) GetInternalID() string {
 	return w.InternalAttendanceID
 }
 
-func (w ManpowerUtilizationWrapper) GetUpdateQuery() string {
-	return `
-		UPDATE attendance
-		SET status = ?, response_payload = ?, error_message = ?, updated_at = ?
-		WHERE attendance_id = ?
-	`
-}
-
-func (w ManpowerUtilizationWrapper) ToPushRequest(ctx context.Context, db *sql.DB) (*PushRequest, error) {
+func (w ManpowerUtilizationWrapper) ToPushRequest(ctx context.Context) (*PushRequest, error) {
 	// Prepare Project Reference
 	projectRef := ""
 	if w.ProjectReferenceNumber != nil {
 		projectRef = *w.ProjectReferenceNumber
 	}
 
-	// Fetch PIC worker from the same project as the participant
-	var obNRIC, obName string
-	err := db.QueryRowContext(ctx, `
-		SELECT pic.person_id_no, pic.name
-		FROM workers worker
-		JOIN workers pic ON worker.current_project_id = pic.current_project_id
-		WHERE worker.worker_id = ? AND pic.role = 'pic'
-		LIMIT 1
-	`, w.InternalWorkerID).Scan(&obNRIC, &obName)
-
+	// Use the pre-fetched PIC from the payload
 	var participantOnBehalf *OnBehalfWrapper
-	if err != nil {
-		fmt.Printf("Warning: No PIC found for project associated with worker %s: %v\n", w.InternalWorkerID, err)
-	} else {
+	if w.InternalPICFIN != "" {
 		participantOnBehalf = &OnBehalfWrapper{
-			ID:   obNRIC,
-			Name: obName,
+			ID:   w.InternalPICFIN,
+			Name: w.InternalPICName,
 		}
+	} else {
+		fmt.Printf("Warning: No PIC found for project associated with worker %s\n", w.InternalWorkerID)
 	}
 
 	// Participants
@@ -168,13 +139,7 @@ func (w ManpowerDistributionWrapper) GetInternalID() string {
 	return fmt.Sprintf("%s_%s", w.SubmissionMonth, w.OffsiteFabricatorCompanyUEN)
 }
 
-func (w ManpowerDistributionWrapper) GetUpdateQuery() string {
-	// Distribution-level submission doesn't have a specific row in 'attendance'
-	// In a real scenario, we might have a 'submissions' log table.
-	return ""
-}
-
-func (w ManpowerDistributionWrapper) ToPushRequest(ctx context.Context, db *sql.DB) (*PushRequest, error) {
+func (w ManpowerDistributionWrapper) ToPushRequest(ctx context.Context) (*PushRequest, error) {
 	// Request level OnBehalfOf for the fabricator
 	onBehalfOf := []OnBehalfWrapper{
 		{ID: w.OffsiteFabricatorCompanyUEN},

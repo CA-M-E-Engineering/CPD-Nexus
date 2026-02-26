@@ -2,6 +2,7 @@ package sgbuildex
 
 import (
 	"database/sql"
+	"sgbuildex/internal/core/domain"
 	"strings"
 	"time"
 
@@ -9,7 +10,7 @@ import (
 )
 
 // MapAttendanceToManpower converts DB rows to ManpowerUtilization payloads
-func MapAttendanceToManpower(rows []AttendanceRow) []payloads.ManpowerUtilization {
+func MapAttendanceToManpower(rows []domain.AttendanceRow) []payloads.ManpowerUtilization {
 	ptr := func(s string) *string { return &s }
 
 	var results []payloads.ManpowerUtilization
@@ -18,6 +19,8 @@ func MapAttendanceToManpower(rows []AttendanceRow) []payloads.ManpowerUtilizatio
 			InternalAttendanceID:            r.AttendanceID,
 			InternalWorkerID:                r.WorkerID,
 			InternalSiteID:                  r.SiteID,
+			InternalPICName:                 r.PICName,
+			InternalPICFIN:                  r.PICFIN,
 			SubmissionEntity:                1, // 1 for Onsite Builder
 			SubmissionMonth:                 r.SubmissionDate.Format("2006-01"),
 			ProjectReferenceNumber:          ptr(r.ProjectRef),
@@ -50,7 +53,7 @@ func MapAttendanceToManpower(rows []AttendanceRow) []payloads.ManpowerUtilizatio
 }
 
 // MapAggregationToDistribution converts aggregated SQL results to ManpowerDistribution payloads
-func MapAggregationToDistribution(rows []MonthlyDistributionRow) []payloads.ManpowerDistribution {
+func MapAggregationToDistribution(rows []domain.MonthlyDistributionRow) []payloads.ManpowerDistribution {
 	type fabricatorKey struct {
 		UEN   string
 		Month string

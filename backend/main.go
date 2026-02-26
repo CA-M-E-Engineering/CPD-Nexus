@@ -47,6 +47,7 @@ func main() {
 	workerRepo := mysql.NewWorkerRepository(db)
 	deviceRepo := mysql.NewDeviceRepository(db)
 	settingsRepo := mysql.NewMySQLSettingsRepository(db)
+	submissionRepo := mysql.NewSubmissionRepository(db)
 
 	// Services
 	workerService := services.NewWorkerService(workerRepo)
@@ -68,7 +69,7 @@ func main() {
 	go startBridge(ctx, cfg, transport, db, attendanceService, userSyncBuilder)
 
 	// --- 5. Component C: Submission Worker ---
-	go startWorker(ctx, cfg, db, settingsRepo)
+	go startWorker(ctx, cfg, db, settingsRepo, attendanceRepo, submissionRepo)
 
 	// --- 6. Wait for Shutdown ---
 	stop := make(chan os.Signal, 1)
@@ -165,14 +166,14 @@ func startBridge(ctx context.Context, cfg *config.Config, transport *bridge.Tran
 	}
 }
 
-func startWorker(ctx context.Context, cfg *config.Config, db *sql.DB, settingsRepo ports.SettingsRepository) {
+func startWorker(ctx context.Context, cfg *config.Config, db *sql.DB, settingsRepo ports.SettingsRepository, attendanceRepo ports.AttendanceRepository, submissionRepo ports.SubmissionRepository) {
 	client := sgbuildex.NewClient(cfg.IngressURL)
 
 	task := func(taskCtx context.Context) {
 		logger.Infof("[Worker] Starting submission check...")
 
 		// 1. Submit Manpower Distribution (Monthly Aggregate - Runs every time)
-		distRows, err := sgbuildex.ExtractMonthlyDistributionData(taskCtx, db)
+		distRows, err := attendanceRepo.ExtractMonthlyDistributionData(taskCtx)
 		if err != nil {
 			logger.Errorf("[Worker] MD Extraction failed: %v", err)
 		} else {
@@ -181,7 +182,7 @@ func startWorker(ctx context.Context, cfg *config.Config, db *sql.DB, settingsRe
 			for i, p := range mdPayloads {
 				mdSubmittables[i] = sgbuildex.ManpowerDistributionWrapper{ManpowerDistribution: p}
 			}
-			if err := sgbuildex.SubmitPayloads(taskCtx, db, client, mdSubmittables); err != nil {
+			if err := sgbuildex.SubmitPayloads(taskCtx, submissionRepo, client, mdSubmittables); err != nil {
 				logger.Errorf("[Worker] MD Submission failed: %v", err)
 			} else {
 				logger.Infof("[Worker] Successfully processed %d MD aggregate records", len(mdPayloads))
@@ -189,7 +190,7 @@ func startWorker(ctx context.Context, cfg *config.Config, db *sql.DB, settingsRe
 		}
 
 		// 2. Submit Manpower Utilization (Incremental - Runs only if pending)
-		rows, err := sgbuildex.ExtractPendingAttendance(taskCtx, db)
+		rows, err := attendanceRepo.ExtractPendingAttendance(taskCtx)
 		if err != nil {
 			logger.Errorf("[Worker] MU Extraction failed: %v", err)
 			return
@@ -204,7 +205,7 @@ func startWorker(ctx context.Context, cfg *config.Config, db *sql.DB, settingsRe
 		for i, p := range muPayloads {
 			muSubmittables[i] = sgbuildex.ManpowerUtilizationWrapper{ManpowerUtilization: p}
 		}
-		if err := sgbuildex.SubmitPayloads(taskCtx, db, client, muSubmittables); err != nil {
+		if err := sgbuildex.SubmitPayloads(taskCtx, submissionRepo, client, muSubmittables); err != nil {
 			logger.Errorf("[Worker] MU Submission failed: %v", err)
 		} else {
 			logger.Infof("[Worker] Successfully processed %d MU record(s)", len(muPayloads))

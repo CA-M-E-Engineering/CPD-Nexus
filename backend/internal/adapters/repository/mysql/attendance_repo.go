@@ -162,3 +162,151 @@ func (r *AttendanceRepository) GetMaxID(ctx context.Context, pattern string) (st
 	}
 	return maxID.String, nil
 }
+
+func (r *AttendanceRepository) ExtractPendingAttendance(ctx context.Context) ([]domain.AttendanceRow, error) {
+	query := `
+		SELECT 
+			a.attendance_id, a.device_id, a.worker_id, a.site_id, a.user_id,
+			a.time_in, a.time_out, a.direction, a.trade_code, a.status, a.submission_date,
+			s.site_name, s.location,
+			p.project_reference_number,
+			p.offsite_fabricator_name, p.offsite_fabricator_uen, p.offsite_fabricator_location,
+			p.main_contractor_name, p.main_contractor_uen,
+			w.name AS worker_name, w.person_id_no, w.person_trade AS worker_trade,
+			p.worker_company_name, p.worker_company_uen, p.worker_company_trade,
+			pic.name AS pic_name, pic.person_id_no AS pic_fin
+		FROM attendance a
+		JOIN sites s ON a.site_id = s.site_id
+		JOIN workers w ON a.worker_id = w.worker_id
+		LEFT JOIN projects p ON w.current_project_id = p.project_id
+		LEFT JOIN workers pic ON p.project_id = pic.current_project_id AND pic.role = 'pic'
+		WHERE a.status = 'pending'
+		ORDER BY a.submission_date, a.attendance_id
+	`
+
+	rows, err := r.db.QueryContext(ctx, query)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var results []domain.AttendanceRow
+	for rows.Next() {
+		var res domain.AttendanceRow
+		var mcName, mcUEN, wcName, wcUEN, wcTrade, picName, picFIN sql.NullString
+		err := rows.Scan(
+			&res.AttendanceID,
+			&res.DeviceID,
+			&res.WorkerID,
+			&res.SiteID,
+			&res.UserID,
+			&res.TimeIn,
+			&res.TimeOut,
+			&res.Direction,
+			&res.TradeCode,
+			&res.Status,
+			&res.SubmissionDate,
+			&res.SiteName,
+			&res.SiteLocation,
+			&res.ProjectRef,
+			&res.OffsiteFabricator,
+			&res.OffsiteFabricatorUEN,
+			&res.OffsiteFabricatorLocation,
+			&mcName,
+			&mcUEN,
+			&res.WorkerName,
+			&res.WorkerFIN,
+			&res.WorkerTrade,
+			&wcName,
+			&wcUEN,
+			&wcTrade,
+			&picName,
+			&picFIN,
+		)
+		if err != nil {
+			return nil, err
+		}
+		if mcName.Valid {
+			res.SiteOwnerName = mcName.String
+		}
+		if mcUEN.Valid {
+			res.SiteOwnerUEN = mcUEN.String
+		}
+		if wcName.Valid {
+			res.EmployerName = wcName.String
+		}
+		if wcUEN.Valid {
+			res.EmployerUEN = wcUEN.String
+		}
+		if wcTrade.Valid {
+			res.EmployerTrade = wcTrade.String
+		}
+		if picName.Valid {
+			res.PICName = picName.String
+		}
+		if picFIN.Valid {
+			res.PICFIN = picFIN.String
+		}
+
+		results = append(results, res)
+	}
+
+	if err = rows.Err(); err != nil {
+		return nil, err
+	}
+
+	return results, nil
+}
+
+func (r *AttendanceRepository) ExtractMonthlyDistributionData(ctx context.Context) ([]domain.MonthlyDistributionRow, error) {
+	query := `
+		SELECT 
+			p.offsite_fabricator_name, p.offsite_fabricator_uen, p.offsite_fabricator_location,
+			p.project_reference_number, p.project_title, p.project_location_description,
+			DATE_FORMAT(a.submission_date, '%Y-%m') as submission_month,
+			COUNT(*) as attendance_count
+		FROM attendance a
+		JOIN workers w ON a.worker_id = w.worker_id
+		JOIN projects p ON w.current_project_id = p.project_id
+		WHERE p.offsite_fabricator_uen IS NOT NULL 
+		  AND p.offsite_fabricator_uen != ''
+		  AND DATE_FORMAT(a.submission_date, '%Y-%m') = DATE_FORMAT(CURRENT_DATE, '%Y-%m')
+		GROUP BY 
+			p.offsite_fabricator_name, p.offsite_fabricator_uen, p.offsite_fabricator_location,
+			p.project_reference_number, p.project_title, p.project_location_description,
+			submission_month
+	`
+
+	rows, err := r.db.QueryContext(ctx, query)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var results []domain.MonthlyDistributionRow
+	for rows.Next() {
+		var res domain.MonthlyDistributionRow
+		var fabName, fabLoc, projRef, projTitle, projLoc sql.NullString
+		err := rows.Scan(
+			&fabName,
+			&res.FabricatorUEN,
+			&fabLoc,
+			&projRef,
+			&projTitle,
+			&projLoc,
+			&res.SubmissionMonth,
+			&res.AttendanceCount,
+		)
+		if err != nil {
+			return nil, err
+		}
+		res.FabricatorName = fabName.String
+		res.FabricatorLocation = fabLoc.String
+		res.ProjectRef = projRef.String
+		res.ProjectTitle = projTitle.String
+		res.ProjectLocation = projLoc.String
+		results = append(results, res)
+	}
+
+	return results, nil
+}

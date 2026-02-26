@@ -1,11 +1,12 @@
 package sgbuildex
 
 import (
+	"sgbuildex/internal/core/domain"
 	"testing"
 )
 
 func TestMapAggregationToDistribution(t *testing.T) {
-	rows := []MonthlyDistributionRow{
+	rows := []domain.MonthlyDistributionRow{
 		{
 			FabricatorName:     "Fab 1",
 			FabricatorUEN:      "UEN1",
