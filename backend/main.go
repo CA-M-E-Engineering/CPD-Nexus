@@ -48,22 +48,47 @@ func main() {
 	deviceRepo := mysql.NewDeviceRepository(db)
 	settingsRepo := mysql.NewMySQLSettingsRepository(db)
 	submissionRepo := mysql.NewSubmissionRepository(db)
+	userRepo := mysql.NewUserRepository(db)
+	siteRepo := mysql.NewSiteRepository(db)
+	projectRepo := mysql.NewProjectRepository(db)
+	analyticsRepo := mysql.NewAnalyticsRepository(db)
 
 	// Services
 	workerService := services.NewWorkerService(workerRepo)
 	attendanceService := services.NewAttendanceService(attendanceRepo, workerRepo, deviceRepo)
+	authService := services.NewAuthService(userRepo)
+	userService := services.NewUserService(userRepo)
+	siteService := services.NewSiteService(siteRepo)
+	projectService := services.NewProjectService(projectRepo)
+	deviceService := services.NewDeviceService(deviceRepo)
+	analyticsService := services.NewAnalyticsService(analyticsRepo)
+	settingsService := services.NewSettingsService(settingsRepo)
+
+	// Handlers
+	routerCfg := api.RouterConfig{
+		AuthHandler:        apiHandlers.NewAuthHandler(authService),
+		WorkersHandler:     apiHandlers.NewWorkersHandler(workerService),
+		ProjectsHandler:    apiHandlers.NewProjectsHandler(projectService),
+		SitesHandler:       apiHandlers.NewSitesHandler(siteService),
+		DevicesHandler:     apiHandlers.NewDevicesHandler(deviceService),
+		UsersHandler:       apiHandlers.NewUsersHandler(userService),
+		AssignmentsHandler: apiHandlers.NewAssignmentsHandler(workerService, deviceService, projectService),
+		AnalyticsHandler:   apiHandlers.NewAnalyticsHandler(analyticsService),
+		AttendanceHandler:  apiHandlers.NewAttendanceHandler(attendanceService),
+		SettingsHandler:    apiHandlers.NewSettingsHandler(settingsService),
+	}
+
+	// Bridge Integration
+	transport := bridge.NewTransport(cfg.BridgeURL)
+	userSyncBuilder := bridgeHandlers.NewUserSyncBuilder(workerService, workerRepo, deviceRepo)
+	routerCfg.BridgeSyncHandler = apiHandlers.NewBridgeSyncHandler(userSyncBuilder, transport)
 
 	// Context for graceful shutdown
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	// Bridge transport & user sync builder (shared between API and Bridge)
-	transport := bridge.NewTransport(cfg.BridgeURL)
-	userSyncBuilder := bridgeHandlers.NewUserSyncBuilder(workerService, workerRepo, deviceRepo)
-	bridgeSyncHandler := apiHandlers.NewBridgeSyncHandler(userSyncBuilder, transport)
-
 	// --- 3. Component A: REST API ---
-	go startAPI(cfg, db, bridgeSyncHandler)
+	go startAPI(cfg, routerCfg)
 
 	// --- 4. Component B: Bridge Connector ---
 	go startBridge(ctx, cfg, transport, db, attendanceService, userSyncBuilder)
@@ -84,9 +109,9 @@ func main() {
 	logger.Infof("Final shutdown complete.")
 }
 
-func startAPI(cfg *config.Config, db *sql.DB, bridgeSyncHandler *apiHandlers.BridgeSyncHandler) {
+func startAPI(cfg *config.Config, routerCfg api.RouterConfig) {
 	router := mux.NewRouter()
-	api.RegisterRoutes(router, db, bridgeSyncHandler)
+	api.RegisterRoutes(router, routerCfg)
 
 	c := cors.New(cors.Options{
 		AllowedOrigins: []string{

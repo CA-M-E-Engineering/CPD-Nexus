@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"sgbuildex/internal/core/domain"
 	"sgbuildex/internal/core/ports"
+	"sgbuildex/internal/pkg/idgen"
 )
 
 type UserRepository struct {
@@ -52,6 +53,14 @@ func (r *UserRepository) List(ctx context.Context) ([]domain.User, error) {
 }
 
 func (r *UserRepository) Create(ctx context.Context, u *domain.User) error {
+	if u.ID == "" {
+		id, err := idgen.GenerateNextID(r.db, "users", "user_id", "user")
+		if err != nil {
+			return err
+		}
+		u.ID = id
+	}
+
 	query := `
 		INSERT INTO users (
 			user_id, user_name, user_type, contact_email, contact_phone, 

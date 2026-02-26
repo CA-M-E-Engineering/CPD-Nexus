@@ -1,25 +1,21 @@
 package handlers
 
 import (
-	"database/sql"
 	"encoding/json"
 	"net/http"
 	"sgbuildex/internal/core/domain"
 	"sgbuildex/internal/core/ports"
-	"sgbuildex/internal/pkg/idgen"
 
 	"github.com/gorilla/mux"
 )
 
 type UsersHandler struct {
 	service ports.UserService
-	db      *sql.DB // Still needed for idgen until we modularize that too
 }
 
-func NewUsersHandler(service ports.UserService, db *sql.DB) *UsersHandler {
+func NewUsersHandler(service ports.UserService) *UsersHandler {
 	return &UsersHandler{
 		service: service,
-		db:      db,
 	}
 }
 
@@ -61,14 +57,6 @@ func (h *UsersHandler) CreateUser(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
-
-	// ID Generation still in handler for now as it needs *sql.DB
-	id, err := idgen.GenerateNextID(h.db, "users", "user_id", "user")
-	if err != nil {
-		http.Error(w, "Failed to generate user ID", http.StatusInternalServerError)
-		return
-	}
-	input.User.ID = id
 
 	if err := h.service.CreateUser(r.Context(), &input.User, input.Password); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
