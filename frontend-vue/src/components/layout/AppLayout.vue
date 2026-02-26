@@ -10,7 +10,7 @@ defineProps({
   breadcrumbPath: String,
 });
 
-defineEmits(['navigate', 'update:role', 'logout']);
+defineEmits(['navigate', 'update:role', 'logout', 'sync']);
 </script>
 
 <template>
