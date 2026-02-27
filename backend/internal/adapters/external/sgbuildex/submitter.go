@@ -4,8 +4,11 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log"
 	"sgbuildex/internal/adapters/external/sgbuildex/payloads"
+	"sgbuildex/internal/core/domain"
 	"sgbuildex/internal/core/ports"
+	"time"
 )
 
 // Submittable defines the behavior for any payload that can be pushed to SGBuildex
@@ -15,53 +18,131 @@ type Submittable interface {
 	GetInternalID() string
 }
 
-// SubmitPayloads submits any submittable payloads to SGBuildex
-// and updates the database with status, response payload, and errors via the repository.
-func SubmitPayloads[T Submittable](ctx context.Context, repo ports.SubmissionRepository, client *Client, submittables []T) error {
-	for _, s := range submittables {
-		// Prepare Push Request
-		pushReq, err := s.ToPushRequest(ctx)
-		if err != nil {
-			fmt.Printf("Failed to prepare push request for %s: %v\n", s.GetInternalID(), err)
+// SubmitPayloads submissions any submittable payloads to SGBuildex in batches.
+// It respects the MaxWorkersPerRequest and MaxPayloadSizeKB settings.
+func SubmitPayloads[T Submittable](ctx context.Context, repo ports.SubmissionRepository, client *Client, settings *domain.SystemSettings, submittables []T) error {
+	if len(submittables) == 0 {
+		return nil
+	}
+
+	dataElementID := submittables[0].DataElementID()
+	maxBatchSize := settings.MaxWorkersPerRequest
+	if maxBatchSize <= 0 {
+		maxBatchSize = 100
+	}
+	limitBytes := int(settings.MaxPayloadSizeKB) * 1024
+	if limitBytes <= 0 {
+		limitBytes = 256 * 1024
+	}
+
+	totalItems := len(submittables)
+	for i := 0; i < totalItems; {
+		var batchParticipants []ParticipantWrapper
+		var batchPayload []any
+		var batchOnBehalf []OnBehalfWrapper
+		var batchIDs []string
+
+		// Build the largest possible batch within limits
+		for i < totalItems && len(batchIDs) < maxBatchSize {
+			s := submittables[i]
+			req, err := s.ToPushRequest(ctx)
+			if err != nil {
+				log.Printf("[SGBuildex] Failed to prepare %s for %s: %v", dataElementID, s.GetInternalID(), err)
+				i++
+				continue
+			}
+
+			// Preview if we add this item
+			nextParticipants := append(batchParticipants, req.Participants...)
+			nextPayload := append(batchPayload, req.Payload...)
+
+			// Deduplicate OnBehalfOf
+			seenUEN := make(map[string]bool)
+			for _, ob := range batchOnBehalf {
+				seenUEN[ob.ID] = true
+			}
+			nextOnBehalf := append([]OnBehalfWrapper{}, batchOnBehalf...)
+			for _, ob := range req.OnBehalfOf {
+				if !seenUEN[ob.ID] {
+					nextOnBehalf = append(nextOnBehalf, ob)
+					seenUEN[ob.ID] = true
+				}
+			}
+
+			// Size check
+			pushReq := &PushRequest{
+				Participants: nextParticipants,
+				Payload:      nextPayload,
+				OnBehalfOf:   nextOnBehalf,
+			}
+			jsonBytes, _ := json.Marshal(pushReq)
+
+			if len(jsonBytes) > limitBytes {
+				if len(batchIDs) == 0 {
+					// Single item above limit - skip and log
+					log.Printf("[SGBuildex] CRITICAL: Single item for %s is already above size limit (%d > %d bytes). Skipping.", s.GetInternalID(), len(jsonBytes), limitBytes)
+					i++
+					continue
+				}
+				// Batch reached size limit, stop here and send what we have
+				break
+			}
+
+			// Accept the item
+			batchParticipants = nextParticipants
+			batchPayload = nextPayload
+			batchOnBehalf = nextOnBehalf
+			batchIDs = append(batchIDs, s.GetInternalID())
+			i++
+		}
+
+		if len(batchIDs) == 0 {
 			continue
 		}
 
-		fullJSON, err := json.MarshalIndent(pushReq, "", "  ")
-		if err != nil {
-			fmt.Printf("Failed to marshal full push request: %s\n", err)
-		} else {
-			fmt.Println("====================================================")
-			fmt.Printf("SUBMISSION JSON PAYLOAD (%s):\n", s.DataElementID())
-			fmt.Println(string(fullJSON))
-			fmt.Println("====================================================")
+		// Prepare final batch request
+		finalReq := &PushRequest{
+			Participants: batchParticipants,
+			Payload:      batchPayload,
+			OnBehalfOf:   batchOnBehalf,
 		}
+		fullJSON, _ := json.MarshalIndent(finalReq, "", "  ")
 
-		// Push event
-		err = client.PushEvent(ctx, s.DataElementID(), pushReq.Payload[0], pushReq.Participants, pushReq.OnBehalfOf)
+		log.Printf("[SGBuildex] Submitting batch of %d items for %s (Size: %d bytes)", len(batchIDs), dataElementID, len(fullJSON))
 
-		// Determine status
+		// Execute submission
+		resp, err := client.PostJSON(fmt.Sprintf("api/v1/data/push/%s", dataElementID), finalReq)
+
 		status := "submitted"
 		errorMessage := ""
 		if err != nil {
 			status = "failed"
 			errorMessage = err.Error()
-			fmt.Printf("Failed to submit payload: %s\n", err)
+			log.Printf("[SGBuildex] Batch submission failed: %v", err)
 		} else {
-			fmt.Println("Payload submitted successfully")
-		}
-
-		// 1. Log to central submission_logs table via Repo
-		logErr := repo.LogSubmission(ctx, s.DataElementID(), s.GetInternalID(), status, string(fullJSON), errorMessage)
-		if logErr != nil {
-			fmt.Printf("Failed to write to submission_logs: %v\n", logErr)
-		}
-
-		// 2. Update specific source table if needed
-		if s.DataElementID() == "manpower_utilization" {
-			dbErr := repo.UpdateAttendanceStatus(ctx, s.GetInternalID(), status, string(fullJSON), errorMessage)
-			if dbErr != nil {
-				fmt.Printf("Failed to update status for %s: %s\n", s.GetInternalID(), dbErr)
+			resp.Body.Close()
+			if resp.StatusCode >= 400 {
+				status = "failed"
+				errorMessage = fmt.Sprintf("HTTP %d", resp.StatusCode)
+				log.Printf("[SGBuildex] Batch submission returned error: %s", errorMessage)
 			}
+		}
+
+		// Update database for each individual item in the batch
+		for _, id := range batchIDs {
+			// Log to central logs
+			repo.LogSubmission(ctx, dataElementID, id, status, string(fullJSON), errorMessage)
+
+			// Update specific source table if needed
+			if dataElementID == "manpower_utilization" {
+				repo.UpdateAttendanceStatus(ctx, id, status, string(fullJSON), errorMessage)
+			}
+		}
+
+		// Rate limiting safety: if we have more batches, wait a bit
+		if i < totalItems && settings.MaxRequestsPerMinute > 0 {
+			sleepDuration := time.Minute / time.Duration(settings.MaxRequestsPerMinute)
+			time.Sleep(sleepDuration)
 		}
 	}
 

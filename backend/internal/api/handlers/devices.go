@@ -2,10 +2,11 @@ package handlers
 
 import (
 	"encoding/json"
-	"log"
 	"net/http"
 
+	"sgbuildex/internal/api/middleware"
 	"sgbuildex/internal/core/ports"
+	"sgbuildex/internal/pkg/apperrors"
 
 	"github.com/gorilla/mux"
 )
@@ -19,12 +20,10 @@ func NewDevicesHandler(service ports.DeviceService) *DevicesHandler {
 }
 
 func (h *DevicesHandler) GetDevices(w http.ResponseWriter, r *http.Request) {
-	userID := r.URL.Query().Get("user_id")
-
+	userID := middleware.GetUserID(r.Context())
 	devices, err := h.Service.ListDevices(r.Context(), userID)
 	if err != nil {
-		log.Printf("[GetDevices] Error: %v", err)
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		h.handleError(w, err)
 		return
 	}
 
@@ -36,14 +35,10 @@ func (h *DevicesHandler) GetDeviceById(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	id := vars["id"]
 
-	d, err := h.Service.GetDevice(r.Context(), id)
+	userID := middleware.GetUserID(r.Context())
+	d, err := h.Service.GetDevice(r.Context(), userID, id)
 	if err != nil {
-		log.Printf("[GetDeviceById] Error: %v", err)
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-	if d == nil {
-		http.Error(w, "Device not found", http.StatusNotFound)
+		h.handleError(w, err)
 		return
 	}
 
@@ -83,9 +78,9 @@ func (h *DevicesHandler) UpdateDevice(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := h.Service.UpdateDevice(r.Context(), id, params); err != nil {
-		log.Printf("[UpdateDevice] Error: %v", err)
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+	userID := middleware.GetUserID(r.Context())
+	if err := h.Service.UpdateDevice(r.Context(), userID, id, params); err != nil {
+		h.handleError(w, err)
 		return
 	}
 
@@ -97,9 +92,9 @@ func (h *DevicesHandler) DeleteDevice(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	id := vars["id"]
 
-	if err := h.Service.DecommissionDevice(r.Context(), id); err != nil {
-		log.Printf("[DeleteDevice] Error: %v", err)
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+	userID := middleware.GetUserID(r.Context())
+	if err := h.Service.DecommissionDevice(r.Context(), userID, id); err != nil {
+		h.handleError(w, err)
 		return
 	}
 
@@ -108,4 +103,11 @@ func (h *DevicesHandler) DeleteDevice(w http.ResponseWriter, r *http.Request) {
 		"status": "deleted",
 		"id":     id,
 	})
+}
+func (h *DevicesHandler) handleError(w http.ResponseWriter, err error) {
+	if appErr, ok := err.(*apperrors.AppError); ok {
+		http.Error(w, appErr.Message, appErr.Code)
+		return
+	}
+	http.Error(w, err.Error(), http.StatusInternalServerError)
 }

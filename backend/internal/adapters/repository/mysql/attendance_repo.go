@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"sgbuildex/internal/core/domain"
 	"sgbuildex/internal/core/ports"
+	"sgbuildex/internal/pkg/apperrors"
 )
 
 type AttendanceRepository struct {
@@ -15,7 +16,7 @@ func NewAttendanceRepository(db *sql.DB) ports.AttendanceRepository {
 	return &AttendanceRepository{db: db}
 }
 
-func (r *AttendanceRepository) Get(ctx context.Context, id string) (*domain.Attendance, error) {
+func (r *AttendanceRepository) Get(ctx context.Context, userID, id string) (*domain.Attendance, error) {
 	query := `
 		SELECT 
 			a.attendance_id, a.device_id, a.worker_id, a.site_id, a.user_id, 
@@ -24,19 +25,19 @@ func (r *AttendanceRepository) Get(ctx context.Context, id string) (*domain.Atte
 		FROM attendance a
 		LEFT JOIN workers w ON a.worker_id = w.worker_id
 		LEFT JOIN sites s ON a.site_id = s.site_id
-		WHERE a.attendance_id = ?`
+		WHERE a.attendance_id = ? AND a.user_id = ?`
 
 	var a domain.Attendance
 	var timeIn, timeOut sql.NullTime
 	var subDate, wName, sName sql.NullString
 
-	err := r.db.QueryRowContext(ctx, query, id).Scan(
+	err := r.db.QueryRowContext(ctx, query, id, userID).Scan(
 		&a.ID, &a.DeviceID, &a.WorkerID, &a.SiteID, &a.UserID,
 		&timeIn, &timeOut, &a.Direction, &a.TradeCode, &a.Status, &subDate,
 		&wName, &sName, &a.CreatedAt, &a.UpdatedAt,
 	)
 	if err == sql.ErrNoRows {
-		return nil, nil
+		return nil, apperrors.NewNotFound("attendance", id)
 	}
 	if err != nil {
 		return nil, err
@@ -69,14 +70,14 @@ func (r *AttendanceRepository) List(ctx context.Context, userID, siteID, workerI
 			w.name as worker_name, s.site_name, a.created_at, a.updated_at
 		FROM attendance a
 		LEFT JOIN workers w ON a.worker_id = w.worker_id
-		LEFT JOIN sites s ON a.site_id = s.site_id
-		WHERE 1=1
-	`
+		LEFT JOIN sites s ON a.site_id = s.site_id`
 	args := []interface{}{}
 
-	if userID != "" {
-		query += " AND a.user_id = ?"
-		args = append(args, userID)
+	query += " WHERE a.user_id = ?"
+	args = append(args, userID)
+
+	if userID == "" {
+		return nil, apperrors.NewPermissionDenied("user_id is required for multi-tenant isolation")
 	}
 	if siteID != "" {
 		query += " AND a.site_id = ?"

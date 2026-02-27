@@ -15,11 +15,12 @@ func NewMySQLSettingsRepository(db *sql.DB) *MySQLSettingsRepository {
 }
 
 func (r *MySQLSettingsRepository) GetSettings(ctx context.Context) (*domain.SystemSettings, error) {
-	query := `SELECT id, device_sync_interval, cpd_submission_time, response_size_limit, updated_at FROM system_settings WHERE id = 1`
+	query := `
+		SELECT id, attendance_sync_time, cpd_submission_time, 
+		       max_payload_size_kb, max_workers_per_request, max_requests_per_minute, updated_at 
+		FROM system_settings WHERE id = 1`
 
 	var s domain.SystemSettings
-	// Scan time into string for simplicity, or handle sql.NullTime
-	// Actually DB driver handles time.Time
 	var updated sql.NullTime
 	var cpdTime, syncInterval string
 
@@ -27,7 +28,9 @@ func (r *MySQLSettingsRepository) GetSettings(ctx context.Context) (*domain.Syst
 		&s.ID,
 		&syncInterval,
 		&cpdTime,
-		&s.ResponseSizeLimit,
+		&s.MaxPayloadSizeKB,
+		&s.MaxWorkersPerRequest,
+		&s.MaxRequestsPerMinute,
 		&updated,
 	)
 	if err != nil {
@@ -35,7 +38,7 @@ func (r *MySQLSettingsRepository) GetSettings(ctx context.Context) (*domain.Syst
 	}
 
 	s.CPDSubmissionTime = cpdTime
-	s.DeviceSyncInterval = syncInterval
+	s.AttendanceSyncTime = syncInterval
 	if updated.Valid {
 		s.UpdatedAt = updated.Time
 	}
@@ -44,8 +47,18 @@ func (r *MySQLSettingsRepository) GetSettings(ctx context.Context) (*domain.Syst
 }
 
 func (r *MySQLSettingsRepository) UpdateSettings(ctx context.Context, s domain.SystemSettings) error {
-	query := `UPDATE system_settings SET device_sync_interval=?, cpd_submission_time=?, response_size_limit=? WHERE id=1`
-	_, err := r.DB.ExecContext(ctx, query, s.DeviceSyncInterval, s.CPDSubmissionTime, s.ResponseSizeLimit)
+	query := `
+		UPDATE system_settings 
+		SET attendance_sync_time=?, cpd_submission_time=?,
+		    max_payload_size_kb=?, max_workers_per_request=?, max_requests_per_minute=?
+		WHERE id=1`
+	_, err := r.DB.ExecContext(ctx, query,
+		s.AttendanceSyncTime,
+		s.CPDSubmissionTime,
+		s.MaxPayloadSizeKB,
+		s.MaxWorkersPerRequest,
+		s.MaxRequestsPerMinute,
+	)
 	return err
 }
 

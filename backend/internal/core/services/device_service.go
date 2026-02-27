@@ -7,6 +7,7 @@ import (
 
 	"sgbuildex/internal/core/domain"
 	"sgbuildex/internal/core/ports"
+	"sgbuildex/internal/pkg/apperrors"
 )
 
 type DeviceService struct {
@@ -17,8 +18,11 @@ func NewDeviceService(repo ports.DeviceRepository) ports.DeviceService {
 	return &DeviceService{repo: repo}
 }
 
-func (s *DeviceService) GetDevice(ctx context.Context, id string) (*domain.Device, error) {
-	return s.repo.Get(ctx, id)
+func (s *DeviceService) GetDevice(ctx context.Context, userID, id string) (*domain.Device, error) {
+	if userID == "" {
+		return nil, apperrors.NewPermissionDenied("user_id scope required")
+	}
+	return s.repo.Get(ctx, userID, id)
 }
 
 func (s *DeviceService) ListDevices(ctx context.Context, userID string) ([]domain.Device, error) {
@@ -53,13 +57,13 @@ func (s *DeviceService) RegisterDevice(ctx context.Context, sn, model, userID st
 	return d, nil
 }
 
-func (s *DeviceService) UpdateDevice(ctx context.Context, id string, params map[string]interface{}) error {
-	d, err := s.repo.Get(ctx, id)
+func (s *DeviceService) UpdateDevice(ctx context.Context, userID, id string, params map[string]interface{}) error {
+	if userID == "" {
+		return apperrors.NewPermissionDenied("user_id scope required")
+	}
+	d, err := s.repo.Get(ctx, userID, id)
 	if err != nil {
 		return err
-	}
-	if d == nil {
-		return fmt.Errorf("device not found")
 	}
 
 	if v, ok := params["sn"].(string); ok {
@@ -85,8 +89,11 @@ func (s *DeviceService) UpdateDevice(ctx context.Context, id string, params map[
 	return s.repo.Update(ctx, d)
 }
 
-func (s *DeviceService) DecommissionDevice(ctx context.Context, id string) error {
-	return s.repo.Delete(ctx, id)
+func (s *DeviceService) DecommissionDevice(ctx context.Context, userID, id string) error {
+	if userID == "" {
+		return apperrors.NewPermissionDenied("user_id scope required")
+	}
+	return s.repo.Delete(ctx, userID, id)
 }
 
 func (s *DeviceService) AssignDevicesToUser(ctx context.Context, userID string, deviceIDs []string) error {

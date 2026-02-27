@@ -28,31 +28,26 @@ func NewAttendanceService(repo ports.AttendanceRepository, workerRepo ports.Work
 	}
 }
 
-func (s *AttendanceService) GetAttendance(ctx context.Context, id string) (*domain.Attendance, error) {
-	return s.repo.Get(ctx, id)
+func (s *AttendanceService) GetAttendance(ctx context.Context, userID, id string) (*domain.Attendance, error) {
+	return s.repo.Get(ctx, userID, id)
 }
 
 func (s *AttendanceService) ListAttendance(ctx context.Context, userID, siteID, workerID, date string) ([]domain.Attendance, error) {
 	return s.repo.List(ctx, userID, siteID, workerID, date)
 }
 
-func (s *AttendanceService) ProcessBridgeAttendance(ctx context.Context, deviceSN string, personID string, timeIn, timeOut string, rawPayload []byte) error {
-	// 1. Resolve Device
-	device, err := s.deviceRepo.GetBySN(ctx, deviceSN)
-	if err != nil || device == nil {
-		return fmt.Errorf("failed to resolve device SN %s: %w", deviceSN, err)
-	}
-
-	// 2. Resolve Worker
-	worker, err := s.workerRepo.GetByFIN(ctx, personID)
+func (s *AttendanceService) ProcessBridgeAttendance(ctx context.Context, workerID string, timeIn, timeOut string, rawPayload []byte) error {
+	// 1. Resolve Worker
+	// We use the internal workerID provided by the bridge (which we sent in the request)
+	worker, err := s.workerRepo.Get(ctx, "", workerID)
 	if err != nil {
-		return fmt.Errorf("database error resolving worker NRIC %s: %w", personID, err)
+		return fmt.Errorf("database error resolving worker ID %s: %w", workerID, err)
 	}
 	if worker == nil {
-		return fmt.Errorf("worker NRIC %s not found in the database", personID)
+		return fmt.Errorf("worker ID %s not found in the database", workerID)
 	}
 
-	// 3. Parse Times
+	// 2. Parse Times
 	tIn, err := time.Parse(time.RFC3339, timeIn)
 	if err != nil {
 		// Try fallback format if RFC3339 fails
@@ -67,18 +62,13 @@ func (s *AttendanceService) ProcessBridgeAttendance(ctx context.Context, deviceS
 		tOutPtr = &tOut
 	}
 
-	var siteID string
-	if device.SiteID != nil {
-		siteID = *device.SiteID
-	}
-
-	// 4. Create Attendance Record
+	// 3. Create Attendance Record
 	attendance := &domain.Attendance{
 		ID:              s.generateNextID(ctx),
-		DeviceID:        device.ID,
+		DeviceID:        "BRIDGE_AGGREGATED", // No single device ID for aggregated records
 		WorkerID:        worker.ID,
-		SiteID:          siteID,
-		UserID:          device.UserID,
+		SiteID:          worker.SiteID,
+		UserID:          worker.UserID,
 		TimeIn:          &tIn,
 		TimeOut:         tOutPtr,
 		Direction:       "unknown",

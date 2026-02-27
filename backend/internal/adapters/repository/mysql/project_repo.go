@@ -5,8 +5,10 @@ import (
 	"database/sql"
 	"fmt"
 	"log"
+	"sgbuildex/internal/api/middleware"
 	"sgbuildex/internal/core/domain"
 	"sgbuildex/internal/core/ports"
+	"sgbuildex/internal/pkg/apperrors"
 	"sgbuildex/internal/pkg/idgen"
 )
 
@@ -18,7 +20,7 @@ func NewProjectRepository(db *sql.DB) ports.ProjectRepository {
 	return &ProjectRepository{db: db}
 }
 
-func (r *ProjectRepository) Get(ctx context.Context, id string) (*domain.Project, error) {
+func (r *ProjectRepository) Get(ctx context.Context, userID, id string) (*domain.Project, error) {
 	query := `
 		SELECT 
             p.project_id, p.site_id, p.user_id, p.project_title, p.status, 
@@ -31,21 +33,28 @@ func (r *ProjectRepository) Get(ctx context.Context, id string) (*domain.Project
             (SELECT COUNT(*) FROM workers w WHERE w.current_project_id = p.project_id) as worker_count,
             (SELECT COUNT(*) FROM devices d WHERE d.site_id = p.site_id) as device_count
 		FROM projects p
-		LEFT JOIN sites s ON p.site_id = s.site_id
-		WHERE p.project_id = ?`
+		LEFT JOIN sites s ON p.site_id = s.site_id`
+
+	args := []interface{}{id}
+	if middleware.IsVendor(ctx) {
+		query += " WHERE p.project_id = ?"
+	} else {
+		query += " WHERE p.project_id = ? AND p.user_id = ?"
+		args = append(args, userID)
+	}
 
 	var p domain.Project
-	var siteID, userID, status, ref, cRef, loc, cName, hdb sql.NullString
+	var siteID, scanUserID, status, ref, cRef, loc, cName, hdb sql.NullString
 	var mcName, mcUEN, ofName, ofUEN, ofLoc, wcName, wcUEN, wccName, wccUEN, wcTrade sql.NullString
 
-	err := r.db.QueryRowContext(ctx, query, id).Scan(
-		&p.ID, &siteID, &userID, &p.Title, &status,
+	err := r.db.QueryRowContext(ctx, query, args...).Scan(
+		&p.ID, &siteID, &scanUserID, &p.Title, &status,
 		&ref, &cRef, &loc, &cName, &hdb,
 		&mcName, &mcUEN, &ofName, &ofUEN, &ofLoc, &wcName, &wcUEN, &wccName, &wccUEN, &wcTrade,
 		&p.CreatedAt, &p.UpdatedAt, &p.SiteName, &p.WorkerCount, &p.DeviceCount,
 	)
 	if err == sql.ErrNoRows {
-		return nil, nil
+		return nil, apperrors.NewNotFound("project", id)
 	}
 	if err != nil {
 		return nil, fmt.Errorf("failed to get project: %w", err)
@@ -54,8 +63,8 @@ func (r *ProjectRepository) Get(ctx context.Context, id string) (*domain.Project
 	if siteID.Valid {
 		p.SiteID = siteID.String
 	}
-	if userID.Valid {
-		p.UserID = userID.String
+	if scanUserID.Valid {
+		p.UserID = scanUserID.String
 	}
 	if status.Valid {
 		p.Status = status.String
@@ -125,8 +134,11 @@ func (r *ProjectRepository) List(ctx context.Context, userID string) ([]domain.P
         LEFT JOIN sites s ON p.site_id = s.site_id
         WHERE (p.status != 'inactive' OR p.status IS NULL)`
 
+	if userID == "" && !middleware.IsVendor(ctx) {
+		return nil, apperrors.NewPermissionDenied("user_id is required for multi-tenant isolation")
+	}
 	args := []interface{}{}
-	if userID != "" {
+	if !middleware.IsVendor(ctx) {
 		query += " AND p.user_id = ?"
 		args = append(args, userID)
 	}
@@ -269,7 +281,7 @@ func toNullString(s string) interface{} {
 	return s
 }
 
-func (r *ProjectRepository) Delete(ctx context.Context, id string) error {
+func (r *ProjectRepository) Delete(ctx context.Context, userID, id string) error {
 	tx, err := r.db.BeginTx(ctx, nil)
 	if err != nil {
 		return err
@@ -277,8 +289,13 @@ func (r *ProjectRepository) Delete(ctx context.Context, id string) error {
 	defer tx.Rollback()
 
 	// 1. Deactivate project
-	if _, err := tx.ExecContext(ctx, "UPDATE projects SET status = 'inactive' WHERE project_id = ?", id); err != nil {
+	res, err := tx.ExecContext(ctx, "UPDATE projects SET status = 'inactive' WHERE project_id = ? AND user_id = ?", id, userID)
+	if err != nil {
 		return err
+	}
+	rowsAffected, _ := res.RowsAffected()
+	if rowsAffected == 0 {
+		return apperrors.NewNotFound("project", id)
 	}
 
 	// 2. Unassign workers

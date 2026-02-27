@@ -1,5 +1,11 @@
 package domain
 
+const (
+	SyncStatusPendingUpdate       = 0
+	SyncStatusSynced              = 1
+	SyncStatusPendingRegistration = 2
+)
+
 type Worker struct {
 	ID               string `json:"worker_id"`
 	Name             string `json:"name"`

@@ -12,7 +12,7 @@ import (
 	apiHandlers "sgbuildex/internal/api/handlers"
 	"sgbuildex/internal/bridge"
 	bridgeHandlers "sgbuildex/internal/bridge/handlers"
-	"sgbuildex/internal/core/ports"
+	"sgbuildex/internal/core/domain"
 	"sgbuildex/internal/core/services"
 	"sgbuildex/internal/pkg/config"
 	"sgbuildex/internal/pkg/logger"
@@ -62,11 +62,11 @@ func main() {
 	projectService := services.NewProjectService(projectRepo)
 	deviceService := services.NewDeviceService(deviceRepo)
 	analyticsService := services.NewAnalyticsService(analyticsRepo)
-	settingsService := services.NewSettingsService(settingsRepo)
+	var settingsService *services.SettingsService
 
 	// Handlers
 	routerCfg := api.RouterConfig{
-		AuthHandler:        apiHandlers.NewAuthHandler(authService),
+		AuthHandler:        apiHandlers.NewAuthHandler(authService, userService),
 		WorkersHandler:     apiHandlers.NewWorkersHandler(workerService),
 		ProjectsHandler:    apiHandlers.NewProjectsHandler(projectService),
 		SitesHandler:       apiHandlers.NewSitesHandler(siteService),
@@ -75,26 +75,98 @@ func main() {
 		AssignmentsHandler: apiHandlers.NewAssignmentsHandler(workerService, deviceService, projectService),
 		AnalyticsHandler:   apiHandlers.NewAnalyticsHandler(analyticsService),
 		AttendanceHandler:  apiHandlers.NewAttendanceHandler(attendanceService),
-		SettingsHandler:    apiHandlers.NewSettingsHandler(settingsService),
+		// SettingsHandler will be added later after Schedulers are ready
 	}
 
 	// Bridge Integration
-	transport := bridge.NewTransport(cfg.BridgeURL)
+	requestMgr := bridge.NewRequestManager(db)
 	userSyncBuilder := bridgeHandlers.NewUserSyncBuilder(workerService, workerRepo, deviceRepo)
-	routerCfg.BridgeSyncHandler = apiHandlers.NewBridgeSyncHandler(userSyncBuilder, transport)
+	routerCfg.BridgeSyncHandler = apiHandlers.NewBridgeSyncHandler(userSyncBuilder, requestMgr)
+
+	attendanceHandler := bridgeHandlers.NewAttendanceHandler(attendanceService)
+	requestMgr.RegisterHandler("GET_ATTENDANCE_RESPONSE", attendanceHandler)
 
 	// Context for graceful shutdown
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	// --- 3. Component A: REST API ---
+	// --- 3. Component B: Submission Workers & Schedulers ---
+	client := sgbuildex.NewClient(cfg.IngressURL)
+
+	// Task 1: Attendance Sync (Bridge -> Nexus)
+	syncTask := func(taskCtx context.Context) {
+		logger.Infof("[AttendanceSync] Starting scheduled bridge fetch...")
+		if err := requestMgr.RequestAttendance(); err != nil {
+			logger.Errorf("[AttendanceSync] Bridge fetch failed: %v", err)
+		} else {
+			logger.Infof("[AttendanceSync] Fetch requests sent to bridge.")
+		}
+	}
+
+	// Task 2: CPD Submission (Nexus -> SGBuildex)
+	submitTask := func(taskCtx context.Context) {
+		logger.Infof("[CPDSubmission] Starting scheduled submission cycle...")
+
+		// 0. Fetch latest settings for limits
+		settings, err := settingsRepo.GetSettings(taskCtx)
+		if err != nil {
+			logger.Errorf("[CPDSubmission] Failed to fetch settings: %v. Using defaults.", err)
+			settings = &domain.SystemSettings{
+				MaxWorkersPerRequest: 100,
+				MaxPayloadSizeKB:     256,
+				MaxRequestsPerMinute: 150,
+			}
+		}
+
+		// 1. Manpower Distribution
+		distRows, err := attendanceRepo.ExtractMonthlyDistributionData(taskCtx)
+		if err == nil {
+			mdPayloads := sgbuildex.MapAggregationToDistribution(distRows)
+			mdSubmittables := make([]sgbuildex.ManpowerDistributionWrapper, len(mdPayloads))
+			for i, p := range mdPayloads {
+				mdSubmittables[i] = sgbuildex.ManpowerDistributionWrapper{ManpowerDistribution: p}
+			}
+			sgbuildex.SubmitPayloads(taskCtx, submissionRepo, client, settings, mdSubmittables)
+		}
+
+		// 2. Manpower Utilization
+		rows, err := attendanceRepo.ExtractPendingAttendance(taskCtx)
+		if err == nil && len(rows) > 0 {
+			muPayloads := sgbuildex.MapAttendanceToManpower(rows)
+			muSubmittables := make([]sgbuildex.ManpowerUtilizationWrapper, len(muPayloads))
+			for i, p := range muPayloads {
+				muSubmittables[i] = sgbuildex.ManpowerUtilizationWrapper{ManpowerUtilization: p}
+			}
+			sgbuildex.SubmitPayloads(taskCtx, submissionRepo, client, settings, muSubmittables)
+		}
+	}
+
+	attendanceSyncScheduler := services.NewDailyScheduler(
+		settingsRepo,
+		"AttendanceSync",
+		func(s *domain.SystemSettings) string { return s.AttendanceSyncTime },
+		syncTask,
+	)
+	cpdSubmissionScheduler := services.NewDailyScheduler(
+		settingsRepo,
+		"CPDSubmission",
+		func(s *domain.SystemSettings) string { return s.CPDSubmissionTime },
+		submitTask,
+	)
+
+	// Finalized Settings Service with Scheduler injection for real-time updates
+	settingsService = services.NewSettingsService(settingsRepo, attendanceSyncScheduler, cpdSubmissionScheduler)
+	routerCfg.SettingsHandler = apiHandlers.NewSettingsHandler(settingsService)
+
+	// --- 4. Component C: REST API ---
 	go startAPI(cfg, routerCfg)
 
-	// --- 4. Component B: Bridge Connector ---
-	go startBridge(ctx, cfg, transport, db, attendanceService, userSyncBuilder)
+	// --- 5. Component D: Core Loops ---
+	go startBridge(ctx, cfg, db, requestMgr, userSyncBuilder)
+	go attendanceSyncScheduler.Start(ctx)
+	go cpdSubmissionScheduler.Start(ctx)
 
-	// --- 5. Component C: Submission Worker ---
-	go startWorker(ctx, cfg, db, settingsRepo, attendanceRepo, submissionRepo)
+	logger.Infof("[System] Schedulers and API services fully operational")
 
 	// --- 6. Wait for Shutdown ---
 	stop := make(chan os.Signal, 1)
@@ -136,35 +208,63 @@ func startAPI(cfg *config.Config, routerCfg api.RouterConfig) {
 	}
 }
 
-func startBridge(ctx context.Context, cfg *config.Config, transport *bridge.Transport, db *sql.DB, attendanceService ports.AttendanceService, userSyncBuilder *bridgeHandlers.UserSyncBuilder) {
-	requestMgr := bridge.NewRequestManager(transport, db)
-
-	handler := bridgeHandlers.NewAttendanceHandler(attendanceService)
-	requestMgr.RegisterHandler("GET_ATTENDANCE_RESPONSE", handler)
-
+func startBridge(ctx context.Context, cfg *config.Config, db *sql.DB, requestMgr *bridge.RequestManager, userSyncBuilder *bridgeHandlers.UserSyncBuilder) {
 	// Connection maintenance loop
 	go func() {
 		for {
 			select {
 			case <-ctx.Done():
-				transport.Close()
+				for _, t := range requestMgr.GetAllTransports() {
+					t.Close()
+				}
 				return
 			default:
-				if !transport.IsConnected() {
-					logger.Infof("[Bridge] Connecting to %s...", cfg.BridgeURL)
-					if err := transport.Connect(); err != nil {
-						logger.Errorf("[Bridge] Connection failed: %v. Retrying in 5s...", err)
-						time.Sleep(5 * time.Second)
-						continue
+				// Fetch active bridges
+				rows, err := db.QueryContext(ctx, "SELECT user_id, bridge_ws_url FROM users WHERE bridge_status = 'active' AND bridge_ws_url IS NOT NULL")
+				if err != nil {
+					logger.Errorf("[Bridge] Failed to fetch active bridges: %v", err)
+				} else {
+					activeIDs := make(map[string]bool)
+					for rows.Next() {
+						var userID string
+						var wsURL string
+						if err := rows.Scan(&userID, &wsURL); err == nil {
+							activeIDs[userID] = true
+							transport, exists := requestMgr.GetTransport(userID)
+
+							if !exists {
+								logger.Infof("[Bridge] Creating new connection for user %s to %s", userID, wsURL)
+								t := bridge.NewTransport(wsURL)
+								requestMgr.AddTransport(userID, t)
+
+								go requestMgr.HandleIncomingMessages(ctx, userID, t)
+
+								if err := t.Connect(); err != nil {
+									logger.Errorf("[Bridge] Connection failed for %s: %v", userID, err)
+								}
+							} else if !transport.IsConnected() {
+								logger.Infof("[Bridge] Reconnecting for user %s to %s", userID, wsURL)
+								if err := transport.Connect(); err != nil {
+									logger.Errorf("[Bridge] Reconnection failed for %s: %v", userID, err)
+								}
+							}
+						}
+					}
+					rows.Close()
+
+					// Remove any transports that are no longer active
+					for id, t := range requestMgr.GetAllTransports() {
+						if !activeIDs[id] {
+							logger.Infof("[Bridge] Removing inactive connection for user %s", id)
+							t.Close()
+							requestMgr.RemoveTransport(id)
+						}
 					}
 				}
 				time.Sleep(10 * time.Second)
 			}
 		}
 	}()
-
-	// Start message listener
-	go requestMgr.HandleIncomingMessages(ctx)
 
 	// Command scheduler
 	requestInterval := time.Duration(cfg.BridgeIntervalSeconds) * time.Second
@@ -176,72 +276,12 @@ func startBridge(ctx context.Context, cfg *config.Config, transport *bridge.Tran
 	for {
 		select {
 		case <-ticker.C:
-			if transport.IsConnected() {
-				if err := requestMgr.RequestAttendance(); err != nil {
-					logger.Errorf("[Bridge] Fetch request failed: %v", err)
-				}
-				// Sync pending user registrations/updates
-				// if err := requestMgr.RequestUserSync(ctx, userSyncBuilder); err != nil {
-				// 	logger.Errorf("[Bridge] User sync failed: %v", err)
-				// }
+			// Sync pending user registrations/updates on interval
+			if err := requestMgr.RequestUserSync(ctx, userSyncBuilder); err != nil {
+				logger.Errorf("[Bridge] User sync failed: %v", err)
 			}
 		case <-ctx.Done():
 			return
 		}
 	}
-}
-
-func startWorker(ctx context.Context, cfg *config.Config, db *sql.DB, settingsRepo ports.SettingsRepository, attendanceRepo ports.AttendanceRepository, submissionRepo ports.SubmissionRepository) {
-	client := sgbuildex.NewClient(cfg.IngressURL)
-
-	task := func(taskCtx context.Context) {
-		logger.Infof("[Worker] Starting submission check...")
-
-		// 1. Submit Manpower Distribution (Monthly Aggregate - Runs every time)
-		distRows, err := attendanceRepo.ExtractMonthlyDistributionData(taskCtx)
-		if err != nil {
-			logger.Errorf("[Worker] MD Extraction failed: %v", err)
-		} else {
-			mdPayloads := sgbuildex.MapAggregationToDistribution(distRows)
-			mdSubmittables := make([]sgbuildex.ManpowerDistributionWrapper, len(mdPayloads))
-			for i, p := range mdPayloads {
-				mdSubmittables[i] = sgbuildex.ManpowerDistributionWrapper{ManpowerDistribution: p}
-			}
-			if err := sgbuildex.SubmitPayloads(taskCtx, submissionRepo, client, mdSubmittables); err != nil {
-				logger.Errorf("[Worker] MD Submission failed: %v", err)
-			} else {
-				logger.Infof("[Worker] Successfully processed %d MD aggregate records", len(mdPayloads))
-			}
-		}
-
-		// 2. Submit Manpower Utilization (Incremental - Runs only if pending)
-		rows, err := attendanceRepo.ExtractPendingAttendance(taskCtx)
-		if err != nil {
-			logger.Errorf("[Worker] MU Extraction failed: %v", err)
-			return
-		}
-		if len(rows) == 0 {
-			logger.Debugf("[Worker] No pending records for MU")
-			return
-		}
-
-		muPayloads := sgbuildex.MapAttendanceToManpower(rows)
-		muSubmittables := make([]sgbuildex.ManpowerUtilizationWrapper, len(muPayloads))
-		for i, p := range muPayloads {
-			muSubmittables[i] = sgbuildex.ManpowerUtilizationWrapper{ManpowerUtilization: p}
-		}
-		if err := sgbuildex.SubmitPayloads(taskCtx, submissionRepo, client, muSubmittables); err != nil {
-			logger.Errorf("[Worker] MU Submission failed: %v", err)
-		} else {
-			logger.Infof("[Worker] Successfully processed %d MU record(s)", len(muPayloads))
-		}
-	}
-
-	scheduler := services.NewCPDScheduler(settingsRepo, task)
-	logger.Infof("[Worker] Scheduled submission tasks started")
-
-	// Execute immediate check
-	task(ctx)
-
-	scheduler.Start(ctx)
 }

@@ -54,6 +54,7 @@ export const liveApi = {
     createUser: usersApi.createUser,
     updateUser: usersApi.updateUser,
     deleteUser: usersApi.deleteUser,
+    updateBridgeConfig: usersApi.updateBridgeConfig,
 
     // --- Assignments (Relations) ---
     assignWorkersToProject: assignmentsApi.assignWorkersToProject,

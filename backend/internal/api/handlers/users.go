@@ -99,3 +99,34 @@ func (h *UsersHandler) DeleteUser(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]string{"status": "deleted"})
 }
+
+// UpdateBridgeConfig handles PUT /api/users/{id}/bridge
+func (h *UsersHandler) UpdateBridgeConfig(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	id := vars["id"]
+
+	var input struct {
+		BridgeWSURL     *string `json:"bridge_ws_url"`
+		BridgeAuthToken *string `json:"bridge_auth_token"`
+		BridgeStatus    string  `json:"bridge_status"`
+	}
+
+	if err := json.NewDecoder(r.Body).Decode(&input); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	payload := map[string]interface{}{
+		"bridge_ws_url":     input.BridgeWSURL,
+		"bridge_auth_token": input.BridgeAuthToken,
+		"bridge_status":     input.BridgeStatus,
+	}
+
+	if err := h.service.UpdateUser(r.Context(), id, payload); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]string{"status": "updated"})
+}

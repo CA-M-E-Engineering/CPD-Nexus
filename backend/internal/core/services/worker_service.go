@@ -5,7 +5,8 @@ import (
 	"fmt"
 	"sgbuildex/internal/core/domain"
 	"sgbuildex/internal/core/ports"
-	"strings"
+	"sgbuildex/internal/pkg/apperrors"
+	"sgbuildex/internal/pkg/timeutil"
 	"time"
 )
 
@@ -17,8 +18,15 @@ func NewWorkerService(repo ports.WorkerRepository) ports.WorkerService {
 	return &WorkerService{repo: repo}
 }
 
-func (s *WorkerService) GetWorker(ctx context.Context, id string) (*domain.Worker, error) {
-	return s.repo.Get(ctx, id)
+func (s *WorkerService) GetWorker(ctx context.Context, userID, id string) (*domain.Worker, error) {
+	if userID == "" {
+		return nil, apperrors.NewPermissionDenied("user_id scope required")
+	}
+	worker, err := s.repo.Get(ctx, userID, id)
+	if err != nil {
+		return nil, err
+	}
+	return worker, nil
 }
 
 func (s *WorkerService) ListWorkers(ctx context.Context, userID, siteID string) ([]domain.Worker, error) {
@@ -49,22 +57,23 @@ func (s *WorkerService) CreateWorker(ctx context.Context, w *domain.Worker) erro
 		}
 	}
 
-	// If worker has auth data, mark as pending registration (is_synced=2)
+	// If worker has auth data, mark as pending registration
 	hasAuthData := w.FaceImgLoc != "" || w.CardNumber != ""
 	if hasAuthData {
-		w.IsSynced = 2
+		w.IsSynced = domain.SyncStatusPendingRegistration
 	}
 
 	return s.repo.Create(ctx, w)
 }
 
-func (s *WorkerService) UpdateWorker(ctx context.Context, id string, payload map[string]interface{}) error {
-	existing, err := s.repo.Get(ctx, id)
+func (s *WorkerService) UpdateWorker(ctx context.Context, userID, id string, payload map[string]interface{}) error {
+	if userID == "" {
+		return apperrors.NewPermissionDenied("user_id scope required")
+	}
+
+	existing, err := s.repo.Get(ctx, userID, id)
 	if err != nil {
 		return err
-	}
-	if existing == nil {
-		return fmt.Errorf("worker not found")
 	}
 
 	requiresSync := false
@@ -109,13 +118,13 @@ func (s *WorkerService) UpdateWorker(ctx context.Context, id string, payload map
 	}
 
 	if v, ok := payload["auth_start_time"].(string); ok {
-		if cleanDateStr(existing.AuthStartTime) != cleanDateStr(v) {
+		if timeutil.CleanDateTime(existing.AuthStartTime) != timeutil.CleanDateTime(v) {
 			requiresSync = true
 		}
 		existing.AuthStartTime = v
 	}
 	if v, ok := payload["auth_end_time"].(string); ok {
-		if cleanDateStr(existing.AuthEndTime) != cleanDateStr(v) {
+		if timeutil.CleanDateTime(existing.AuthEndTime) != timeutil.CleanDateTime(v) {
 			requiresSync = true
 		}
 		existing.AuthEndTime = v
@@ -153,20 +162,6 @@ func (s *WorkerService) UpdateWorker(ctx context.Context, id string, payload map
 
 	isRegistered := existing.FaceImgLoc != "" || existing.CardNumber != ""
 
-	if requiresSync && (wasRegistered || isRegistered) {
-		// If worker is still pending registration (is_synced=2), keep it at 2.
-		// Only set to 0 (pending update) if it was previously synced (is_synced=1).
-		if existing.IsSynced != 2 {
-			existing.IsSynced = 0
-		}
-	} else {
-		if v, ok := payload["is_synced"].(float64); ok {
-			existing.IsSynced = int(v)
-		} else if v, ok := payload["is_synced"].(int); ok {
-			existing.IsSynced = v
-		}
-	}
-
 	// Project ID flexibility
 	var newProjectID string
 	if v, ok := payload["current_project_id"].(string); ok {
@@ -179,34 +174,56 @@ func (s *WorkerService) UpdateWorker(ctx context.Context, id string, payload map
 		newProjectID = existing.CurrentProjectID
 	}
 
-	if newProjectID != "" && newProjectID != existing.CurrentProjectID {
-		projectUserID, err := s.repo.GetProjectUserID(ctx, newProjectID)
-		if err != nil {
-			return fmt.Errorf("invalid project ID: %w", err)
-		}
-		if projectUserID != existing.UserID {
-			return fmt.Errorf("security violation: cannot assign project from different user")
+	if newProjectID != existing.CurrentProjectID {
+		if newProjectID != "" {
+			projectUserID, err := s.repo.GetProjectUserID(ctx, newProjectID)
+			if err != nil {
+				return fmt.Errorf("invalid project ID: %w", err)
+			}
+			if projectUserID != existing.UserID {
+				return fmt.Errorf("security violation: cannot assign project from different user")
+			}
 		}
 		existing.CurrentProjectID = newProjectID
+		requiresSync = true
 	} else if v, ok := payload["current_project_id"]; ok && v == nil {
+		if existing.CurrentProjectID != "" {
+			requiresSync = true
+		}
 		existing.CurrentProjectID = ""
+	}
+
+	if requiresSync && (wasRegistered || isRegistered) {
+		// Only set to pending update if it was previously synced or already pending update
+		if existing.IsSynced != domain.SyncStatusPendingRegistration {
+			existing.IsSynced = domain.SyncStatusPendingUpdate
+		}
+	} else {
+		if v, ok := payload["is_synced"].(float64); ok {
+			existing.IsSynced = int(v)
+		} else if v, ok := payload["is_synced"].(int); ok {
+			existing.IsSynced = v
+		}
 	}
 
 	return s.repo.Update(ctx, existing)
 }
 
-func (s *WorkerService) DeleteWorker(ctx context.Context, id string) error {
-	return s.repo.Delete(ctx, id)
+func (s *WorkerService) DeleteWorker(ctx context.Context, userID, id string) error {
+	if userID == "" {
+		return apperrors.NewPermissionDenied("user_id scope required")
+	}
+	return s.repo.Delete(ctx, userID, id)
 }
 
 func (s *WorkerService) ListPendingSyncWorkers(ctx context.Context, userID string) ([]domain.Worker, error) {
-	// Fetch workers needing registration (is_synced=2) and update (is_synced=0)
-	registerWorkers, err := s.repo.ListByIsSynced(ctx, userID, 2)
+	// Fetch workers needing registration and update
+	registerWorkers, err := s.repo.ListByIsSynced(ctx, userID, domain.SyncStatusPendingRegistration)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list register-pending workers: %w", err)
 	}
 
-	updateWorkers, err := s.repo.ListByIsSynced(ctx, userID, 0)
+	updateWorkers, err := s.repo.ListByIsSynced(ctx, userID, domain.SyncStatusPendingUpdate)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list update-pending workers: %w", err)
 	}
@@ -221,13 +238,4 @@ func (s *WorkerService) AssignWorkersToProject(ctx context.Context, projectID st
 	}
 
 	return s.repo.AssignToProject(ctx, projectID, workerIDs, userID)
-}
-
-func cleanDateStr(ds string) string {
-	if len(ds) >= 19 {
-		tmp := strings.Replace(ds, "T", " ", 1)
-		tmp = strings.Replace(tmp, "Z", "", 1)
-		return tmp
-	}
-	return ds
 }

@@ -1,13 +1,15 @@
+<script>
+export default {
+  inheritAttrs: false
+}
+</script>
+
 <script setup>
 defineProps({
   modelValue: [String, Number],
   label: String,
-  placeholder: String,
-  type: { type: String, default: 'text' },
-  icon: String,
   error: String,
   hint: String,
-  disabled: Boolean,
 });
 
 defineEmits(['update:modelValue']);
@@ -17,16 +19,14 @@ defineEmits(['update:modelValue']);
   <div class="form-group">
     <label v-if="label" class="form-label">{{ label }}</label>
     <div class="input-group">
-      <span v-if="icon" class="input-icon">
-        <i :class="icon"></i>
+      <span v-if="$attrs.icon" class="input-icon">
+        <i :class="$attrs.icon"></i>
       </span>
       <input
-        :type="type"
+        v-bind="$attrs"
         :value="modelValue"
-        :placeholder="placeholder"
-        :disabled="disabled"
         class="input"
-        :class="{ 'has-icon': icon, 'has-error': error }"
+        :class="{ 'has-icon': $attrs.icon, 'has-error': error }"
         @input="$emit('update:modelValue', $event.target.value)"
       />
     </div>

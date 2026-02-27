@@ -24,13 +24,30 @@ class ApiError extends Error {
 async function request(endpoint, options = {}) {
     let url = `${BASE_URL}${endpoint}`;
 
-    if (options.params) {
+    if (options.params || localStorage.getItem('auth_user')) {
         const queryParams = new URLSearchParams();
-        Object.entries(options.params).forEach(([key, value]) => {
-            if (value !== undefined && value !== null) {
-                queryParams.append(key, value);
+        if (options.params) {
+            Object.entries(options.params).forEach(([key, value]) => {
+                if (value !== undefined && value !== null) {
+                    queryParams.append(key, value);
+                }
+            });
+        }
+
+        // Add user_id fallback if not present in params
+        if (!queryParams.has('user_id')) {
+            const authUser = localStorage.getItem('auth_user');
+            if (authUser) {
+                try {
+                    const user = JSON.parse(authUser);
+                    const userID = user.user_id || user.id;
+                    if (userID) {
+                        queryParams.append('user_id', userID);
+                    }
+                } catch (e) { }
             }
-        });
+        }
+
         const queryString = queryParams.toString();
         if (queryString) {
             url += (url.includes('?') ? '&' : '?') + queryString;
@@ -56,6 +73,19 @@ async function request(endpoint, options = {}) {
     const token = localStorage.getItem('auth_token');
     if (token) {
         config.headers['Authorization'] = `Bearer ${token}`;
+    }
+
+    const authUser = localStorage.getItem('auth_user');
+    if (authUser) {
+        try {
+            const user = JSON.parse(authUser);
+            const userID = user.user_id || user.id;
+            if (userID) {
+                config.headers['X-User-ID'] = userID;
+            }
+        } catch (e) {
+            console.error('[HTTP] Failed to parse auth_user for scope header', e);
+        }
     }
 
     if (config.body && typeof config.body === 'object') {

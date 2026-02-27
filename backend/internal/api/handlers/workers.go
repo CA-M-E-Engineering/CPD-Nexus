@@ -4,8 +4,10 @@ import (
 	"encoding/json"
 	"log"
 	"net/http"
+	"sgbuildex/internal/api/middleware"
 	"sgbuildex/internal/core/domain"
 	"sgbuildex/internal/core/ports"
+	"sgbuildex/internal/pkg/apperrors"
 
 	"github.com/gorilla/mux"
 )
@@ -37,9 +39,10 @@ func (h *WorkersHandler) GetWorkerById(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	id := vars["id"]
 
-	worker, err := h.service.GetWorker(r.Context(), id)
+	userID := middleware.GetUserID(r.Context())
+	worker, err := h.service.GetWorker(r.Context(), userID, id)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		h.handleError(w, err)
 		return
 	}
 	if worker == nil {
@@ -78,8 +81,9 @@ func (h *WorkersHandler) UpdateWorker(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := h.service.UpdateWorker(r.Context(), id, payload); err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+	userID := middleware.GetUserID(r.Context())
+	if err := h.service.UpdateWorker(r.Context(), userID, id, payload); err != nil {
+		h.handleError(w, err)
 		return
 	}
 
@@ -90,11 +94,19 @@ func (h *WorkersHandler) DeleteWorker(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	id := vars["id"]
 
-	if err := h.service.DeleteWorker(r.Context(), id); err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+	userID := middleware.GetUserID(r.Context())
+	if err := h.service.DeleteWorker(r.Context(), userID, id); err != nil {
+		h.handleError(w, err)
 		return
 	}
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]string{"status": "deleted"})
+}
+func (h *WorkersHandler) handleError(w http.ResponseWriter, err error) {
+	if appErr, ok := err.(*apperrors.AppError); ok {
+		http.Error(w, appErr.Message, appErr.Code)
+		return
+	}
+	http.Error(w, err.Error(), http.StatusInternalServerError)
 }

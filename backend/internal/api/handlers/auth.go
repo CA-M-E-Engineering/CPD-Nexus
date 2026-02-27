@@ -3,15 +3,20 @@ package handlers
 import (
 	"encoding/json"
 	"net/http"
+	"sgbuildex/internal/api/middleware"
 	"sgbuildex/internal/core/ports"
 )
 
 type AuthHandler struct {
-	service ports.AuthService
+	authService ports.AuthService
+	userService ports.UserService
 }
 
-func NewAuthHandler(service ports.AuthService) *AuthHandler {
-	return &AuthHandler{service: service}
+func NewAuthHandler(authService ports.AuthService, userService ports.UserService) *AuthHandler {
+	return &AuthHandler{
+		authService: authService,
+		userService: userService,
+	}
 }
 
 // LoginRequest structure
@@ -33,7 +38,7 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	token, user, err := h.service.Login(r.Context(), req.Username, req.Password)
+	token, user, err := h.authService.Login(r.Context(), req.Username, req.Password)
 	if err != nil {
 		http.Error(w, "Invalid credentials", http.StatusUnauthorized)
 		return
@@ -61,14 +66,32 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *AuthHandler) Me(w http.ResponseWriter, r *http.Request) {
-	// For MVP: Return a static/mock user since we are not parsing JWT middleware yet
-	user := map[string]interface{}{
-		"id":       "testt.ltd",
-		"user_id":  "testt.ltd",
-		"name":     "Test User Admin",
-		"username": "testt.ltd",
-		"role":     "client",
+	userID := middleware.GetUserID(r.Context())
+	if userID == "" {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
 	}
+
+	user, err := h.userService.GetUser(r.Context(), userID)
+	if err != nil {
+		http.Error(w, "User not found", http.StatusNotFound)
+		return
+	}
+
+	// Simple role mapping logic for frontend legacy compatibility
+	userMap := map[string]interface{}{
+		"id":       user.ID,
+		"user_id":  user.ID,
+		"name":     user.Name,
+		"username": user.Username,
+		"role":     "manager", // Default
+	}
+	if user.UserType == "client" {
+		userMap["role"] = "client"
+	} else if user.UserType == "vendor" {
+		userMap["role"] = "vendor"
+	}
+
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(user)
+	json.NewEncoder(w).Encode(userMap)
 }

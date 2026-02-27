@@ -5,8 +5,10 @@ import (
 	"database/sql"
 	"fmt"
 	"log"
+	"sgbuildex/internal/api/middleware"
 	"sgbuildex/internal/core/domain"
 	"sgbuildex/internal/core/ports"
+	"sgbuildex/internal/pkg/apperrors"
 	"sgbuildex/internal/pkg/idgen"
 )
 
@@ -18,7 +20,7 @@ func NewDeviceRepository(db *sql.DB) ports.DeviceRepository {
 	return &DeviceRepository{db: db}
 }
 
-func (r *DeviceRepository) Get(ctx context.Context, id string) (*domain.Device, error) {
+func (r *DeviceRepository) Get(ctx context.Context, userID, id string) (*domain.Device, error) {
 	query := `
 		SELECT 
 			d.device_id, d.sn, d.model, d.status, 
@@ -29,20 +31,32 @@ func (r *DeviceRepository) Get(ctx context.Context, id string) (*domain.Device, 
 		LEFT JOIN sites s ON d.site_id = s.site_id
 		LEFT JOIN users u ON d.user_id = u.user_id
 		WHERE d.device_id = ?`
+	if !middleware.IsVendor(ctx) {
+		query += " AND d.user_id = ?"
+	}
 
 	var d domain.Device
-	var siteName, siteID, userName, userID sql.NullString
+	var siteName, siteID, userName, scanUserID sql.NullString
 	var lastBeat, lastCheck sql.NullTime
 	var status sql.NullString
 
-	err := r.db.QueryRowContext(ctx, query, id).Scan(
-		&d.ID, &d.SN, &d.Model, &status,
-		&siteName, &siteID, &userName, &userID,
-		&lastBeat, &lastCheck, &d.Battery,
-	)
+	var err error
+	if middleware.IsVendor(ctx) {
+		err = r.db.QueryRowContext(ctx, query, id).Scan(
+			&d.ID, &d.SN, &d.Model, &status,
+			&siteName, &siteID, &userName, &scanUserID,
+			&lastBeat, &lastCheck, &d.Battery,
+		)
+	} else {
+		err = r.db.QueryRowContext(ctx, query, id, userID).Scan(
+			&d.ID, &d.SN, &d.Model, &status,
+			&siteName, &siteID, &userName, &scanUserID,
+			&lastBeat, &lastCheck, &d.Battery,
+		)
+	}
 
 	if err == sql.ErrNoRows {
-		return nil, nil
+		return nil, apperrors.NewNotFound("device", id)
 	}
 	if err != nil {
 		return nil, fmt.Errorf("failed to get device: %w", err)
@@ -61,8 +75,8 @@ func (r *DeviceRepository) Get(ctx context.Context, id string) (*domain.Device, 
 	if userName.Valid {
 		d.UserName = userName.String
 	}
-	if userID.Valid {
-		d.UserID = userID.String
+	if scanUserID.Valid {
+		d.UserID = scanUserID.String
 	}
 	if lastBeat.Valid {
 		d.LastHeartbeat = &lastBeat.Time
@@ -141,9 +155,12 @@ func (r *DeviceRepository) List(ctx context.Context, userID string) ([]domain.De
 		LEFT JOIN sites s ON d.site_id = s.site_id
 		LEFT JOIN users u ON d.user_id = u.user_id
 		WHERE d.status != 'inactive'`
+	if userID == "" {
+		return nil, apperrors.NewPermissionDenied("user_id is required for multi-tenant isolation")
+	}
 
 	args := []interface{}{}
-	if userID != "" {
+	if userID != "" && !middleware.IsVendor(ctx) {
 		query += " AND d.user_id = ?"
 		args = append(args, userID)
 	}
@@ -198,9 +215,9 @@ func (r *DeviceRepository) List(ctx context.Context, userID string) ([]domain.De
 	return devices, nil
 }
 
-func (r *DeviceRepository) ListSNsBySiteID(ctx context.Context, siteID string) ([]string, error) {
-	query := `SELECT sn FROM devices WHERE site_id = ? AND status != 'inactive'`
-	rows, err := r.db.QueryContext(ctx, query, siteID)
+func (r *DeviceRepository) ListSNsBySiteID(ctx context.Context, userID, siteID string) ([]string, error) {
+	query := `SELECT sn FROM devices WHERE site_id = ? AND user_id = ? AND status != 'inactive'`
+	rows, err := r.db.QueryContext(ctx, query, siteID, userID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list device SNs by site: %w", err)
 	}
@@ -242,9 +259,22 @@ func (r *DeviceRepository) Update(ctx context.Context, d *domain.Device) error {
 	return err
 }
 
-func (r *DeviceRepository) Delete(ctx context.Context, id string) error {
-	_, err := r.db.ExecContext(ctx, "UPDATE devices SET status = 'inactive', site_id = NULL WHERE device_id = ?", id)
-	return err
+func (r *DeviceRepository) Delete(ctx context.Context, userID, id string) error {
+	query := "UPDATE devices SET status = 'inactive', site_id = NULL WHERE device_id = ?"
+	args := []interface{}{id}
+	if !middleware.IsVendor(ctx) {
+		query += " AND user_id = ?"
+		args = append(args, userID)
+	}
+	res, err := r.db.ExecContext(ctx, query, args...)
+	if err != nil {
+		return err
+	}
+	rowsAffected, _ := res.RowsAffected()
+	if rowsAffected == 0 {
+		return apperrors.NewNotFound("device", id)
+	}
+	return nil
 }
 
 func (r *DeviceRepository) AssignToUser(ctx context.Context, userID string, deviceIDs []string) error {

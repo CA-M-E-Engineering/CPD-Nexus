@@ -28,4 +28,9 @@ export const usersApi = {
      * Delete a user
      */
     deleteUser: (id) => http.delete(`/users/${id}`),
+
+    /**
+     * Update a user's bridge connection configuration
+     */
+    updateBridgeConfig: (id, data) => http.put(`/users/${id}/bridge`, data),
 };

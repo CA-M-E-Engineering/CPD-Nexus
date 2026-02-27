@@ -2,16 +2,23 @@ package services
 
 import (
 	"context"
+	"log"
 	"sgbuildex/internal/core/domain"
 	"sgbuildex/internal/core/ports"
 )
 
 type SettingsService struct {
-	repo ports.SettingsRepository
+	repo            ports.SettingsRepository
+	syncScheduler   *DailyScheduler
+	submitScheduler *DailyScheduler
 }
 
-func NewSettingsService(repo ports.SettingsRepository) *SettingsService {
-	return &SettingsService{repo: repo}
+func NewSettingsService(repo ports.SettingsRepository, sync *DailyScheduler, submit *DailyScheduler) *SettingsService {
+	return &SettingsService{
+		repo:            repo,
+		syncScheduler:   sync,
+		submitScheduler: submit,
+	}
 }
 
 func (s *SettingsService) GetSettings(ctx context.Context) (*domain.SystemSettingsResponse, error) {
@@ -22,8 +29,6 @@ func (s *SettingsService) GetSettings(ctx context.Context) (*domain.SystemSettin
 
 	total, deployed, err := s.repo.GetDeviceStats(ctx)
 	if err != nil {
-		// Log error but maybe don't fail the whole request? For now, let's just return 0s if it fails or return error.
-		// Let's return error to be safe.
 		return nil, err
 	}
 
@@ -35,6 +40,22 @@ func (s *SettingsService) GetSettings(ctx context.Context) (*domain.SystemSettin
 }
 
 func (s *SettingsService) UpdateSettings(ctx context.Context, settings domain.SystemSettings) error {
-	// Business logic validation could go here
-	return s.repo.UpdateSettings(ctx, settings)
+	log.Printf("[SettingsService] Updating system settings in database...")
+	if err := s.repo.UpdateSettings(ctx, settings); err != nil {
+		return err
+	}
+
+	log.Printf("[SettingsService] Database update successful. Notifying schedulers...")
+
+	// Trigger schedulers to re-evaluate their time
+	if s.syncScheduler != nil {
+		log.Printf("[SettingsService] Resetting AttendanceSync scheduler")
+		s.syncScheduler.Reset()
+	}
+	if s.submitScheduler != nil {
+		log.Printf("[SettingsService] Resetting CPDSubmission scheduler")
+		s.submitScheduler.Reset()
+	}
+
+	return nil
 }

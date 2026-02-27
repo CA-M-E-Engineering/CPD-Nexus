@@ -7,8 +7,8 @@ import (
 	"sgbuildex/internal/bridge"
 	"sgbuildex/internal/core/domain"
 	"sgbuildex/internal/core/ports"
+	"sgbuildex/internal/pkg/timeutil"
 	"strconv"
-	"time"
 )
 
 // UserSyncPayload matches the outbound REGISTER_USER / UPDATE_USER structure
@@ -105,7 +105,7 @@ func (b *UserSyncBuilder) BuildSyncRequests(ctx context.Context, userID string) 
 		}
 
 		// 3. Get device SNs for the worker's site
-		deviceSNs, err := b.deviceRepo.ListSNsBySiteID(ctx, w.SiteID)
+		deviceSNs, err := b.deviceRepo.ListSNsBySiteID(ctx, w.UserID, w.SiteID)
 		if err != nil {
 			log.Printf("[UserSync] Failed to get devices for site %s: %v", w.SiteID, err)
 			invalidWorkers = append(invalidWorkers, w)
@@ -125,8 +125,8 @@ func (b *UserSyncBuilder) BuildSyncRequests(ctx context.Context, userID string) 
 		}
 
 		// Format auth times
-		startTime := formatSyncTime(w.AuthStartTime)
-		endTime := formatSyncTime(w.AuthEndTime)
+		startTime := timeutil.ToRFC3339(w.AuthStartTime)
+		endTime := timeutil.ToRFC3339(w.AuthEndTime)
 
 		// Build payload
 		payload := UserSyncPayload{
@@ -182,35 +182,9 @@ func (b *UserSyncBuilder) BuildSyncRequests(ctx context.Context, userID string) 
 // MarkWorkersSynced marks the given workers as synced (is_synced=1) after successful send
 func (b *UserSyncBuilder) MarkWorkersSynced(ctx context.Context, workerIDs []string) {
 	for _, id := range workerIDs {
-		err := b.workerService.UpdateWorker(ctx, id, map[string]interface{}{
-			"is_synced": 1,
-		})
+		err := b.workerRepo.MarkSynced(ctx, id)
 		if err != nil {
 			log.Printf("[UserSync] Failed to mark worker %s as synced: %v", id, err)
 		}
 	}
-}
-
-// formatSyncTime converts DB datetime to RFC3339 format for bridge payload
-func formatSyncTime(t string) string {
-	if t == "" {
-		return ""
-	}
-
-	// Try parsing common formats
-	layouts := []string{
-		"2006-01-02 15:04:05",
-		time.RFC3339,
-		"2006-01-02T15:04:05",
-		"2006-01-02T15:04:05Z07:00",
-	}
-
-	for _, layout := range layouts {
-		if parsed, err := time.Parse(layout, t); err == nil {
-			return parsed.Format(time.RFC3339)
-		}
-	}
-
-	// Return as-is if no format matches
-	return t
 }

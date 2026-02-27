@@ -7,21 +7,23 @@ import (
 	"fmt"
 	"log"
 	"sgbuildex/internal/core/domain"
+	"sync"
 	"time"
 )
 
-// RequestManager handles business-level commands and response logic
+// RequestManager handles business-level commands and response logic across multiple bridges
 type RequestManager struct {
-	Transport *Transport
-	DB        *sql.DB
-	Handlers  map[string]Handler
+	Transports map[string]*Transport // Key: user_id
+	DB         *sql.DB
+	Handlers   map[string]Handler
+	mu         sync.RWMutex
 }
 
-func NewRequestManager(t *Transport, db *sql.DB) *RequestManager {
+func NewRequestManager(db *sql.DB) *RequestManager {
 	return &RequestManager{
-		Transport: t,
-		DB:        db,
-		Handlers:  make(map[string]Handler),
+		Transports: make(map[string]*Transport),
+		DB:         db,
+		Handlers:   make(map[string]Handler),
 	}
 }
 
@@ -30,14 +32,55 @@ func (rm *RequestManager) RegisterHandler(msgType string, h Handler) {
 	rm.Handlers[msgType] = h
 }
 
-// RequestAttendance sends high-level commands to the bridge for each active worker
-func (rm *RequestManager) RequestAttendance() error {
-	log.Println("RequestManager: Starting attendance fetch for all workers")
+// AddTransport adds a new transport for a user
+func (rm *RequestManager) AddTransport(userID string, t *Transport) {
+	rm.mu.Lock()
+	defer rm.mu.Unlock()
 
-	// 1. Get all active workers
-	// We use the DB directly or a repo if passed in. Since we only have rm.DB, we query directly.
+	// Close existing if replacing
+	if existing, ok := rm.Transports[userID]; ok {
+		existing.Close()
+	}
+	rm.Transports[userID] = t
+}
+
+// RemoveTransport removes a transport for a user
+func (rm *RequestManager) RemoveTransport(userID string) {
+	rm.mu.Lock()
+	defer rm.mu.Unlock()
+
+	if existing, ok := rm.Transports[userID]; ok {
+		existing.Close()
+		delete(rm.Transports, userID)
+	}
+}
+
+// GetTransport gets a transport for a specific user safely
+func (rm *RequestManager) GetTransport(userID string) (*Transport, bool) {
+	rm.mu.RLock()
+	defer rm.mu.RUnlock()
+	t, ok := rm.Transports[userID]
+	return t, ok
+}
+
+// GetAllTransports returns a copy of all transports for iteration
+func (rm *RequestManager) GetAllTransports() map[string]*Transport {
+	rm.mu.RLock()
+	defer rm.mu.RUnlock()
+
+	copyMap := make(map[string]*Transport)
+	for k, v := range rm.Transports {
+		copyMap[k] = v
+	}
+	return copyMap
+}
+
+// RequestAttendance sends high-level commands to the appropriate bridge for each active worker
+func (rm *RequestManager) RequestAttendance() error {
+	log.Println("RequestManager: Starting attendance fetch for all workers across all bridges")
+
 	query := `
-		SELECT w.worker_id, p.site_id 
+		SELECT w.worker_id, w.user_id, p.site_id 
 		FROM workers w
 		JOIN projects p ON w.current_project_id = p.project_id
 		WHERE w.status = 'active' AND w.current_project_id IS NOT NULL`
@@ -50,12 +93,13 @@ func (rm *RequestManager) RequestAttendance() error {
 
 	type workerTask struct {
 		workerID string
+		userID   string
 		siteID   string
 	}
 	var tasks []workerTask
 	for rows.Next() {
 		var t workerTask
-		if err := rows.Scan(&t.workerID, &t.siteID); err != nil {
+		if err := rows.Scan(&t.workerID, &t.userID, &t.siteID); err != nil {
 			log.Printf("RequestManager: Error scanning worker: %v", err)
 			continue
 		}
@@ -67,20 +111,26 @@ func (rm *RequestManager) RequestAttendance() error {
 		return nil
 	}
 
-	// 2. Build time range for today
 	now := time.Now()
-	midnight := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
+	yesterday := now.Add(-24 * time.Hour)
+	startTime := time.Date(yesterday.Year(), yesterday.Month(), yesterday.Day(), 0, 0, 0, 0, now.Location())
+
 	timeRange := map[string]string{
-		"from": midnight.Format(time.RFC3339),
+		"from": startTime.Format(time.RFC3339),
 		"to":   now.Format(time.RFC3339),
 	}
 
-	// 3. For each worker, get their site's devices and send a request
+	// Create requests
 	for _, task := range tasks {
-		// Get device SNs for this site
+		transport, exists := rm.GetTransport(task.userID)
+		if !exists || !transport.IsConnected() {
+			log.Printf("RequestManager: Skipping worker %s, no active bridge connection for owner %s", task.workerID, task.userID)
+			continue
+		}
+
+		// Get device SNs
 		deviceRows, err := rm.DB.Query("SELECT sn FROM devices WHERE site_id = ? AND status != 'inactive'", task.siteID)
 		if err != nil {
-			log.Printf("RequestManager: Failed to query devices for site %s: %v", task.siteID, err)
 			continue
 		}
 
@@ -94,7 +144,6 @@ func (rm *RequestManager) RequestAttendance() error {
 		deviceRows.Close()
 
 		if len(sns) == 0 {
-			log.Printf("RequestManager: No devices found for worker %s at site %s", task.workerID, task.siteID)
 			continue
 		}
 
@@ -107,16 +156,14 @@ func (rm *RequestManager) RequestAttendance() error {
 
 		req, err := NewRequest("GET_ATTENDANCE", payload)
 		if err != nil {
-			log.Printf("RequestManager: Failed to create request for worker %s: %v", task.workerID, err)
 			continue
 		}
 
-		if err := rm.Transport.Write(req); err != nil {
-			log.Printf("RequestManager: Failed to send request for worker %s: %v", task.workerID, err)
+		if err := transport.Write(req); err != nil {
+			log.Printf("RequestManager: Failed to send request for worker %s via bridge %s: %v", task.workerID, task.userID, err)
 		} else {
 			reqJSON, _ := json.MarshalIndent(req, "", "  ")
-			log.Printf("\n--- [BRIDGE OUTBOUND REQUEST] ---\n%s\n---------------------------------", string(reqJSON))
-			log.Printf("RequestManager: Sent GET_ATTENDANCE request for worker %s on %d devices", task.workerID, len(sns))
+			log.Printf("\n--- [BRIDGE OUTBOUND REQUEST (%s)] ---\n%s\n---------------------------------", task.userID, string(reqJSON))
 		}
 	}
 
@@ -130,7 +177,6 @@ func (rm *RequestManager) RequestUserSync(ctx context.Context, builder interface
 }) error {
 	log.Println("RequestManager: Starting user sync check")
 
-	// For background sync, we pass empty userID to sync all
 	messages, workerIDs, invalidWorkers, _, err := builder.BuildSyncRequests(ctx, "")
 	if err != nil {
 		return fmt.Errorf("failed to build user sync requests: %w", err)
@@ -138,9 +184,6 @@ func (rm *RequestManager) RequestUserSync(ctx context.Context, builder interface
 
 	if len(invalidWorkers) > 0 {
 		log.Printf("RequestManager: %d workers are missing devices and cannot be synced", len(invalidWorkers))
-		for _, w := range invalidWorkers {
-			log.Printf("  - Worker %s (%s) at site %s", w.ID, w.Name, w.SiteID)
-		}
 	}
 
 	if len(messages) == 0 {
@@ -150,20 +193,37 @@ func (rm *RequestManager) RequestUserSync(ctx context.Context, builder interface
 
 	log.Printf("RequestManager: Sending %d user sync requests", len(messages))
 
+	// Because BuildSyncRequests currently doesn't return the UserID per worker easily,
+	// we will need to lookup the user_id for the worker before sending, or handle it via Transport mapping.
+	// We'll write a quick query to group messages by worker's user_id.
+
 	var successIDs []string
+
 	for i, msg := range messages {
-		if err := rm.Transport.Write(msg); err != nil {
-			log.Printf("RequestManager: Failed to send user sync request %d: %v", i, err)
+		workerID := workerIDs[i]
+
+		var ownerID string
+		err := rm.DB.QueryRow("SELECT user_id FROM workers WHERE worker_id = ?", workerID).Scan(&ownerID)
+		if err != nil {
+			log.Printf("RequestManager: Cannot find owner for worker %s: %v", workerID, err)
+			continue
+		}
+
+		transport, exists := rm.GetTransport(ownerID)
+		if !exists || !transport.IsConnected() {
+			log.Printf("RequestManager: Skipping sync for worker %s, bridge %s is disconnected", workerID, ownerID)
+			continue
+		}
+
+		if err := transport.Write(msg); err != nil {
+			log.Printf("RequestManager: Failed to send user sync request for %s: %v", workerID, err)
 		} else {
 			respMsg, _ := json.MarshalIndent(msg, "", "  ")
-			log.Printf("\n--- [BRIDGE OUTBOUND USER SYNC] ---\n%s\n-----------------------------------", string(respMsg))
-			if i < len(workerIDs) {
-				successIDs = append(successIDs, workerIDs[i])
-			}
+			log.Printf("\n--- [BRIDGE OUTBOUND USER SYNC (%s)] ---\n%s\n-----------------------------------", ownerID, string(respMsg))
+			successIDs = append(successIDs, workerID)
 		}
 	}
 
-	// Mark successfully sent workers as synced
 	if len(successIDs) > 0 {
 		builder.MarkWorkersSynced(ctx, successIDs)
 		log.Printf("RequestManager: Marked %d workers as synced", len(successIDs))
@@ -172,43 +232,44 @@ func (rm *RequestManager) RequestUserSync(ctx context.Context, builder interface
 	return nil
 }
 
-// HandleIncomingMessages dispatches received messages to their respective handlers
-func (rm *RequestManager) HandleIncomingMessages(ctx context.Context) {
+// HandleIncomingMessages needs to be updated. Now we'll run a listener per transport.
+func (rm *RequestManager) HandleIncomingMessages(ctx context.Context, userID string, transport *Transport) {
 	for {
 		select {
 		case <-ctx.Done():
 			return
 		default:
-			if !rm.Transport.IsConnected() {
+			if !transport.IsConnected() {
 				time.Sleep(2 * time.Second)
 				continue
 			}
 
-			msg, err := rm.Transport.Read()
+			msg, err := transport.Read()
 			if err != nil {
-				log.Printf("RequestManager: Read error: %v. Transport may handle reconnection.", err)
-				rm.Transport.Close()
+				log.Printf("RequestManager (%s): Read error: %v", userID, err)
+				transport.Close()
 				continue
 			}
 
 			fullMsg, _ := json.MarshalIndent(msg, "", "  ")
-			log.Printf("\n--- [BRIDGE INBOUND] ---\n%s\n------------------------", string(fullMsg))
+			log.Printf("\n--- [BRIDGE INBOUND (%s)] ---\n%s\n------------------------", userID, string(fullMsg))
 
 			if handler, ok := rm.Handlers[msg.Action]; ok {
-				resp, err := handler.Handle(ctx, msg)
+				// Setting up an extended context to pass the owner ID to handlers if needed
+				reqCtx := context.WithValue(ctx, "bridge_userID", userID)
+				resp, err := handler.Handle(reqCtx, msg)
 				if err != nil {
-					log.Printf("RequestManager: Handler for %s failed: %v", msg.Action, err)
+					log.Printf("RequestManager (%s): Handler for %s failed: %v", userID, msg.Action, err)
 				} else if resp != nil {
-					// Send response back if handler provided one
-					if err := rm.Transport.Write(*resp); err != nil {
-						log.Printf("RequestManager: Failed to send response back to bridge: %v", err)
+					if err := transport.Write(*resp); err != nil {
+						log.Printf("RequestManager (%s): Failed to send response back to bridge: %v", userID, err)
 					} else {
 						respMsg, _ := json.MarshalIndent(resp, "", "  ")
-						log.Printf("\n--- [BRIDGE OUTBOUND RESPONSE] ---\n%s\n----------------------------------", string(respMsg))
+						log.Printf("\n--- [BRIDGE OUTBOUND RESPONSE (%s)] ---\n%s\n----------------------------------", userID, string(respMsg))
 					}
 				}
 			} else {
-				log.Printf("RequestManager: Received unknown action: %s", msg.Action)
+				log.Printf("RequestManager (%s): Received unknown action: %s", userID, msg.Action)
 			}
 		}
 	}

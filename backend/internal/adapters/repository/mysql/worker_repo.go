@@ -5,10 +5,12 @@ import (
 	"database/sql"
 	"fmt"
 	"log"
+	"sgbuildex/internal/api/middleware"
 	"sgbuildex/internal/core/domain"
 	"sgbuildex/internal/core/ports"
+	"sgbuildex/internal/pkg/apperrors"
 	"sgbuildex/internal/pkg/idgen"
-	"strings"
+	"sgbuildex/internal/pkg/timeutil"
 )
 
 type Scanner interface {
@@ -23,9 +25,33 @@ func NewWorkerRepository(db *sql.DB) ports.WorkerRepository {
 	return &WorkerRepository{db: db}
 }
 
-func (r *WorkerRepository) Get(ctx context.Context, id string) (*domain.Worker, error) {
-	query := workerBaseSelect + " WHERE w.worker_id = ?"
-	return r.scanRow(r.db.QueryRowContext(ctx, query, id))
+func (r *WorkerRepository) Get(ctx context.Context, userID, id string) (*domain.Worker, error) {
+	query := `
+        SELECT 
+            w.worker_id, w.name, w.email, w.role, w.user_type, w.status, w.current_project_id,
+            w.person_id_no, w.person_id_and_work_pass_type, w.person_nationality, w.person_trade, 
+            w.auth_start_time, w.auth_end_time, w.fdid, w.face_img_loc, w.card_number, w.card_type, w.is_synced,
+            p.project_title,
+            s.site_name,
+            s.location,
+            u.user_name,
+            w.user_id,
+            u.latitude,
+            u.longitude,
+            u.address,
+            p.site_id
+        FROM workers w
+        LEFT JOIN projects p ON w.current_project_id = p.project_id
+        LEFT JOIN sites s ON p.site_id = s.site_id
+        LEFT JOIN users u ON w.user_id = u.user_id`
+
+	if middleware.IsVendor(ctx) {
+		query += " WHERE w.worker_id = ?"
+		return r.scanRow(r.db.QueryRowContext(ctx, query, id))
+	} else {
+		query += " WHERE w.worker_id = ? AND w.user_id = ?"
+		return r.scanRow(r.db.QueryRowContext(ctx, query, id, userID))
+	}
 }
 
 func (r *WorkerRepository) GetByFIN(ctx context.Context, fin string) (*domain.Worker, error) {
@@ -56,7 +82,7 @@ func (r *WorkerRepository) List(ctx context.Context, userID, siteID string) ([]d
 	query := workerBaseSelect + " WHERE w.status = '" + domain.StatusActive + "' AND w.role IN ('worker', 'pic', 'manager')"
 
 	args := []interface{}{}
-	if userID != "" {
+	if userID != "" && !middleware.IsVendor(ctx) {
 		query += " AND w.user_id = ?"
 		args = append(args, userID)
 	}
@@ -120,8 +146,8 @@ func (r *WorkerRepository) Create(ctx context.Context, w *domain.Worker) error {
 		w.ID, w.UserID, w.Name, w.Email, w.Role, userType, w.Status,
 		sql.NullString{String: w.CurrentProjectID, Valid: w.CurrentProjectID != ""},
 		w.PersonIDNo, w.PersonIDAndWorkPassType, w.PersonNationality, w.PersonTrade,
-		sql.NullString{String: formatMySQLDate(w.AuthStartTime), Valid: w.AuthStartTime != ""},
-		sql.NullString{String: formatMySQLDate(w.AuthEndTime), Valid: w.AuthEndTime != ""},
+		sql.NullString{String: timeutil.CleanDateTime(w.AuthStartTime), Valid: w.AuthStartTime != ""},
+		sql.NullString{String: timeutil.CleanDateTime(w.AuthEndTime), Valid: w.AuthEndTime != ""},
 		fdidToInsert,
 		sql.NullString{String: w.FaceImgLoc, Valid: w.FaceImgLoc != ""},
 		sql.NullString{String: w.CardNumber, Valid: w.CardNumber != ""},
@@ -157,8 +183,8 @@ func (r *WorkerRepository) Update(ctx context.Context, w *domain.Worker) error {
 		sql.NullString{String: w.CurrentProjectID, Valid: w.CurrentProjectID != ""},
 		w.UserID,
 		w.PersonIDNo, w.PersonIDAndWorkPassType, w.PersonNationality, w.PersonTrade,
-		sql.NullString{String: formatMySQLDate(w.AuthStartTime), Valid: w.AuthStartTime != ""},
-		sql.NullString{String: formatMySQLDate(w.AuthEndTime), Valid: w.AuthEndTime != ""},
+		sql.NullString{String: timeutil.CleanDateTime(w.AuthStartTime), Valid: w.AuthStartTime != ""},
+		sql.NullString{String: timeutil.CleanDateTime(w.AuthEndTime), Valid: w.AuthEndTime != ""},
 		fdidToInsert,
 		sql.NullString{String: w.FaceImgLoc, Valid: w.FaceImgLoc != ""},
 		sql.NullString{String: w.CardNumber, Valid: w.CardNumber != ""},
@@ -172,10 +198,22 @@ func (r *WorkerRepository) Update(ctx context.Context, w *domain.Worker) error {
 	return nil
 }
 
-func (r *WorkerRepository) Delete(ctx context.Context, id string) error {
-	_, err := r.db.ExecContext(ctx, "UPDATE workers SET status = ?, current_project_id = NULL WHERE worker_id = ?", domain.StatusInactive, id)
+func (r *WorkerRepository) MarkSynced(ctx context.Context, id string) error {
+	_, err := r.db.ExecContext(ctx, "UPDATE workers SET is_synced = ? WHERE worker_id = ?", domain.SyncStatusSynced, id)
+	return err
+}
+
+func (r *WorkerRepository) Delete(ctx context.Context, userID, id string) error {
+	res, err := r.db.ExecContext(ctx, "DELETE FROM workers WHERE worker_id=? AND user_id=?", id, userID)
 	if err != nil {
-		return fmt.Errorf("failed to deactivate worker and clear project: %w", err)
+		return fmt.Errorf("failed to delete worker: %w", err)
+	}
+	rowsAffected, err := res.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("failed to check rows affected after delete: %w", err)
+	}
+	if rowsAffected == 0 {
+		return apperrors.NewNotFound("worker", id)
 	}
 	return nil
 }
@@ -224,10 +262,10 @@ func (r *WorkerRepository) scanRow(scanner Scanner) (*domain.Worker, error) {
 		&siteID,
 	)
 	if err == sql.ErrNoRows {
-		return nil, nil
+		return nil, apperrors.NewNotFound("worker", w.ID) // Assuming w.ID would be available if it was found, but for ErrNoRows, it's not. This might need adjustment if w.ID is not set yet.
 	}
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to get worker: %w", err)
 	}
 
 	if userType.Valid {
@@ -249,10 +287,10 @@ func (r *WorkerRepository) scanRow(scanner Scanner) (*domain.Worker, error) {
 		w.PersonTrade = pTrade.String
 	}
 	if aStart.Valid {
-		w.AuthStartTime = formatMySQLDate(aStart.String)
+		w.AuthStartTime = timeutil.CleanDateTime(aStart.String)
 	}
 	if aEnd.Valid {
-		w.AuthEndTime = formatMySQLDate(aEnd.String)
+		w.AuthEndTime = timeutil.CleanDateTime(aEnd.String)
 	}
 	if fdid.Valid {
 		w.FDID = int(fdid.Int64)
@@ -305,14 +343,15 @@ func (r *WorkerRepository) AssignToProject(ctx context.Context, projectID string
 	defer tx.Rollback()
 
 	// 1. Unassign all workers currently on this project for this user
-	_, err = tx.ExecContext(ctx, "UPDATE workers SET current_project_id = NULL WHERE current_project_id = ? AND user_id = ?", projectID, userID)
+	// Also mark them as unsynced so they can be cleaned up or re-assigned later
+	_, err = tx.ExecContext(ctx, "UPDATE workers SET current_project_id = NULL, is_synced = 0 WHERE current_project_id = ? AND user_id = ?", projectID, userID)
 	if err != nil {
 		return fmt.Errorf("failed to clear old assignments: %w", err)
 	}
 
 	// 2. Assign new workers (only if they are active)
 	if len(workerIDs) > 0 {
-		query := "UPDATE workers SET current_project_id = ? WHERE worker_id = ? AND user_id = ? AND status = ?"
+		query := "UPDATE workers SET current_project_id = ?, is_synced = 0 WHERE worker_id = ? AND user_id = ? AND status = ?"
 		stmt, err := tx.PrepareContext(ctx, query)
 		if err != nil {
 			return err
@@ -337,13 +376,4 @@ func (r *WorkerRepository) GetProjectUserID(ctx context.Context, projectID strin
 		return "", err
 	}
 	return projectUserID, nil
-}
-
-func formatMySQLDate(ds string) string {
-	if len(ds) >= 19 {
-		tmp := strings.Replace(ds, "T", " ", 1)
-		tmp = strings.Replace(tmp, "Z", "", 1)
-		return tmp
-	}
-	return ds
 }

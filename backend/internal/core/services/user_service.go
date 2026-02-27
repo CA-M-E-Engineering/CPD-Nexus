@@ -27,13 +27,12 @@ func (s *UserService) ListUsers(ctx context.Context) ([]domain.User, error) {
 }
 
 func (s *UserService) CreateUser(ctx context.Context, u *domain.User, password string) error {
-	// 1. Generate ID
-	// Note: UserService needs access to db for idgen if we don't have a cleaner way.
-	// For now, let's assume the ID is generated outside or we need a better idgen port.
-	// Actually, the current idgen takes *sql.DB which violates hexagonal.
-	// I'll skip auto-ID generation here or use a simpler one for now.
+	// 1. Force client type as per user request
+	u.UserType = "client"
+
+	// 2. Generate ID if missing
 	if u.ID == "" {
-		return fmt.Errorf("user ID is required (modular ID generation pending)")
+		u.ID = strings.ToLower(strings.ReplaceAll(u.Name, " ", ".")) + ".ltd"
 	}
 
 	// 2. Generate Username if missing
@@ -94,6 +93,27 @@ func (s *UserService) UpdateUser(ctx context.Context, id string, payload map[str
 	}
 	if v, ok := payload["lng"].(float64); ok {
 		existing.Longitude = v
+	}
+	if v, ok := payload["bridge_status"].(string); ok && v != "" {
+		existing.BridgeStatus = v
+	}
+	if v, ok := payload["bridge_ws_url"]; ok {
+		if v == nil {
+			existing.BridgeWSURL = nil
+		} else if s, ok := v.(*string); ok {
+			existing.BridgeWSURL = s
+		} else if s, ok := v.(string); ok && s != "" {
+			existing.BridgeWSURL = &s
+		}
+	}
+	if v, ok := payload["bridge_auth_token"]; ok {
+		if v == nil {
+			existing.BridgeAuthToken = nil
+		} else if s, ok := v.(*string); ok {
+			existing.BridgeAuthToken = s
+		} else if s, ok := v.(string); ok && s != "" {
+			existing.BridgeAuthToken = &s
+		}
 	}
 
 	if v, ok := payload["password"].(string); ok && v != "" {

@@ -5,8 +5,10 @@ import (
 	"database/sql"
 	"fmt"
 	"log"
+	"sgbuildex/internal/api/middleware"
 	"sgbuildex/internal/core/domain"
 	"sgbuildex/internal/core/ports"
+	"sgbuildex/internal/pkg/apperrors"
 	"sgbuildex/internal/pkg/idgen"
 )
 
@@ -18,7 +20,7 @@ func NewSiteRepository(db *sql.DB) ports.SiteRepository {
 	return &SiteRepository{db: db}
 }
 
-func (r *SiteRepository) Get(ctx context.Context, id string) (*domain.Site, error) {
+func (r *SiteRepository) Get(ctx context.Context, userID, id string) (*domain.Site, error) {
 	query := `
 		SELECT 
             s.site_id, s.user_id, s.site_name, s.location, 
@@ -26,27 +28,34 @@ func (r *SiteRepository) Get(ctx context.Context, id string) (*domain.Site, erro
             (SELECT COUNT(*) FROM devices d WHERE d.site_id = s.site_id AND d.status != 'inactive') as device_count,
             (SELECT COUNT(*) FROM workers w WHERE w.current_project_id IN (SELECT project_id FROM projects p WHERE p.site_id = s.site_id)) as worker_count
 		FROM sites s
-		LEFT JOIN users u ON s.user_id = u.user_id
-		WHERE s.site_id = ?`
+		LEFT JOIN users u ON s.user_id = u.user_id`
+
+	args := []interface{}{id}
+	if middleware.IsVendor(ctx) {
+		query += " WHERE s.site_id = ?"
+	} else {
+		query += " WHERE s.site_id = ? AND s.user_id = ?"
+		args = append(args, userID)
+	}
 
 	var s domain.Site
-	var userID, loc, userName sql.NullString
+	var scanUserID, loc, userName sql.NullString
 	var lat, lng sql.NullFloat64
 
-	err := r.db.QueryRowContext(ctx, query, id).Scan(
-		&s.ID, &userID, &s.Name, &loc,
+	err := r.db.QueryRowContext(ctx, query, args...).Scan(
+		&s.ID, &scanUserID, &s.Name, &loc,
 		&lat, &lng, &s.CreatedAt, &s.UpdatedAt, &userName,
 		&s.DeviceCount, &s.WorkerCount,
 	)
 	if err == sql.ErrNoRows {
-		return nil, nil
+		return nil, apperrors.NewNotFound("site", id)
 	}
 	if err != nil {
 		return nil, fmt.Errorf("failed to get site: %w", err)
 	}
 
-	if userID.Valid {
-		s.UserID = userID.String
+	if scanUserID.Valid {
+		s.UserID = scanUserID.String
 	}
 	if loc.Valid {
 		s.Location = loc.String
@@ -78,11 +87,13 @@ func (r *SiteRepository) List(ctx context.Context, userID string) ([]domain.Site
 	args := []interface{}{}
 	log.Printf("[SECURITY] SiteRepository.List: userID='%s'", userID)
 
-	if userID != "" {
+	if userID == "" && !middleware.IsVendor(ctx) {
+		return nil, apperrors.NewPermissionDenied("user_id is required for multi-tenant isolation")
+	}
+
+	if !middleware.IsVendor(ctx) {
 		query += " AND s.user_id = ?"
 		args = append(args, userID)
-	} else {
-		log.Printf("[SECURITY] WARNING: Listing sites without userID filter")
 	}
 
 	rows, err := r.db.QueryContext(ctx, query, args...)
@@ -149,7 +160,7 @@ func (r *SiteRepository) Update(ctx context.Context, s *domain.Site) error {
 	return err
 }
 
-func (r *SiteRepository) Delete(ctx context.Context, id string) error {
+func (r *SiteRepository) Delete(ctx context.Context, userID, id string) error {
 	tx, err := r.db.BeginTx(ctx, nil)
 	if err != nil {
 		return err
@@ -157,18 +168,23 @@ func (r *SiteRepository) Delete(ctx context.Context, id string) error {
 	defer tx.Rollback()
 
 	// 1. Unassign projects from this site
-	if _, err := tx.ExecContext(ctx, "UPDATE projects SET site_id = NULL WHERE site_id = ?", id); err != nil {
+	if _, err := tx.ExecContext(ctx, "UPDATE projects SET site_id = NULL WHERE site_id = ? AND user_id = ?", id, userID); err != nil {
 		return fmt.Errorf("failed to unassign projects: %w", err)
 	}
 
 	// 2. Unassign devices from this site
-	if _, err := tx.ExecContext(ctx, "UPDATE devices SET site_id = NULL WHERE site_id = ?", id); err != nil {
+	if _, err := tx.ExecContext(ctx, "UPDATE devices SET site_id = NULL WHERE site_id = ? AND user_id = ?", id, userID); err != nil {
 		return fmt.Errorf("failed to unassign devices: %w", err)
 	}
 
 	// 3. Delete the site
-	if _, err := tx.ExecContext(ctx, "DELETE FROM sites WHERE site_id = ?", id); err != nil {
+	res, err := tx.ExecContext(ctx, "DELETE FROM sites WHERE site_id = ? AND user_id = ?", id, userID)
+	if err != nil {
 		return fmt.Errorf("failed to delete site: %w", err)
+	}
+	rowsAffected, _ := res.RowsAffected()
+	if rowsAffected == 0 {
+		return apperrors.NewNotFound("site", id)
 	}
 
 	return tx.Commit()

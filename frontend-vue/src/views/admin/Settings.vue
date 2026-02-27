@@ -12,9 +12,11 @@ const isLoading = ref(false);
 const isSaving = ref(false);
 
 const settings = ref({
-  device_sync_interval: '00:01:00',
+  attendance_sync_time: '23:00:00',
   cpd_submission_time: '09:00:00',
-  response_size_limit: 1048576
+  max_payload_size_kb: 256,
+  max_workers_per_request: 100,
+  max_requests_per_minute: 150
 });
 
 const stats = ref({
@@ -96,7 +98,16 @@ const fetchSettings = async () => {
 const updateSettings = async (section) => {
   isSaving.value = true;
   try {
-    await api.updateSettings(settings.value);
+    // Sanitize time values for backend (ensure HH:MM:SS)
+    const payload = { ...settings.value };
+    if (payload.attendance_sync_time && payload.attendance_sync_time.length === 5) {
+      payload.attendance_sync_time += ':00';
+    }
+    if (payload.cpd_submission_time && payload.cpd_submission_time.length === 5) {
+      payload.cpd_submission_time += ':00';
+    }
+
+    await api.updateSettings(payload);
     notification.success(`${section} settings updated successfully`);
   } catch (err) {
     console.error('Failed to save settings', err);
@@ -137,12 +148,12 @@ onMounted(fetchSettings);
 
           <div class="setting-item">
             <BaseInput 
-              label="Device Sync Interval (HH:MM:SS)" 
-              type="text" 
-              v-model="settings.device_sync_interval"
-              placeholder="00:01:00"
+              label="Attendance Sync Time" 
+              type="time" 
+              step="1"
+              v-model="settings.attendance_sync_time"
             />
-            <p class="help-text">Frequency of device heartbeat synchronization.</p>
+            <p class="help-text">Scheduled daily time to fetch logs from IoT Bridge.</p>
           </div>
 
           <div class="setting-actions">
@@ -156,21 +167,41 @@ onMounted(fetchSettings);
         <DetailCard title="CPD Customization">
           <div class="setting-item">
             <BaseInput 
-              label="Response Size Limit (Bytes)" 
-              type="number" 
-              v-model.number="settings.response_size_limit" 
+              label="Submission Time" 
+              type="time" 
+              step="1"
+              v-model="settings.cpd_submission_time" 
             />
-            <p class="help-text">Maximum allowed payload size for API responses.</p>
+            <p class="help-text">Scheduled daily time for CPD data submission.</p>
+          </div>
+
+          <div class="divider"></div>
+
+          <div class="setting-item">
+            <BaseInput 
+              label="Hard Set API Payload Limit (KB)" 
+              type="number" 
+              v-model.number="settings.max_payload_size_kb" 
+            />
+            <p class="help-text">Mandatory maximum: 256 KB. System will auto-batch to stay under this.</p>
           </div>
 
           <div class="setting-item">
             <BaseInput 
-              label="Submission Time (HH:MM:SS)" 
-              type="text" 
-              v-model="settings.cpd_submission_time" 
-              placeholder="09:00:00"
+              label="Workers Per Request" 
+              type="number" 
+              v-model.number="settings.max_workers_per_request" 
             />
-            <p class="help-text">Scheduled daily time for CPD data submission.</p>
+            <p class="help-text">Max workers per batch (Recommended: 100).</p>
+          </div>
+
+          <div class="setting-item">
+            <BaseInput 
+              label="Rate Limit (Req/Min)" 
+              type="number" 
+              v-model.number="settings.max_requests_per_minute" 
+            />
+            <p class="help-text">Safety threshold for API calls (Limit: 200/min).</p>
           </div>
 
           <div class="setting-actions">
@@ -198,6 +229,13 @@ onMounted(fetchSettings);
   grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
   gap: 24px;
   align-items: start;
+}
+
+.divider {
+  height: 1px;
+  background: var(--color-border);
+  margin: 24px 0;
+  opacity: 0.5;
 }
 
 .setting-item {

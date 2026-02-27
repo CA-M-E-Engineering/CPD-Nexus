@@ -6,6 +6,7 @@ import (
 
 	"sgbuildex/internal/core/domain"
 	"sgbuildex/internal/core/ports"
+	"sgbuildex/internal/pkg/apperrors"
 )
 
 type ProjectService struct {
@@ -16,8 +17,11 @@ func NewProjectService(repo ports.ProjectRepository) ports.ProjectService {
 	return &ProjectService{repo: repo}
 }
 
-func (s *ProjectService) GetProject(ctx context.Context, id string) (*domain.Project, error) {
-	return s.repo.Get(ctx, id)
+func (s *ProjectService) GetProject(ctx context.Context, userID, id string) (*domain.Project, error) {
+	if userID == "" {
+		return nil, apperrors.NewPermissionDenied("user_id scope required")
+	}
+	return s.repo.Get(ctx, userID, id)
 }
 
 func (s *ProjectService) ListProjects(ctx context.Context, userID string) ([]domain.Project, error) {
@@ -31,13 +35,25 @@ func (s *ProjectService) CreateProject(ctx context.Context, p *domain.Project) e
 	return s.repo.Create(ctx, p)
 }
 
-func (s *ProjectService) UpdateProject(ctx context.Context, id string, p *domain.Project) error {
-	p.ID = id
+func (s *ProjectService) UpdateProject(ctx context.Context, userID, id string, p *domain.Project) error {
+	if userID == "" {
+		return apperrors.NewPermissionDenied("user_id scope required")
+	}
+	// Verify ownership before update
+	existing, err := s.repo.Get(ctx, userID, id)
+	if err != nil {
+		return err
+	}
+	p.ID = existing.ID
+	p.UserID = existing.UserID
 	return s.repo.Update(ctx, p)
 }
 
-func (s *ProjectService) DeleteProject(ctx context.Context, id string) error {
-	return s.repo.Delete(ctx, id)
+func (s *ProjectService) DeleteProject(ctx context.Context, userID, id string) error {
+	if userID == "" {
+		return apperrors.NewPermissionDenied("user_id scope required")
+	}
+	return s.repo.Delete(ctx, userID, id)
 }
 
 func (s *ProjectService) AssignProjectsToSite(ctx context.Context, siteID string, projectIDs []string) error {

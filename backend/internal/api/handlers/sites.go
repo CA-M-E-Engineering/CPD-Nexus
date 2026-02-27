@@ -3,8 +3,10 @@ package handlers
 import (
 	"encoding/json"
 	"net/http"
+	"sgbuildex/internal/api/middleware"
 	"sgbuildex/internal/core/domain"
 	"sgbuildex/internal/core/ports"
+	"sgbuildex/internal/pkg/apperrors"
 
 	"github.com/gorilla/mux"
 )
@@ -18,11 +20,11 @@ func NewSitesHandler(service ports.SiteService) *SitesHandler {
 }
 
 func (h *SitesHandler) GetSites(w http.ResponseWriter, r *http.Request) {
-	userID := r.URL.Query().Get("user_id")
+	userID := middleware.GetUserID(r.Context())
 
 	sites, err := h.service.ListSites(r.Context(), userID)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		h.handleError(w, err)
 		return
 	}
 
@@ -34,13 +36,10 @@ func (h *SitesHandler) GetSiteById(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	id := vars["id"]
 
-	site, err := h.service.GetSite(r.Context(), id)
+	userID := middleware.GetUserID(r.Context())
+	site, err := h.service.GetSite(r.Context(), userID, id)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-	if site == nil {
-		http.Error(w, "Site not found", http.StatusNotFound)
+		h.handleError(w, err)
 		return
 	}
 
@@ -75,8 +74,9 @@ func (h *SitesHandler) UpdateSite(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := h.service.UpdateSite(r.Context(), id, &site); err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+	userID := middleware.GetUserID(r.Context())
+	if err := h.service.UpdateSite(r.Context(), userID, id, &site); err != nil {
+		h.handleError(w, err)
 		return
 	}
 
@@ -87,11 +87,19 @@ func (h *SitesHandler) DeleteSite(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	id := vars["id"]
 
-	if err := h.service.DeleteSite(r.Context(), id); err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+	userID := middleware.GetUserID(r.Context())
+	if err := h.service.DeleteSite(r.Context(), userID, id); err != nil {
+		h.handleError(w, err)
 		return
 	}
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]string{"status": "deleted"})
+}
+func (h *SitesHandler) handleError(w http.ResponseWriter, err error) {
+	if appErr, ok := err.(*apperrors.AppError); ok {
+		http.Error(w, appErr.Message, appErr.Code)
+		return
+	}
+	http.Error(w, err.Error(), http.StatusInternalServerError)
 }

@@ -20,6 +20,7 @@ const userBaseSelect = `
     SELECT 
         u.user_id, u.user_name, u.username, u.user_type, u.status, 
         u.latitude, u.longitude, u.contact_email, u.contact_phone, u.address, u.password_hash,
+        u.bridge_ws_url, u.bridge_auth_token, u.bridge_status,
         (SELECT COUNT(*) FROM workers w WHERE w.user_id = u.user_id AND w.status = 'active') as worker_count,
         (SELECT COUNT(*) FROM devices d WHERE d.user_id = u.user_id AND d.status != 'inactive') as device_count
     FROM users u`
@@ -64,12 +65,14 @@ func (r *UserRepository) Create(ctx context.Context, u *domain.User) error {
 	query := `
 		INSERT INTO users (
 			user_id, user_name, user_type, contact_email, contact_phone, 
-            username, password_hash, status, address, latitude, longitude
-		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+            username, password_hash, status, address, latitude, longitude,
+            bridge_ws_url, bridge_auth_token, bridge_status
+		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
 
 	_, err := r.db.ExecContext(ctx, query,
 		u.ID, u.Name, u.UserType, u.ContactEmail, u.ContactPhone,
-		u.Username, u.PasswordHash, u.Status, u.Address, u.Latitude, u.Longitude)
+		u.Username, u.PasswordHash, u.Status, u.Address, u.Latitude, u.Longitude,
+		u.BridgeWSURL, u.BridgeAuthToken, u.BridgeStatus)
 	return err
 }
 
@@ -77,12 +80,15 @@ func (r *UserRepository) Update(ctx context.Context, u *domain.User) error {
 	query := `
 		UPDATE users SET 
 			user_name=?, user_type=?, contact_email=?, contact_phone=?, username=?, 
-            status=?, latitude=?, longitude=?, address=?, password_hash=?
+            status=?, latitude=?, longitude=?, address=?, password_hash=?,
+            bridge_ws_url=?, bridge_auth_token=?, bridge_status=?
 		WHERE user_id=?`
 
 	_, err := r.db.ExecContext(ctx, query,
 		u.Name, u.UserType, u.ContactEmail, u.ContactPhone, u.Username,
-		u.Status, u.Latitude, u.Longitude, u.Address, u.PasswordHash, u.ID)
+		u.Status, u.Latitude, u.Longitude, u.Address, u.PasswordHash,
+		u.BridgeWSURL, u.BridgeAuthToken, u.BridgeStatus,
+		u.ID)
 	return err
 }
 
@@ -115,10 +121,12 @@ func (r *UserRepository) scanRow(scanner Scanner) (*domain.User, error) {
 	var u domain.User
 	var lat, lng sql.NullFloat64
 	var email, phone, addr, hash sql.NullString
+	var bridgeWSURL, bridgeAuthToken sql.NullString
 
 	err := scanner.Scan(
 		&u.ID, &u.Name, &u.Username, &u.UserType, &u.Status,
 		&lat, &lng, &email, &phone, &addr, &hash,
+		&bridgeWSURL, &bridgeAuthToken, &u.BridgeStatus,
 		&u.WorkerCount, &u.DeviceCount,
 	)
 	if err == sql.ErrNoRows {
@@ -145,6 +153,14 @@ func (r *UserRepository) scanRow(scanner Scanner) (*domain.User, error) {
 	}
 	if hash.Valid {
 		u.PasswordHash = hash.String
+	}
+	if bridgeWSURL.Valid {
+		s := bridgeWSURL.String
+		u.BridgeWSURL = &s
+	}
+	if bridgeAuthToken.Valid {
+		s := bridgeAuthToken.String
+		u.BridgeAuthToken = &s
 	}
 
 	return &u, nil

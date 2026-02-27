@@ -3,8 +3,10 @@ package handlers
 import (
 	"encoding/json"
 	"net/http"
+	"sgbuildex/internal/api/middleware"
 	"sgbuildex/internal/core/domain"
 	"sgbuildex/internal/core/ports"
+	"sgbuildex/internal/pkg/apperrors"
 
 	"github.com/gorilla/mux"
 )
@@ -18,10 +20,10 @@ func NewProjectsHandler(service ports.ProjectService) *ProjectsHandler {
 }
 
 func (h *ProjectsHandler) GetProjects(w http.ResponseWriter, r *http.Request) {
-	userID := r.URL.Query().Get("user_id")
+	userID := middleware.GetUserID(r.Context())
 	projects, err := h.service.ListProjects(r.Context(), userID)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		h.handleError(w, err)
 		return
 	}
 
@@ -33,13 +35,10 @@ func (h *ProjectsHandler) GetProjectById(w http.ResponseWriter, r *http.Request)
 	vars := mux.Vars(r)
 	id := vars["id"]
 
-	project, err := h.service.GetProject(r.Context(), id)
+	userID := middleware.GetUserID(r.Context())
+	project, err := h.service.GetProject(r.Context(), userID, id)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-	if project == nil {
-		http.Error(w, "Project not found", http.StatusNotFound)
+		h.handleError(w, err)
 		return
 	}
 
@@ -74,8 +73,9 @@ func (h *ProjectsHandler) UpdateProject(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	if err := h.service.UpdateProject(r.Context(), id, &project); err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+	userID := middleware.GetUserID(r.Context())
+	if err := h.service.UpdateProject(r.Context(), userID, id, &project); err != nil {
+		h.handleError(w, err)
 		return
 	}
 
@@ -86,11 +86,19 @@ func (h *ProjectsHandler) DeleteProject(w http.ResponseWriter, r *http.Request) 
 	vars := mux.Vars(r)
 	id := vars["id"]
 
-	if err := h.service.DeleteProject(r.Context(), id); err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+	userID := middleware.GetUserID(r.Context())
+	if err := h.service.DeleteProject(r.Context(), userID, id); err != nil {
+		h.handleError(w, err)
 		return
 	}
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]string{"status": "deleted"})
+}
+func (h *ProjectsHandler) handleError(w http.ResponseWriter, err error) {
+	if appErr, ok := err.(*apperrors.AppError); ok {
+		http.Error(w, appErr.Message, appErr.Code)
+		return
+	}
+	http.Error(w, err.Error(), http.StatusInternalServerError)
 }

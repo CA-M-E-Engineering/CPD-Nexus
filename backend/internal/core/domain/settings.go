@@ -3,11 +3,13 @@ package domain
 import "time"
 
 type SystemSettings struct {
-	ID                 int       `json:"id"`
-	DeviceSyncInterval string    `json:"device_sync_interval"` // "HH:MM:SS"
-	CPDSubmissionTime  string    `json:"cpd_submission_time"`  // "HH:MM:SS"
-	ResponseSizeLimit  int64     `json:"response_size_limit"`  // Bytes
-	UpdatedAt          time.Time `json:"updated_at"`
+	ID                   int       `json:"id"`
+	AttendanceSyncTime   string    `json:"attendance_sync_time"`    // "HH:MM:SS"
+	CPDSubmissionTime    string    `json:"cpd_submission_time"`     // "HH:MM:SS"
+	MaxPayloadSizeKB     int       `json:"max_payload_size_kb"`     // KB
+	MaxWorkersPerRequest int       `json:"max_workers_per_request"` // Batch size
+	MaxRequestsPerMinute int       `json:"max_requests_per_minute"` // Rate limit
+	UpdatedAt            time.Time `json:"updated_at"`
 }
 
 // DTO to include extra stats not in the settings table

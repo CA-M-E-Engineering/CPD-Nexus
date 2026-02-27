@@ -4,9 +4,11 @@ DROP TABLE IF EXISTS `system_settings`;
 
 CREATE TABLE IF NOT EXISTS `system_settings` (
     `id` int NOT NULL DEFAULT '1',
-    `device_sync_interval` TIME NOT NULL DEFAULT '00:01:00',
+    `attendance_sync_time` TIME NOT NULL DEFAULT '23:00:00',
     `cpd_submission_time` TIME DEFAULT '09:00:00' COMMENT 'Daily time for CPD submission',
-    `response_size_limit` bigint DEFAULT '1048576' COMMENT 'Maximum response size in bytes',
+    `max_payload_size_kb` int DEFAULT '256' COMMENT 'Maximum SGBuildex payload size in KB',
+    `max_workers_per_request` int DEFAULT '100' COMMENT 'Max workers per API request',
+    `max_requests_per_minute` int DEFAULT '150' COMMENT 'API rate limit safety threshold',
     `updated_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     PRIMARY KEY (`id`)
 ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci;
@@ -14,15 +16,19 @@ CREATE TABLE IF NOT EXISTS `system_settings` (
 INSERT INTO
     `system_settings` (
         `id`,
-        `device_sync_interval`,
+        `attendance_sync_time`,
         `cpd_submission_time`,
-        `response_size_limit`
+        `max_payload_size_kb`,
+        `max_workers_per_request`,
+        `max_requests_per_minute`
     )
 VALUES (
         1,
-        '00:01:00',
+        '23:00:00',
         '09:00:00',
-        1048576
+        256,
+        100,
+        150
     )
 ON DUPLICATE KEY UPDATE
     id = id;

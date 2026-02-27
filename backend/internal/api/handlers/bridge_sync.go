@@ -11,14 +11,14 @@ import (
 
 // BridgeSyncHandler handles manual sync trigger from the frontend
 type BridgeSyncHandler struct {
-	builder   *bridgeHandlers.UserSyncBuilder
-	transport *bridge.Transport
+	builder    *bridgeHandlers.UserSyncBuilder
+	requestMgr *bridge.RequestManager
 }
 
-func NewBridgeSyncHandler(builder *bridgeHandlers.UserSyncBuilder, transport *bridge.Transport) *BridgeSyncHandler {
+func NewBridgeSyncHandler(builder *bridgeHandlers.UserSyncBuilder, requestMgr *bridge.RequestManager) *BridgeSyncHandler {
 	return &BridgeSyncHandler{
-		builder:   builder,
-		transport: transport,
+		builder:    builder,
+		requestMgr: requestMgr,
 	}
 }
 
@@ -38,12 +38,13 @@ func (h *BridgeSyncHandler) SyncUsers(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Check if bridge is connected
-	if !h.transport.IsConnected() {
+	// Check if bridge is connected for this user
+	transport, exists := h.requestMgr.GetTransport(userID)
+	if !exists || !transport.IsConnected() {
 		w.WriteHeader(http.StatusServiceUnavailable)
 		json.NewEncoder(w).Encode(map[string]interface{}{
 			"success": false,
-			"error":   "Bridge is not connected",
+			"error":   "Bridge is not connected for this account",
 		})
 		return
 	}
@@ -83,7 +84,7 @@ func (h *BridgeSyncHandler) SyncUsers(w http.ResponseWriter, r *http.Request) {
 	failCount := 0
 
 	for i, msg := range messages {
-		if err := h.transport.Write(msg); err != nil {
+		if err := transport.Write(msg); err != nil {
 			log.Printf("[BridgeSync API] Failed to send message %d: %v", i, err)
 			failCount++
 		} else {
