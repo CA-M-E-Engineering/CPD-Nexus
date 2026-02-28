@@ -27,6 +27,7 @@ func (h *AnalyticsHandler) GetDashboardStats(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
+	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(stats)
 }
 
@@ -43,6 +44,7 @@ func (h *AnalyticsHandler) GetActivityLog(w http.ResponseWriter, r *http.Request
 		return
 	}
 
+	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(logs)
 }
 
@@ -59,5 +61,6 @@ func (h *AnalyticsHandler) GetDetailedAnalytics(w http.ResponseWriter, r *http.R
 		return
 	}
 
+	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(response)
 }
