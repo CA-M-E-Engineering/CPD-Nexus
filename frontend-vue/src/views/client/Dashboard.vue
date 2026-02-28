@@ -38,9 +38,9 @@ const loadDashboardData = async () => {
         ]);
 
         stats.value = [
-            { label: 'Active Sites', value: statsData.active_sites.toString(), trend: 'Real-time sync', trendType: 'neutral', icon: 'ri-map-pin-line', color: 'blue' },
+            { label: 'Active Sites', value: statsData.active_sites.toString(), trend: '', trendType: 'neutral', icon: 'ri-map-pin-line', color: 'blue' },
             { label: 'Total Workers', value: statsData.total_workers.toLocaleString(), trend: '', trendType: 'positive', icon: 'ri-group-line', color: 'green' },
-            { label: 'Total Devices', value: statsData.total_devices.toString(), trend: 'Online & Active', trendType: 'neutral', icon: 'ri-cpu-line', color: 'purple' }
+            { label: 'Total Devices', value: statsData.total_devices.toString(), trend: '', trendType: 'neutral', icon: 'ri-cpu-line', color: 'purple' }
         ];
 
         recentProjects.value = (projectsData || []).slice(0, 5).map(p => ({
