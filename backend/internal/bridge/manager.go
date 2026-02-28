@@ -224,10 +224,9 @@ func (rm *RequestManager) RequestUserSync(ctx context.Context, builder interface
 		}
 	}
 
-	if len(successIDs) > 0 {
-		builder.MarkWorkersSynced(ctx, successIDs)
-		log.Printf("RequestManager: Marked %d workers as synced", len(successIDs))
-	}
+	// Note: We no longer mark workers as synced conditionally here.
+	// Asynchronous bridge response Handlers will manage the status flag directly
+	// after validating the device response code.
 
 	return nil
 }

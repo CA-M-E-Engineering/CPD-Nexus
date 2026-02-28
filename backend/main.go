@@ -86,6 +86,10 @@ func main() {
 	attendanceHandler := bridgeHandlers.NewAttendanceHandler(attendanceService)
 	requestMgr.RegisterHandler("GET_ATTENDANCE_RESPONSE", attendanceHandler)
 
+	userSyncResponseHandler := bridgeHandlers.NewUserSyncResponseHandler(workerRepo)
+	requestMgr.RegisterHandler("REGISTER_USER_RESPONSE", userSyncResponseHandler)
+	requestMgr.RegisterHandler("UPDATE_USER_RESPONSE", userSyncResponseHandler)
+
 	// Context for graceful shutdown
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()

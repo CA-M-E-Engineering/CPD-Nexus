@@ -169,6 +169,9 @@ func (b *UserSyncBuilder) BuildSyncRequests(ctx context.Context, userID string) 
 			continue
 		}
 
+		// Inject Worker ID into Request ID so we can track async response
+		msg.Meta.RequestID = fmt.Sprintf("%s|%s", msg.Meta.RequestID, w.ID)
+
 		log.Printf("[UserSync] Built %s request for worker %s (%s) → %d devices at site %s",
 			action, w.ID, w.Name, len(deviceSNs), w.SiteID)
 

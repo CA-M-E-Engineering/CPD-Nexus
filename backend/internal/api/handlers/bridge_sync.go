@@ -103,11 +103,9 @@ func (h *BridgeSyncHandler) SyncUsers(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	// Mark successfully sent workers as synced (is_synced=1)
-	if len(successIDs) > 0 {
-		h.builder.MarkWorkersSynced(ctx, successIDs)
-		log.Printf("[BridgeSync API] Marked %d workers as synced", len(successIDs))
-	}
+	// Note: We no longer mark workers as synced here.
+	// That responsibility is now deferred to the async bridge response handlers,
+	// which will only mark them synced upon receiving a 200 OK from the hardware device.
 
 	json.NewEncoder(w).Encode(map[string]interface{}{
 		"success":                 true,

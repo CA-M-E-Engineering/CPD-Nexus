@@ -65,6 +65,7 @@ This document describes the unified database schema for **CPD-Nexus**. The desig
 | person_trade                 | VARCHAR(10)      | ❌        | BCA designated trade index (e.g. 1.2, 2.5)          |
 | role                         | ENUM             | ✅        | 'worker', 'manager', 'pic'                           |
 | current_project_id           | VARCHAR(50) / FK | ❌        | Currently assigned project                           |
+| is_synced                    | TINYINT          | ✅        | 0=Pending Update, 1=Synced, 2=Pending Registration. Set to 1 only upon receiving HTTP 200 OK from the Bridge asynchronously |
 
 ---
 
