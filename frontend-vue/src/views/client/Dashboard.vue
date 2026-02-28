@@ -8,7 +8,7 @@ import UnifiedMap from '../../components/ui/UnifiedMap.vue';
 
 
 const stats = ref([]);
-const activities = ref([]);
+const recentProjects = ref([]);
 const loading = ref(true);
 
 const loadDashboardData = async () => {
@@ -32,9 +32,9 @@ const loadDashboardData = async () => {
              return;
         }
 
-        const [statsData, activityData] = await Promise.all([
+        const [statsData, projectsData] = await Promise.all([
             api.getDashboardStats({ user_id: userId }),
-            api.getActivityLog({ user_id: userId })
+            api.getProjects({ user_id: userId })
         ]);
 
         stats.value = [
@@ -44,10 +44,11 @@ const loadDashboardData = async () => {
             { label: 'Compliance Rate', value: statsData.compliance_rate + '%', trend: 'Global audit', trendType: 'positive', icon: 'ri-check-line', color: 'yellow' },
         ];
 
-        activities.value = (activityData || []).map(a => ({
-          title: `${a.action}: ${a.target}`,
-          time: a.time,
-          icon: 'ri-information-line',
+        recentProjects.value = (projectsData || []).slice(0, 5).map(p => ({
+          title: p.title,
+          reference: p.reference || 'No ref',
+          status: p.status,
+          icon: 'ri-building-2-line',
           type: 'info'
         }));
 
@@ -65,8 +66,7 @@ onMounted(() => {
 const quickActions = [
   { label: 'Add Site', icon: 'ri-map-pin-add-line', target: 'site-add' },
   { label: 'Register Worker', icon: 'ri-user-add-line', target: 'worker-add' },
-  { label: 'Create Project', icon: 'ri-building-2-line', target: 'project-add' },
-  { label: 'Add Company', icon: 'ri-building-line', target: 'company-add' },
+  { label: 'Create Project', icon: 'ri-building-2-line', target: 'project-add' }
 ];
 
 defineEmits(['navigate']);
@@ -121,16 +121,17 @@ defineEmits(['navigate']);
 
         <div class="content-card">
           <div class="card-header">
-            <h3 class="card-title">Recent Activity</h3>
+            <h3 class="card-title">Recent Projects</h3>
           </div>
           <div class="activity-list">
-            <div v-for="(act, i) in activities" :key="i" class="activity-item">
-              <div class="activity-icon" :class="act.type">
-                <i :class="act.icon"></i>
+            <div v-if="recentProjects.length === 0" class="empty-state">No projects found.</div>
+            <div v-for="(project, i) in recentProjects" :key="i" class="activity-item">
+              <div class="activity-icon" :class="project.type">
+                <i :class="project.icon"></i>
               </div>
               <div class="activity-info">
-                <p class="activity-title">{{ act.title }}</p>
-                <p class="activity-time">{{ act.time }}</p>
+                <p class="activity-title">{{ project.title }}</p>
+                <p class="activity-time">Ref: {{ project.reference }} &bull; {{ project.status }}</p>
               </div>
             </div>
           </div>
@@ -275,5 +276,12 @@ defineEmits(['navigate']);
   font-size: 11px;
   color: var(--color-text-muted);
   margin-top: 2px;
+}
+
+.empty-state {
+  font-size: 13px;
+  color: var(--color-text-secondary);
+  text-align: center;
+  padding: 12px;
 }
 </style>
