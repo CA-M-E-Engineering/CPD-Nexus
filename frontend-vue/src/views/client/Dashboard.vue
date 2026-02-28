@@ -39,7 +39,7 @@ const loadDashboardData = async () => {
 
         stats.value = [
             { label: 'Active Sites', value: statsData.active_sites.toString(), trend: 'Real-time sync', trendType: 'neutral', icon: 'ri-map-pin-line', color: 'blue' },
-            { label: 'Total Workers', value: statsData.total_workers.toLocaleString(), trend: 'Active in project', trendType: 'positive', icon: 'ri-group-line', color: 'green' },
+            { label: 'Total Workers', value: statsData.total_workers.toLocaleString(), trend: '', trendType: 'positive', icon: 'ri-group-line', color: 'green' },
             { label: 'Total Devices', value: statsData.total_devices.toString(), trend: 'Online & Active', trendType: 'neutral', icon: 'ri-cpu-line', color: 'purple' }
         ];
 
