@@ -11,13 +11,18 @@ All communication across the bridge uses a standardized message envelope.
 ```json
 {
   "meta": {
-    "request_id": "req-20260227115854",
-    "sent_at": "2026-02-27T11:58:54Z"
+    "request_id": "req-20260227115854|w20260225135067",
+    "sent_at": "2026-02-27T11:58:54Z",
+    "auth_token": "client-bridge-secret-token"
   },
   "action": "ACTION_NAME",
   "payload": { ... }
 }
 ```
+
+> **Note on `meta` field:**
+> - `request_id`: May optionally contain appended contextual data (e.g. `|worker_id`) to track asynchronous responses.
+> - `auth_token`: **Required** for all privileged write operations (like `REGISTER_USER` and `UPDATE_USER`). The bridge validates this token before processing the request to ensure the tenant has authorization to modify device states.
 
 ---
 
