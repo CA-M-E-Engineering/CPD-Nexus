@@ -33,10 +33,9 @@ const navigation = {
             title: 'Management',
             items: [
                 { id: 'sites', label: 'Sites', icon: 'ri-map-pin-line' },
-                { id: 'projects', label: 'Projects', icon: 'ri-folder-line' },
-                { id: 'workers', label: 'Workers', icon: 'ri-group-line' },
-
                 { id: 'devices', label: 'Devices', icon: 'ri-cpu-line' },
+                { id: 'workers', label: 'Workers', icon: 'ri-group-line' },
+                { id: 'projects', label: 'Projects', icon: 'ri-folder-line' },
                 { id: 'attendance', label: 'Attendance', icon: 'ri-calendar-check-line' }
             ]
         }
