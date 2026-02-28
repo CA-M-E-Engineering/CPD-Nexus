@@ -31,7 +31,7 @@ func (r *AnalyticsRepository) GetDashboardStats(ctx context.Context, userID stri
 		if err != nil {
 			return nil, err
 		}
-		err = r.db.QueryRowContext(ctx, "SELECT COUNT(*) FROM sites WHERE status='active'").Scan(&activeSites)
+		err = r.db.QueryRowContext(ctx, "SELECT COUNT(*) FROM sites").Scan(&activeSites)
 		if err != nil {
 			return nil, err
 		}
@@ -48,7 +48,7 @@ func (r *AnalyticsRepository) GetDashboardStats(ctx context.Context, userID stri
 		if err != nil {
 			return nil, err
 		}
-		err = r.db.QueryRowContext(ctx, "SELECT COUNT(*) FROM sites WHERE status='active' AND user_id = ?", userID).Scan(&activeSites)
+		err = r.db.QueryRowContext(ctx, "SELECT COUNT(*) FROM sites WHERE user_id = ?", userID).Scan(&activeSites)
 		if err != nil {
 			return nil, err
 		}
