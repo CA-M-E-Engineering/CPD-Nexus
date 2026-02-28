@@ -25,7 +25,7 @@ const handleSync = async () => {
     
     let sections = [];
     if (response.sent > 0) {
-      sections.push(`✅ Successfully Synced: ${response.sent} worker(s)`);
+      sections.push(`✅ Sync Requests Sent: ${response.sent} worker(s)\n(Awaiting bridge verification)`);
     }
 
     if (response.unauthenticated_workers && response.unauthenticated_workers.length > 0) {
