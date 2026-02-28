@@ -40,8 +40,7 @@ const loadDashboardData = async () => {
         stats.value = [
             { label: 'Active Sites', value: statsData.active_sites.toString(), trend: 'Real-time sync', trendType: 'neutral', icon: 'ri-map-pin-line', color: 'blue' },
             { label: 'Total Workers', value: statsData.total_workers.toLocaleString(), trend: 'Active in project', trendType: 'positive', icon: 'ri-group-line', color: 'green' },
-            { label: 'Total Devices', value: statsData.total_devices.toString(), trend: 'Online & Active', trendType: 'neutral', icon: 'ri-cpu-line', color: 'purple' },
-            { label: 'Compliance Rate', value: statsData.compliance_rate + '%', trend: 'Global audit', trendType: 'positive', icon: 'ri-check-line', color: 'yellow' },
+            { label: 'Total Devices', value: statsData.total_devices.toString(), trend: 'Online & Active', trendType: 'neutral', icon: 'ri-cpu-line', color: 'purple' }
         ];
 
         recentProjects.value = (projectsData || []).slice(0, 5).map(p => ({
