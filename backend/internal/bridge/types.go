@@ -11,6 +11,7 @@ import (
 type Meta struct {
 	RequestID string `json:"request_id"`
 	SentAt    string `json:"sent_at"`
+	AuthToken string `json:"auth_token,omitempty"`
 }
 
 // Message is the standard envelope for all bridge communication

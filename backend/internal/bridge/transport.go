@@ -11,14 +11,16 @@ import (
 
 // Transport handles the low-level WebSocket connection and state
 type Transport struct {
-	url  string
-	conn *websocket.Conn
-	mu   sync.Mutex
+	url   string
+	token string
+	conn  *websocket.Conn
+	mu    sync.Mutex
 }
 
-func NewTransport(bridgeURL string) *Transport {
+func NewTransport(bridgeURL, token string) *Transport {
 	return &Transport{
-		url: bridgeURL,
+		url:   bridgeURL,
+		token: token,
 	}
 }
 
@@ -49,6 +51,10 @@ func (t *Transport) Write(msg Message) error {
 
 	if t.conn == nil {
 		return fmt.Errorf("transport not connected")
+	}
+
+	if msg.Meta.AuthToken == "" && t.token != "" {
+		msg.Meta.AuthToken = t.token
 	}
 
 	return t.conn.WriteJSON(msg)

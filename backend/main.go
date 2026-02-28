@@ -220,7 +220,7 @@ func startBridge(ctx context.Context, cfg *config.Config, db *sql.DB, requestMgr
 				return
 			default:
 				// Fetch active bridges
-				rows, err := db.QueryContext(ctx, "SELECT user_id, bridge_ws_url FROM users WHERE bridge_status = 'active' AND bridge_ws_url IS NOT NULL")
+				rows, err := db.QueryContext(ctx, "SELECT user_id, bridge_ws_url, bridge_auth_token FROM users WHERE bridge_status = 'active' AND bridge_ws_url IS NOT NULL")
 				if err != nil {
 					logger.Errorf("[Bridge] Failed to fetch active bridges: %v", err)
 				} else {
@@ -228,13 +228,14 @@ func startBridge(ctx context.Context, cfg *config.Config, db *sql.DB, requestMgr
 					for rows.Next() {
 						var userID string
 						var wsURL string
-						if err := rows.Scan(&userID, &wsURL); err == nil {
+						var authToken sql.NullString
+						if err := rows.Scan(&userID, &wsURL, &authToken); err == nil {
 							activeIDs[userID] = true
 							transport, exists := requestMgr.GetTransport(userID)
 
 							if !exists {
 								logger.Infof("[Bridge] Creating new connection for user %s to %s", userID, wsURL)
-								t := bridge.NewTransport(wsURL)
+								t := bridge.NewTransport(wsURL, authToken.String)
 								requestMgr.AddTransport(userID, t)
 
 								go requestMgr.HandleIncomingMessages(ctx, userID, t)
