@@ -62,7 +62,12 @@ func UploadFaceHandler(w http.ResponseWriter, r *http.Request) {
 		scheme = proto
 	}
 
-	baseURL := fmt.Sprintf("%s://%s", scheme, r.Host)
+	host := r.Host
+	if forwardedHost := r.Header.Get("X-Forwarded-Host"); forwardedHost != "" {
+		host = forwardedHost
+	}
+
+	baseURL := fmt.Sprintf("%s://%s", scheme, host)
 	fileURL := fmt.Sprintf("%s/uploads/faces/%s/%s", baseURL, trade, filename)
 
 	w.Header().Set("Content-Type", "application/json")

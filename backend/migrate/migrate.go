@@ -8,6 +8,8 @@ import (
 	"path/filepath"
 	"sort"
 
+	"sgbuildex/internal/pkg/config"
+
 	_ "github.com/go-sql-driver/mysql"
 )
 
@@ -38,11 +40,9 @@ func RunMigrations(db *sql.DB, folder string) error {
 }
 
 func main() {
-	// MySQL connection string
-	// dsn := "root:password@tcp(127.0.0.1:3306)/sgbuildex?parseTime=true"
-	dsn := "bas_user:new_password@tcp(127.0.0.1:3306)/bas_mvp?parseTime=true&multiStatements=true"
+	cfg := config.LoadConfig()
 
-	db, err := sql.Open("mysql", dsn)
+	db, err := sql.Open("mysql", cfg.DBDSN)
 	if err != nil {
 		log.Fatal("Failed to connect to DB:", err)
 	}

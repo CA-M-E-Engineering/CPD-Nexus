@@ -54,7 +54,7 @@ func (h *ProjectsHandler) CreateProject(w http.ResponseWriter, r *http.Request) 
 	}
 
 	if err := h.service.CreateProject(r.Context(), &project); err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		h.handleError(w, err)
 		return
 	}
 

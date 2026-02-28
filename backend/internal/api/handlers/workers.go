@@ -27,7 +27,7 @@ func (h *WorkersHandler) GetWorkers(w http.ResponseWriter, r *http.Request) {
 	log.Printf("[WorkersHandler] GetWorkers request: user_id=%s, site_id=%s", userID, siteID)
 	workers, err := h.service.ListWorkers(r.Context(), userID, siteID)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		h.handleError(w, err)
 		return
 	}
 
@@ -62,7 +62,7 @@ func (h *WorkersHandler) CreateWorker(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := h.service.CreateWorker(r.Context(), &worker); err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		h.handleError(w, err)
 		return
 	}
 

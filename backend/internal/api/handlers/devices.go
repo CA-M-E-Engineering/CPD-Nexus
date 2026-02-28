@@ -59,7 +59,7 @@ func (h *DevicesHandler) CreateDevice(w http.ResponseWriter, r *http.Request) {
 
 	d, err := h.Service.RegisterDevice(r.Context(), body.SN, body.Model, body.UserID)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		h.handleError(w, err)
 		return
 	}
 

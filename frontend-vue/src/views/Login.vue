@@ -2,6 +2,7 @@
 import { ref } from 'vue';
 import { api } from '../services/api';
 import { notification } from '../services/notification';
+import BaseInput from '../components/ui/BaseInput.vue';
 import BaseButton from '../components/ui/BaseButton.vue';
 
 const emit = defineEmits(['login-success']);
@@ -71,44 +72,28 @@ const handleLogin = async () => {
             <i class="ri-error-warning-line"></i>
             {{ error }}
           </div>
+          <BaseInput
+            id="username"
+            v-model="username"
+            label="Username"
+            type="text"
+            placeholder="Enter your username"
+            icon="ri-user-line"
+            required
+            :disabled="isLoading"
+          />
 
-          <div class="form-group">
-            <label for="username">Username</label>
-            <div class="input-wrapper">
-              <i class="ri-user-line"></i>
-              <input 
-                id="username" 
-                v-model="username" 
-                type="text" 
-                placeholder="Enter your username" 
-                required
-                :disabled="isLoading"
-              />
-            </div>
-          </div>
+          <BaseInput
+            id="password"
+            v-model="password"
+            label="Password"
+            type="password"
+            placeholder="••••••••"
+            icon="ri-lock-2-line"
+            required
+            :disabled="isLoading"
+          />
 
-          <div class="form-group">
-            <label for="password">Password</label>
-            <div class="input-wrapper">
-              <i class="ri-lock-2-line"></i>
-              <input 
-                id="password" 
-                v-model="password" 
-                type="password" 
-                placeholder="••••••••" 
-                required
-                :disabled="isLoading"
-              />
-            </div>
-          </div>
-
-          <div class="form-options">
-            <label class="checkbox-label">
-              <input type="checkbox" />
-              <span>Remember me</span>
-            </label>
-            <a href="#" class="forgot-link">Forgot password?</a>
-          </div>
 
           <BaseButton 
             type="submit" 
@@ -120,26 +105,6 @@ const handleLogin = async () => {
           </BaseButton>
         </form>
 
-        <div class="login-footer">
-          <p>Don't have an account? <a href="#">Contact Support</a></p>
-        </div>
-      </div>
-      
-      <div class="login-info">
-        <div class="info-item">
-          <div class="info-icon admin"><i class="ri-admin-line"></i></div>
-          <div class="info-text">
-            <h4>Manager Access</h4>
-            <p>Use any email with 'manager' to test Manager views.</p>
-          </div>
-        </div>
-        <div class="info-item">
-          <div class="info-icon client"><i class="ri-user-follow-line"></i></div>
-          <div class="info-text">
-            <h4>Client Access</h4>
-            <p>Use any other email to test Client/Project Manager views.</p>
-          </div>
-        </div>
       </div>
     </div>
   </div>
@@ -274,126 +239,8 @@ const handleLogin = async () => {
   gap: 8px;
 }
 
-.form-group {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
 
-.form-group label {
-  font-size: 13px;
-  font-weight: 500;
-  color: var(--color-text-secondary);
-}
 
-.input-wrapper {
-  position: relative;
-  display: flex;
-  align-items: center;
-}
 
-.input-wrapper i {
-  position: absolute;
-  left: 14px;
-  color: var(--color-text-muted);
-  font-size: 18px;
-}
 
-.input-wrapper input {
-  width: 100%;
-  padding: 12px 14px 12px 42px;
-  background: rgba(255, 255, 255, 0.05);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: var(--radius-md);
-  color: var(--color-text-primary);
-  font-size: 14px;
-  transition: all var(--transition-fast);
-}
-
-.input-wrapper input:focus {
-  outline: none;
-  border-color: var(--color-accent);
-  background: rgba(255, 255, 255, 0.08);
-  box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.1);
-}
-
-.form-options {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  font-size: 13px;
-}
-
-.checkbox-label {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  color: var(--color-text-secondary);
-  cursor: pointer;
-}
-
-.forgot-link {
-  color: var(--color-accent);
-  text-decoration: none;
-  font-weight: 500;
-}
-
-.forgot-link:hover {
-  text-decoration: underline;
-}
-
-.login-footer {
-  margin-top: 32px;
-  text-align: center;
-  font-size: 14px;
-  color: var(--color-text-secondary);
-}
-
-.login-footer a {
-  color: var(--color-accent);
-  text-decoration: none;
-  font-weight: 600;
-}
-
-.login-info {
-  margin-top: 24px;
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-}
-
-.info-item {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 12px;
-  background: rgba(255, 255, 255, 0.03);
-  border: 1px solid rgba(255, 255, 255, 0.05);
-  border-radius: var(--radius-md);
-}
-
-.info-icon {
-  width: 36px;
-  height: 36px;
-  border-radius: 8px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 18px;
-}
-
-.info-icon.admin { background: rgba(59, 130, 246, 0.1); color: var(--color-accent); }
-.info-icon.client { background: rgba(16, 185, 129, 0.1); color: #10b981; }
-
-.info-text h4 {
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--color-text-primary);
-  margin-bottom: 2px;
-}
-
-.info-text p {
-  font-size: 12px;
-  color: var(--color-text-secondary);
-}
 </style>
