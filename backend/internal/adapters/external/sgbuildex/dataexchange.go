@@ -14,7 +14,7 @@ func (c *Client) PushEvent(ctx context.Context, dataElementID string, payload an
 	}
 
 	url := fmt.Sprintf("%s/api/v1/data/push/%s", c.BaseURL, dataElementID)
-	_, err := c.doRequest(ctx, "POST", url, req, c.GenerateJWT())
+	_, err := c.doRequest(ctx, "POST", url, req, c.FetchAPIKey())
 	return err
 }
 

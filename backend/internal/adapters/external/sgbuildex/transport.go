@@ -10,7 +10,7 @@ import (
 )
 
 // doRequest handles generic HTTP requests
-func (c *Client) doRequest(ctx context.Context, method, url string, body any, token string) ([]byte, error) {
+func (c *Client) doRequest(ctx context.Context, method, url string, body any, apiKey string) ([]byte, error) {
 	var reqBody io.Reader
 	if body != nil {
 		jsonBytes, err := json.Marshal(body)
@@ -26,7 +26,9 @@ func (c *Client) doRequest(ctx context.Context, method, url string, body any, to
 	}
 
 	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Authorization", "Bearer "+token)
+	if apiKey != "" {
+		req.Header.Set("SGTRADEX-API-KEY", apiKey)
+	}
 
 	resp, err := c.HTTPClient.Do(req)
 	if err != nil {

@@ -14,7 +14,7 @@ import (
 type Client struct {
 	BaseURL    string
 	HTTPClient *http.Client
-	JWT        string // store JWT here after generation
+	APIKey     string // store API Key here
 }
 
 // NewClient creates a new Ingress API client
@@ -23,15 +23,13 @@ func NewClient(baseURL string) *Client {
 		BaseURL:    baseURL,
 		HTTPClient: &http.Client{Timeout: 10 * time.Second},
 	}
-	client.JWT = client.GenerateJWT()
+	client.APIKey = client.FetchAPIKey()
 	return client
 }
 
-// GenerateJWT generates a JWT token for authentication
-func (c *Client) GenerateJWT() string {
-	// Use a pre-provisioned bearer token from environment.
-	// Keeps local/dev usable without shipping a hardcoded token.
-	return strings.TrimSpace(os.Getenv("INGRESS_BEARER_TOKEN"))
+// FetchAPIKey gets the SGTRADEX API key from environment
+func (c *Client) FetchAPIKey() string {
+	return strings.TrimSpace(os.Getenv("SGTRADEX_API_KEY"))
 }
 
 // PostJSON sends a JSON payload to the specified endpoint
@@ -49,8 +47,8 @@ func (c *Client) PostJSON(endpoint string, payload any) (*http.Response, error) 
 	}
 
 	req.Header.Set("Content-Type", "application/json")
-	if c.JWT != "" {
-		req.Header.Set("Authorization", "Bearer "+c.JWT)
+	if c.APIKey != "" {
+		req.Header.Set("SGTRADEX-API-KEY", c.APIKey)
 	}
 
 	resp, err := c.HTTPClient.Do(req)

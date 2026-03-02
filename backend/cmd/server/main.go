@@ -288,7 +288,7 @@ func startBridge(ctx context.Context, cfg *config.Config, bridgeRepo ports.Bridg
 	}()
 
 	// Command scheduler
-	requestInterval := time.Duration(cfg.BridgeIntervalSeconds) * time.Second
+	requestInterval := 10 * time.Second
 	logger.Infof("[Bridge] Command scheduler started (Interval: %v)", requestInterval)
 
 	ticker := time.NewTicker(requestInterval)
