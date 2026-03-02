@@ -107,13 +107,13 @@ Configure your `.env` file in the `backend/` directory:
 ```env
 API_PORT=3000
 FRONTEND_PORT=5173
-DB_USER=bas_user
-DB_PASS=new_password
+DB_USER=your_db_username
+DB_PASS=your_db_password
 DB_HOST=127.0.0.1:3306
-DB_NAME=bas_mvp
+DB_NAME=your_db_name
 
 # SGTRADEX / Pitstop Configuration
-SGTRADEX_API_KEY=AsErSRCEb4ErtvNAHuSZA6Ll04XCmtVC
+SGTRADEX_API_KEY=your_sgtradex_api_key_here
 ```
 
 ---
@@ -124,4 +124,4 @@ CPD-Nexus handles sensitive FIN/NRIC data securely and strictly follows the nece
 ---
 
 ## 📄 License
-© 2026 CA-M-E Engineering. All rights reserved.
+© 2026 CA-M&E Engineering. All rights reserved.
