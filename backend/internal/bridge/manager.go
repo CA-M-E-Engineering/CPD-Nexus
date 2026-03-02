@@ -2,11 +2,11 @@ package bridge
 
 import (
 	"context"
-	"database/sql"
 	"encoding/json"
 	"fmt"
 	"log"
 	"sgbuildex/internal/core/domain"
+	"sgbuildex/internal/core/ports"
 	"sync"
 	"time"
 )
@@ -14,15 +14,15 @@ import (
 // RequestManager handles business-level commands and response logic across multiple bridges
 type RequestManager struct {
 	Transports map[string]*Transport // Key: user_id
-	DB         *sql.DB
+	BridgeRepo ports.BridgeRepository
 	Handlers   map[string]Handler
 	mu         sync.RWMutex
 }
 
-func NewRequestManager(db *sql.DB) *RequestManager {
+func NewRequestManager(bridgeRepo ports.BridgeRepository) *RequestManager {
 	return &RequestManager{
 		Transports: make(map[string]*Transport),
-		DB:         db,
+		BridgeRepo: bridgeRepo,
 		Handlers:   make(map[string]Handler),
 	}
 }
@@ -79,31 +79,9 @@ func (rm *RequestManager) GetAllTransports() map[string]*Transport {
 func (rm *RequestManager) RequestAttendance() error {
 	log.Println("RequestManager: Starting attendance fetch for all workers across all bridges")
 
-	query := `
-		SELECT w.worker_id, w.user_id, p.site_id 
-		FROM workers w
-		JOIN projects p ON w.current_project_id = p.project_id
-		WHERE w.status = 'active' AND w.current_project_id IS NOT NULL`
-
-	rows, err := rm.DB.Query(query)
+	tasks, err := rm.BridgeRepo.GetActiveBridgeWorkers(context.Background())
 	if err != nil {
 		return fmt.Errorf("failed to query active workers: %w", err)
-	}
-	defer rows.Close()
-
-	type workerTask struct {
-		workerID string
-		userID   string
-		siteID   string
-	}
-	var tasks []workerTask
-	for rows.Next() {
-		var t workerTask
-		if err := rows.Scan(&t.workerID, &t.userID, &t.siteID); err != nil {
-			log.Printf("RequestManager: Error scanning worker: %v", err)
-			continue
-		}
-		tasks = append(tasks, t)
 	}
 
 	if len(tasks) == 0 {
@@ -122,33 +100,24 @@ func (rm *RequestManager) RequestAttendance() error {
 
 	// Create requests
 	for _, task := range tasks {
-		transport, exists := rm.GetTransport(task.userID)
+		transport, exists := rm.GetTransport(task.UserID)
 		if !exists || !transport.IsConnected() {
-			log.Printf("RequestManager: Skipping worker %s, no active bridge connection for owner %s", task.workerID, task.userID)
+			log.Printf("RequestManager: Skipping worker %s, no active bridge connection for owner %s", task.WorkerID, task.UserID)
 			continue
 		}
 
 		// Get device SNs
-		deviceRows, err := rm.DB.Query("SELECT sn FROM devices WHERE site_id = ? AND status != 'inactive'", task.siteID)
+		sns, err := rm.BridgeRepo.GetActiveDeviceSNsBySite(context.Background(), task.SiteID)
 		if err != nil {
 			continue
 		}
-
-		var sns []string
-		for deviceRows.Next() {
-			var sn string
-			if err := deviceRows.Scan(&sn); err == nil {
-				sns = append(sns, sn)
-			}
-		}
-		deviceRows.Close()
 
 		if len(sns) == 0 {
 			continue
 		}
 
 		payload := map[string]interface{}{
-			"worker_id":  task.workerID,
+			"worker_id":  task.WorkerID,
 			"devices":    sns,
 			"start_time": timeRange["from"],
 			"end_time":   timeRange["to"],
@@ -160,10 +129,10 @@ func (rm *RequestManager) RequestAttendance() error {
 		}
 
 		if err := transport.Write(req); err != nil {
-			log.Printf("RequestManager: Failed to send request for worker %s via bridge %s: %v", task.workerID, task.userID, err)
+			log.Printf("RequestManager: Failed to send request for worker %s via bridge %s: %v", task.WorkerID, task.UserID, err)
 		} else {
 			reqJSON, _ := json.MarshalIndent(req, "", "  ")
-			log.Printf("\n--- [BRIDGE OUTBOUND REQUEST (%s)] ---\n%s\n---------------------------------", task.userID, string(reqJSON))
+			log.Printf("\n--- [BRIDGE OUTBOUND REQUEST (%s)] ---\n%s\n---------------------------------", task.UserID, string(reqJSON))
 		}
 	}
 
@@ -202,8 +171,7 @@ func (rm *RequestManager) RequestUserSync(ctx context.Context, builder interface
 	for i, msg := range messages {
 		workerID := workerIDs[i]
 
-		var ownerID string
-		err := rm.DB.QueryRow("SELECT user_id FROM workers WHERE worker_id = ?", workerID).Scan(&ownerID)
+		ownerID, err := rm.BridgeRepo.GetWorkerOwnerID(ctx, workerID)
 		if err != nil {
 			log.Printf("RequestManager: Cannot find owner for worker %s: %v", workerID, err)
 			continue

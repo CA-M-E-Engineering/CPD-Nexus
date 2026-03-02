@@ -13,6 +13,7 @@ import (
 	"sgbuildex/internal/bridge"
 	bridgeHandlers "sgbuildex/internal/bridge/handlers"
 	"sgbuildex/internal/core/domain"
+	"sgbuildex/internal/core/ports"
 	"sgbuildex/internal/core/services"
 	"sgbuildex/internal/pkg/config"
 	"sgbuildex/internal/pkg/logger"
@@ -79,7 +80,8 @@ func main() {
 	}
 
 	// Bridge Integration
-	requestMgr := bridge.NewRequestManager(db)
+	bridgeRepo := mysql.NewBridgeRepository(db)
+	requestMgr := bridge.NewRequestManager(bridgeRepo)
 	userSyncBuilder := bridgeHandlers.NewUserSyncBuilder(workerService, workerRepo, deviceRepo)
 	routerCfg.BridgeSyncHandler = apiHandlers.NewBridgeSyncHandler(userSyncBuilder, requestMgr)
 
@@ -163,10 +165,10 @@ func main() {
 	routerCfg.SettingsHandler = apiHandlers.NewSettingsHandler(settingsService)
 
 	// --- 4. Component C: REST API ---
-	go startAPI(cfg, routerCfg)
+	server := startAPI(cfg, routerCfg)
 
 	// --- 5. Component D: Core Loops ---
-	go startBridge(ctx, cfg, db, requestMgr, userSyncBuilder)
+	go startBridge(ctx, cfg, bridgeRepo, requestMgr, userSyncBuilder)
 	go attendanceSyncScheduler.Start(ctx)
 	go cpdSubmissionScheduler.Start(ctx)
 
@@ -180,12 +182,19 @@ func main() {
 	logger.Infof("Shutting down CPD Nexus unified backend...")
 	cancel()
 
+	// Shutdown HTTP Server gracefully
+	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer shutdownCancel()
+	if err := server.Shutdown(shutdownCtx); err != nil {
+		logger.Errorf("HTTP server shutdown error: %v", err)
+	}
+
 	// Give a small grace period for goroutines to clean up
 	time.Sleep(1 * time.Second)
 	logger.Infof("Final shutdown complete.")
 }
 
-func startAPI(cfg *config.Config, routerCfg api.RouterConfig) {
+func startAPI(cfg *config.Config, routerCfg api.RouterConfig) *http.Server {
 	router := mux.NewRouter()
 	api.RegisterRoutes(router, routerCfg)
 
@@ -206,13 +215,17 @@ func startAPI(cfg *config.Config, routerCfg api.RouterConfig) {
 		Handler: c.Handler(router),
 	}
 
-	logger.Infof("[API] Starting REST server on port %s", cfg.APIPort)
-	if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-		logger.Errorf("[API] Server failed: %v", err)
-	}
+	go func() {
+		logger.Infof("[API] Starting REST server on port %s", cfg.APIPort)
+		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			logger.Errorf("[API] Server failed: %v", err)
+		}
+	}()
+
+	return server
 }
 
-func startBridge(ctx context.Context, cfg *config.Config, db *sql.DB, requestMgr *bridge.RequestManager, userSyncBuilder *bridgeHandlers.UserSyncBuilder) {
+func startBridge(ctx context.Context, cfg *config.Config, bridgeRepo ports.BridgeRepository, requestMgr *bridge.RequestManager, userSyncBuilder *bridgeHandlers.UserSyncBuilder) {
 	// Connection maintenance loop
 	go func() {
 		for {
@@ -224,38 +237,36 @@ func startBridge(ctx context.Context, cfg *config.Config, db *sql.DB, requestMgr
 				return
 			default:
 				// Fetch active bridges
-				rows, err := db.QueryContext(ctx, "SELECT user_id, bridge_ws_url, bridge_auth_token FROM users WHERE bridge_status = 'active' AND bridge_ws_url IS NOT NULL")
+				configs, err := bridgeRepo.GetActiveBridges(ctx)
 				if err != nil {
 					logger.Errorf("[Bridge] Failed to fetch active bridges: %v", err)
 				} else {
 					activeIDs := make(map[string]bool)
-					for rows.Next() {
-						var userID string
-						var wsURL string
-						var authToken sql.NullString
-						if err := rows.Scan(&userID, &wsURL, &authToken); err == nil {
-							activeIDs[userID] = true
-							transport, exists := requestMgr.GetTransport(userID)
+					for _, c := range configs {
+						userID := c.UserID
+						wsURL := c.WSURL
+						authToken := c.AuthToken
 
-							if !exists {
-								logger.Infof("[Bridge] Creating new connection for user %s to %s", userID, wsURL)
-								t := bridge.NewTransport(wsURL, authToken.String)
-								requestMgr.AddTransport(userID, t)
+						activeIDs[userID] = true
+						transport, exists := requestMgr.GetTransport(userID)
 
-								go requestMgr.HandleIncomingMessages(ctx, userID, t)
+						if !exists {
+							logger.Infof("[Bridge] Creating new connection for user %s to %s", userID, wsURL)
+							t := bridge.NewTransport(wsURL, authToken)
+							requestMgr.AddTransport(userID, t)
 
-								if err := t.Connect(); err != nil {
-									logger.Errorf("[Bridge] Connection failed for %s: %v", userID, err)
-								}
-							} else if !transport.IsConnected() {
-								logger.Infof("[Bridge] Reconnecting for user %s to %s", userID, wsURL)
-								if err := transport.Connect(); err != nil {
-									logger.Errorf("[Bridge] Reconnection failed for %s: %v", userID, err)
-								}
+							go requestMgr.HandleIncomingMessages(ctx, userID, t)
+
+							if err := t.Connect(); err != nil {
+								logger.Errorf("[Bridge] Connection failed for %s: %v", userID, err)
+							}
+						} else if !transport.IsConnected() {
+							logger.Infof("[Bridge] Reconnecting for user %s to %s", userID, wsURL)
+							if err := transport.Connect(); err != nil {
+								logger.Errorf("[Bridge] Reconnection failed for %s: %v", userID, err)
 							}
 						}
 					}
-					rows.Close()
 
 					// Remove any transports that are no longer active
 					for id, t := range requestMgr.GetAllTransports() {
@@ -266,7 +277,12 @@ func startBridge(ctx context.Context, cfg *config.Config, db *sql.DB, requestMgr
 						}
 					}
 				}
-				time.Sleep(10 * time.Second)
+
+				select {
+				case <-ctx.Done():
+					return
+				case <-time.After(10 * time.Second):
+				}
 			}
 		}
 	}()

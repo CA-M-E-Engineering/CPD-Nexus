@@ -58,12 +58,13 @@ The system enforces strict data integrity rules for personnel:
 SGBuildex/
 ├── backend/            # Go Backend (API, Bridge, Workers)
 │   ├── cmd/            # Entry points and tools
+│   │   └── server/     # Main Application Entrypoint
+│   │       └── main.go
 │   ├── internal/       # Core business logic (Adapters, Domain, Ports, Services)
 │   │   ├── bridge/     # WebSocket connection logic and Attendance Handlers
 │   │   ├── api/        # REST API Routes and Controllers
 │   │   └── core/       # Business Domains and Services
-│   ├── migrate/        # SQL Migration scripts
-│   └── main.go         # Application Entrypoint
+│   └── migrate/        # SQL Migration scripts
 ├── frontend-vue/       # Vue.js 3 Frontend application
 │   ├── src/            # Core source files
 │   │   ├── api/        # Axios API configurations
@@ -86,7 +87,7 @@ SGBuildex/
 ```bash
 cd backend
 go mod download
-go run main.go
+go run cmd/server/main.go
 ```
 *The server will start on `http://localhost:3000`*
 
