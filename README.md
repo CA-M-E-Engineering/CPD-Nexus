@@ -64,14 +64,14 @@ SGBuildex/
 │   │   ├── bridge/     # WebSocket connection logic and Attendance Handlers
 │   │   ├── api/        # REST API Routes and Controllers
 │   │   └── core/       # Business Domains and Services
-│   └── migrate/        # SQL Migration scripts
+│   ├── migrate/        # SQL Migration scripts
+│   └── .env            # Backend environment configuration
 ├── frontend-vue/       # Vue.js 3 Frontend application
 │   ├── src/            # Core source files
 │   │   ├── api/        # Axios API configurations
 │   │   ├── components/ # Reusable UI components (Modals, Badges, Tables)
 │   │   └── views/      # Page-level components (Dashboards, Resource Lists)
 │   └── package.json    # Node dependencies and build scripts
-└── .env                # Shared environment configuration
 ```
 
 ---
@@ -102,15 +102,18 @@ npm run dev
 ---
 
 ## ⚙️ Configuration
-Configure your `.env` file in the root directory:
+Configure your `.env` file in the `backend/` directory:
 
 ```env
 API_PORT=3000
 FRONTEND_PORT=5173
-DB_USER=root
-DB_PASS=your_password
+DB_USER=bas_user
+DB_PASS=new_password
 DB_HOST=127.0.0.1:3306
-DB_NAME=sgbuildex
+DB_NAME=bas_mvp
+
+# SGTRADEX / Pitstop Configuration
+SGTRADEX_API_KEY=AsErSRCEb4ErtvNAHuSZA6Ll04XCmtVC
 ```
 
 ---
