@@ -27,7 +27,7 @@ type PitstopConfigResponse struct {
 
 // FetchConfig retrieves the routing configuration mapping from Pitstop API
 func (c *Client) FetchConfig(ctx context.Context) (*PitstopConfigResponse, error) {
-	url := fmt.Sprintf("%s/api/v1/config", c.BaseURL)
+	url := fmt.Sprintf("%s/api/v1/config", c.PitstopURL)
 
 	data, err := c.doRequest(ctx, "GET", url, nil, c.FetchAPIKey())
 	if err != nil {

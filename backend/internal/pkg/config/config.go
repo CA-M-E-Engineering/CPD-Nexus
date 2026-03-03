@@ -17,6 +17,7 @@ type Config struct {
 	DBDSN      string
 	APIPort    string
 	IngressURL string
+	PitstopURL string
 
 	WorkerIntervalMinutes int
 }
@@ -34,6 +35,7 @@ func LoadConfig() *Config {
 		DBName:     getEnv("DB_NAME", "bas_mvp"),
 		APIPort:    getEnv("API_PORT", "3000"),
 		IngressURL: getEnv("INGRESS_URL", "https://specs-api.uat.dextech.ai/sgbuildex"),
+		PitstopURL: getEnv("PITSTOP_URL", "https://ca-me-sgbuildex.pitstop.uat.dextech.ai"),
 
 		WorkerIntervalMinutes: getEnvInt("WORKER_INTERVAL_MINUTES", 5),
 	}

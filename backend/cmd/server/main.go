@@ -67,7 +67,7 @@ func main() {
 	var settingsService *services.SettingsService
 
 	// Internal client for external fetch
-	sgClient := sgbuildex.NewClient(cfg.IngressURL)
+	sgClient := sgbuildex.NewClient(cfg.IngressURL, cfg.PitstopURL)
 	pitstopService := services.NewPitstopService(pitstopRepo, sgClient)
 
 	// Handlers
@@ -103,7 +103,7 @@ func main() {
 	defer cancel()
 
 	// --- 3. Component B: Submission Workers & Schedulers ---
-	client := sgbuildex.NewClient(cfg.IngressURL)
+	client := sgbuildex.NewClient(cfg.IngressURL, cfg.PitstopURL)
 
 	// Task 1: Attendance Sync (Bridge -> Nexus)
 	syncTask := func(taskCtx context.Context) {

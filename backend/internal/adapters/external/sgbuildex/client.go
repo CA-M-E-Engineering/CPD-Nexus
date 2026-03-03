@@ -13,14 +13,16 @@ import (
 // Client represents the Ingress API client for SGBuildex
 type Client struct {
 	BaseURL    string
+	PitstopURL string
 	HTTPClient *http.Client
 	APIKey     string // store API Key here
 }
 
 // NewClient creates a new Ingress API client
-func NewClient(baseURL string) *Client {
+func NewClient(baseURL, pitstopURL string) *Client {
 	client := &Client{
 		BaseURL:    baseURL,
+		PitstopURL: pitstopURL,
 		HTTPClient: &http.Client{Timeout: 10 * time.Second},
 	}
 	client.APIKey = client.FetchAPIKey()
