@@ -117,10 +117,10 @@ func RegisterRoutes(r *mux.Router, cfg RouterConfig) {
 		scoped.HandleFunc("/bridge/sync-users", cfg.BridgeSyncHandler.SyncUsers).Methods("POST")
 	}
 
-	// --- Pitstop Config Routes ---
+	// --- Pitstop Config Routes (Global Admin / Vendor) ---
 	if cfg.PitstopHandler != nil {
-		scoped.HandleFunc("/pitstop/authorisations", cfg.PitstopHandler.GetAuthorisations).Methods("GET")
-		scoped.HandleFunc("/pitstop/authorisations/sync", cfg.PitstopHandler.SyncConfig).Methods("POST")
+		api.HandleFunc("/pitstop/authorisations", cfg.PitstopHandler.GetAuthorisations).Methods("GET")
+		api.HandleFunc("/pitstop/authorisations/sync", cfg.PitstopHandler.SyncConfig).Methods("POST")
 	}
 
 	// Serve Static Files
