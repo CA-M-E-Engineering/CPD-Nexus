@@ -16,15 +16,14 @@ func NewPitstopRepository(db *sql.DB) *PitstopRepository {
 	return &PitstopRepository{db: db}
 }
 
-func (r *PitstopRepository) GetAuthorisationsByUser(ctx context.Context, userID string) ([]*domain.PitstopAuthorisation, error) {
+func (r *PitstopRepository) GetAuthorisations(ctx context.Context) ([]*domain.PitstopAuthorisation, error) {
 	query := `
 		SELECT pitstop_auth_id, dataset_id, dataset_name, user_id, 
 		       regulator_id, regulator_name, maincon_id, maincon_name, status, last_synced_at
 		FROM pitstop_authorisations
-		WHERE user_id = ?
 		ORDER BY dataset_name ASC
 	`
-	rows, err := r.db.QueryContext(ctx, query, userID)
+	rows, err := r.db.QueryContext(ctx, query)
 	if err != nil {
 		return nil, fmt.Errorf("failed to query pitstop authorisations: %w", err)
 	}

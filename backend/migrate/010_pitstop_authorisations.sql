@@ -6,7 +6,7 @@ CREATE TABLE IF NOT EXISTS pitstop_authorisations (
     pitstop_auth_id VARCHAR(50) PRIMARY KEY,
     dataset_id VARCHAR(50) NOT NULL,
     dataset_name VARCHAR(255) NOT NULL,
-    user_id VARCHAR(50) NOT NULL,
+    user_id VARCHAR(50),
     regulator_id CHAR(36) NOT NULL,
     regulator_name VARCHAR(255) NOT NULL,
     maincon_id CHAR(36) NOT NULL,

@@ -15,7 +15,8 @@ const columns = [
     { key: 'regulator_name', label: 'Regulator', sortable: true },
     { key: 'maincon_name', label: 'Main Contractor', sortable: true },
     { key: 'status', label: 'Status' },
-    { key: 'last_synced_at', label: 'Last Synced' }
+    { key: 'last_synced_at', label: 'Last Synced' },
+    { key: 'actions', label: 'Actions', align: 'right' }
 ];
 
 const fetchAuthorisations = async () => {
@@ -82,6 +83,15 @@ onMounted(() => {
                 <template #cell-last_synced_at="{ value }">
                     <span v-if="value">{{ new Date(value).toLocaleString() }}</span>
                     <span v-else class="text-muted">Never synced</span>
+                </template>
+                <template #cell-actions="{ item }">
+                    <BaseButton 
+                        variant="ghost" 
+                        size="sm" 
+                        icon="ri-refresh-line"
+                        @click.stop="handleSync"
+                        title="Sync this configuration"
+                    />
                 </template>
             </DataTable>
         </div>

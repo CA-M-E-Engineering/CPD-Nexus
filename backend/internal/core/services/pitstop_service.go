@@ -23,9 +23,9 @@ func NewPitstopService(repo ports.PitstopRepository, client *sgbuildex.Client) *
 	}
 }
 
-// GetAuthorisations returns the currently stored authorisations for a user
-func (s *PitstopService) GetAuthorisations(ctx context.Context, userID string) ([]*domain.PitstopAuthorisation, error) {
-	return s.pitstopRepo.GetAuthorisationsByUser(ctx, userID)
+// GetAuthorisations returns the currently stored authorisations. (Globally visible for Vendors)
+func (s *PitstopService) GetAuthorisations(ctx context.Context) ([]*domain.PitstopAuthorisation, error) {
+	return s.pitstopRepo.GetAuthorisations(ctx)
 }
 
 // SyncConfig fetches the newest configs from the Pitstop API and upserts them
@@ -57,7 +57,7 @@ func (s *PitstopService) SyncConfig(ctx context.Context, userID string) error {
 					PitstopAuthID: "pitstop_auth_" + uuid.NewString()[:8], // fallback unique naming
 					DatasetID:     datasetID,
 					DatasetName:   datasetName,
-					UserID:        userID,
+					UserID:        &userID,
 					RegulatorID:   regulatorID,
 					RegulatorName: regulatorName,
 					MainconID:     mainconID,
