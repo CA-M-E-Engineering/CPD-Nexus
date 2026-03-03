@@ -22,6 +22,7 @@ type RouterConfig struct {
 	AttendanceHandler  *handlers.AttendanceHandler
 	SettingsHandler    *handlers.SettingsHandler
 	BridgeSyncHandler  *handlers.BridgeSyncHandler
+	PitstopHandler     *handlers.PitstopHandler
 }
 
 // RegisterRoutes sets up all API endpoints
@@ -114,6 +115,12 @@ func RegisterRoutes(r *mux.Router, cfg RouterConfig) {
 	// --- Bridge Sync Routes ---
 	if cfg.BridgeSyncHandler != nil {
 		scoped.HandleFunc("/bridge/sync-users", cfg.BridgeSyncHandler.SyncUsers).Methods("POST")
+	}
+
+	// --- Pitstop Config Routes ---
+	if cfg.PitstopHandler != nil {
+		scoped.HandleFunc("/pitstop/authorisations", cfg.PitstopHandler.GetAuthorisations).Methods("GET")
+		scoped.HandleFunc("/pitstop/authorisations/sync", cfg.PitstopHandler.SyncConfig).Methods("POST")
 	}
 
 	// Serve Static Files

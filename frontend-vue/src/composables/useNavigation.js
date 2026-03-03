@@ -21,7 +21,10 @@ const navigation = {
         },
         {
             title: 'Configuration',
-            items: [{ id: 'settings', label: 'System Settings', icon: 'ri-settings-4-line' }]
+            items: [
+                { id: 'pitstop-auth', label: 'Pitstop Config', icon: 'ri-cloud-windy-line' },
+                { id: 'settings', label: 'System Settings', icon: 'ri-settings-4-line' }
+            ]
         }
     ],
     [ROLES.CLIENT]: [
@@ -64,6 +67,7 @@ const breadcrumbMapping = {
     'attendance': 'Attendance Records',
     'analytics': 'Operational Insights',
     'settings': 'System Settings',
+    'pitstop-auth': 'Pitstop Authorisations',
     'project-assign-workers': 'Workers / Assignment',
     'site-assign-project': 'Projects / Site Assignment',
     'site-assign-device': 'Devices / Site Assignment',

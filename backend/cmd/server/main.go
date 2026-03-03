@@ -53,6 +53,7 @@ func main() {
 	siteRepo := mysql.NewSiteRepository(db)
 	projectRepo := mysql.NewProjectRepository(db)
 	analyticsRepo := mysql.NewAnalyticsRepository(db)
+	pitstopRepo := mysql.NewPitstopRepository(db)
 
 	// Services
 	workerService := services.NewWorkerService(workerRepo)
@@ -65,6 +66,10 @@ func main() {
 	analyticsService := services.NewAnalyticsService(analyticsRepo)
 	var settingsService *services.SettingsService
 
+	// Internal client for external fetch
+	sgClient := sgbuildex.NewClient(cfg.IngressURL)
+	pitstopService := services.NewPitstopService(pitstopRepo, sgClient)
+
 	// Handlers
 	routerCfg := api.RouterConfig{
 		AuthHandler:        apiHandlers.NewAuthHandler(authService, userService),
@@ -76,6 +81,7 @@ func main() {
 		AssignmentsHandler: apiHandlers.NewAssignmentsHandler(workerService, deviceService, projectService),
 		AnalyticsHandler:   apiHandlers.NewAnalyticsHandler(analyticsService),
 		AttendanceHandler:  apiHandlers.NewAttendanceHandler(attendanceService),
+		PitstopHandler:     apiHandlers.NewPitstopHandler(pitstopService),
 		// SettingsHandler will be added later after Schedulers are ready
 	}
 

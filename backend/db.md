@@ -99,6 +99,25 @@ This document describes the unified database schema for **CPD-Nexus**. The desig
 | time_out          | TIMESTAMP            | ❌        | Recorded exit timestamp (if batched)             |
 | status            | ENUM                 | ✅        | 'pending', 'submitted', 'failed'                 |
 
+---
+
+## 7️⃣ Pitstop Authorisations Table
+
+**Purpose:** Manages the configuration, routing IDs, and last synced states for external dataset submissions (e.g. to SGTradeX/Pitstop APIs).
+
+| Field                | Type                 | Mandatory | Description                                      |
+|--------------------- | -------------------- | --------- | ------------------------------------------------ |
+| pitstop_auth_id      | VARCHAR(50) / PK     | ✅        | Unique ID (e.g., `pitstop_auth_000`)             |
+| dataset_id           | VARCHAR(50)          | ✅        | Target API path e.g. `manpower_utilization`      |
+| dataset_name         | VARCHAR(255)         | ✅        | Human-readable name                              |
+| user_id              | VARCHAR(50) / FK     | ✅        | Governing client/vendor (`users`)                |
+| regulator_id         | CHAR(36)             | ✅        | BCA UUID used in `participants.id`               |
+| regulator_name       | VARCHAR(255)         | ✅        | Display name for the regulator                   |
+| maincon_id           | CHAR(36)             | ✅        | Contractor UUID used in `on_behalf_of.id`        |
+| maincon_name         | VARCHAR(255)         | ✅        | Display name for the contractor                  |
+| status               | VARCHAR(20)          | ✅        | Default 'ACTIVE'                                 |
+| last_synced_at       | DATETIME             | ❌        | Tracks when the payload was last pushed          |
+
 ### Security & Scaling
 
 This normalized approach guarantees horizontal scalability while maintaining strict relational constraints across Sites, Workers, and their corresponding hardware assignments. All tables incorporate implicit indexing logic to enhance BCA queries filtering by active device bounds and worker assignment trees.
