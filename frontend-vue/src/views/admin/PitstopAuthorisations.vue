@@ -55,7 +55,7 @@ onMounted(() => {
             title="Pitstop Authorisations" 
             description="Manage configurations and data routing IDs fetched from Pitstop mapping APIs."
         >
-            <template #actions>
+            <template #toolbar-right>
                 <BaseButton 
                     variant="primary" 
                     icon="ri-refresh-line"
