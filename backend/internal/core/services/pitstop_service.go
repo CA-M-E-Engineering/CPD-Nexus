@@ -34,15 +34,16 @@ func (s *PitstopService) SyncConfig(ctx context.Context, userID string) error {
 		return fmt.Errorf("pitstop API fetch failed: %w", err)
 	}
 
-	// 2. Load existing to maintain consistent ID for Upsert
+	// 2. Load existing to maintain consistent ID for Insert/Update checks
 	existingAuths, _ := s.pitstopRepo.GetAuthorisations(ctx)
-	lookup := make(map[string]string)
+	existingMap := make(map[string]*domain.PitstopAuthorisation)
 	for _, e := range existingAuths {
 		key := fmt.Sprintf("%s|%s|%s", e.DatasetID, e.RegulatorID, e.MainconID)
-		lookup[key] = e.PitstopAuthID
+		existingMap[key] = e
 	}
 
-	var authorisations []*domain.PitstopAuthorisation
+	var toInsert []*domain.PitstopAuthorisation
+	var toUpdate []*domain.PitstopAuthorisation
 	now := time.Now()
 	idTimestamp := now.Format("20060102150405")
 	seq := 1
@@ -61,33 +62,63 @@ func (s *PitstopService) SyncConfig(ctx context.Context, userID string) error {
 				mainconName := behalf.Name
 
 				key := fmt.Sprintf("%s|%s|%s", datasetID, regulatorID, mainconID)
-				authID, exists := lookup[key]
-				if !exists {
-					authID = fmt.Sprintf("pa%s%04d", idTimestamp, seq)
-					seq++
-				}
 
-				// Create the domain entity
-				auth := &domain.PitstopAuthorisation{
-					PitstopAuthID: authID,
-					DatasetID:     datasetID,
-					DatasetName:   datasetName,
-					UserID:        &userID,
-					RegulatorID:   regulatorID,
-					RegulatorName: regulatorName,
-					MainconID:     mainconID,
-					MainconName:   mainconName,
-					Status:        "ACTIVE",
-					LastSyncedAt:  &now,
+				if existing, exists := existingMap[key]; exists {
+					// Check if data actually changed
+					modified := false
+					if existing.DatasetName != datasetName ||
+						existing.RegulatorName != regulatorName ||
+						existing.MainconName != mainconName ||
+						existing.Status != "ACTIVE" {
+						modified = true
+					}
+
+					// Apply updates only if modified from the payload changes
+					if modified {
+						existing.DatasetName = datasetName
+						existing.RegulatorName = regulatorName
+						existing.MainconName = mainconName
+						existing.Status = "ACTIVE"
+						existing.LastSyncedAt = &now
+						if existing.UserID == nil || *existing.UserID != userID {
+							existing.UserID = &userID
+						}
+						toUpdate = append(toUpdate, existing)
+					}
+				} else {
+					// Insert New
+					authID := fmt.Sprintf("pa%s%04d", idTimestamp, seq)
+					seq++
+
+					auth := &domain.PitstopAuthorisation{
+						PitstopAuthID: authID,
+						DatasetID:     datasetID,
+						DatasetName:   datasetName,
+						UserID:        &userID,
+						RegulatorID:   regulatorID,
+						RegulatorName: regulatorName,
+						MainconID:     mainconID,
+						MainconName:   mainconName,
+						Status:        "ACTIVE",
+						LastSyncedAt:  &now,
+					}
+					toInsert = append(toInsert, auth)
 				}
-				authorisations = append(authorisations, auth)
 			}
 		}
 	}
 
-	// 3. Store into the database using Repository
-	if len(authorisations) > 0 {
-		return s.pitstopRepo.UpsertAuthorisations(ctx, authorisations)
+	// 4. Store into the database using Repository
+	if len(toInsert) > 0 {
+		if err := s.pitstopRepo.InsertAuthorisations(ctx, toInsert); err != nil {
+			return err
+		}
+	}
+
+	if len(toUpdate) > 0 {
+		if err := s.pitstopRepo.UpdateAuthorisations(ctx, toUpdate); err != nil {
+			return err
+		}
 	}
 
 	return nil

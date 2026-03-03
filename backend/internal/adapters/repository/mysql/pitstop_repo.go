@@ -48,12 +48,12 @@ func (r *PitstopRepository) GetAuthorisations(ctx context.Context) ([]*domain.Pi
 	return auths, nil
 }
 
-func (r *PitstopRepository) UpsertAuthorisations(ctx context.Context, auths []*domain.PitstopAuthorisation) error {
+func (r *PitstopRepository) InsertAuthorisations(ctx context.Context, auths []*domain.PitstopAuthorisation) error {
 	if len(auths) == 0 {
 		return nil
 	}
 
-	// Build a bulk upsert query
+	// Build a bulk insert query
 	valueStrings := make([]string, 0, len(auths))
 	valueArgs := make([]interface{}, 0, len(auths)*10)
 
@@ -70,21 +70,50 @@ func (r *PitstopRepository) UpsertAuthorisations(ctx context.Context, auths []*d
 			pitstop_auth_id, dataset_id, dataset_name, user_id, 
 			regulator_id, regulator_name, maincon_id, maincon_name, status, last_synced_at
 		) VALUES %s
-		ON DUPLICATE KEY UPDATE
-			dataset_name = VALUES(dataset_name),
-			user_id = VALUES(user_id),
-			regulator_id = VALUES(regulator_id),
-			regulator_name = VALUES(regulator_name),
-			maincon_id = VALUES(maincon_id),
-			maincon_name = VALUES(maincon_name),
-			status = VALUES(status),
-			last_synced_at = VALUES(last_synced_at)
 	`, strings.Join(valueStrings, ","))
 
 	_, err := r.db.ExecContext(ctx, query, valueArgs...)
 	if err != nil {
-		return fmt.Errorf("failed to upsert pitstop authorisations: %w", err)
+		return fmt.Errorf("failed to insert pitstop authorisations: %w", err)
 	}
 
+	return nil
+}
+
+func (r *PitstopRepository) UpdateAuthorisations(ctx context.Context, auths []*domain.PitstopAuthorisation) error {
+	if len(auths) == 0 {
+		return nil
+	}
+
+	tx, err := r.db.BeginTx(ctx, nil)
+	if err != nil {
+		return fmt.Errorf("failed to begin transaction: %w", err)
+	}
+
+	stmt, err := tx.PrepareContext(ctx, `
+		UPDATE pitstop_authorisations SET
+			dataset_name = ?, user_id = ?, regulator_name = ?, maincon_name = ?,
+			status = ?, last_synced_at = ?
+		WHERE pitstop_auth_id = ?
+	`)
+	if err != nil {
+		tx.Rollback()
+		return fmt.Errorf("failed to prepare update statement: %w", err)
+	}
+	defer stmt.Close()
+
+	for _, a := range auths {
+		if _, err := stmt.ExecContext(ctx,
+			a.DatasetName, a.UserID, a.RegulatorName, a.MainconName,
+			a.Status, a.LastSyncedAt, a.PitstopAuthID,
+		); err != nil {
+			tx.Rollback()
+			return fmt.Errorf("failed to update pitstop_auth_id %s: %w", a.PitstopAuthID, err)
+		}
+	}
+
+	if err := tx.Commit(); err != nil {
+		return fmt.Errorf("failed to commit update transaction: %w", err)
+	}
 	return nil
 }
