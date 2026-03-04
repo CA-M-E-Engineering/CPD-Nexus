@@ -17,16 +17,13 @@ type Project struct {
 	PitstopAuthName *string `json:"pitstop_auth_name,omitempty"`
 
 	// Inline company details (no FK to companies table)
-	MainContractorName        string `json:"main_contractor_name,omitempty"`
-	MainContractorUEN         string `json:"main_contractor_uen,omitempty"`
-	OffsiteFabricatorName     string `json:"offsite_fabricator_name,omitempty"`
-	OffsiteFabricatorUEN      string `json:"offsite_fabricator_uen,omitempty"`
-	OffsiteFabricatorLocation string `json:"offsite_fabricator_location,omitempty"`
-	WorkerCompanyName         string `json:"worker_company_name,omitempty"`
-	WorkerCompanyUEN          string `json:"worker_company_uen,omitempty"`
-	WorkerCompanyClientName   string `json:"worker_company_client_name,omitempty"`
-	WorkerCompanyClientUEN    string `json:"worker_company_client_uen,omitempty"`
-	WorkerCompanyTrade        string `json:"worker_company_trade,omitempty"`
+	MainContractorName      string `json:"main_contractor_name,omitempty"`
+	MainContractorUEN       string `json:"main_contractor_uen,omitempty"`
+	WorkerCompanyName       string `json:"worker_company_name,omitempty"`
+	WorkerCompanyUEN        string `json:"worker_company_uen,omitempty"`
+	WorkerCompanyClientName string `json:"worker_company_client_name,omitempty"`
+	WorkerCompanyClientUEN  string `json:"worker_company_client_uen,omitempty"`
+	WorkerCompanyTrade      string `json:"worker_company_trade,omitempty"`
 
 	CreatedAt time.Time `json:"created_at"`
 	UpdatedAt time.Time `json:"updated_at"`

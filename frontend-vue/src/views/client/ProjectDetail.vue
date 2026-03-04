@@ -60,7 +60,6 @@ const contractorInfo = computed(() => {
   };
   return [
     { label: 'Main Contractor', value: fmt(p?.main_contractor_name, p?.main_contractor_uen) },
-    { label: 'Offsite Fabricator', value: fmt(p?.offsite_fabricator_name, p?.offsite_fabricator_uen) },
     { label: 'Worker Company', value: fmt(p?.worker_company_name, p?.worker_company_uen) },
     { label: 'Worker Company Trade', value: p?.worker_company_trade || '---' },
     { label: 'Worker Company Client', value: fmt(p?.worker_company_client_name, p?.worker_company_client_uen) },

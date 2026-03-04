@@ -206,29 +206,3 @@ func (w ManpowerUtilizationWrapper) ToPushRequest(ctx context.Context) (*PushReq
 		OnBehalfOf:   onBehalfOf,
 	}, nil
 }
-
-// ManpowerDistributionWrapper wraps the payload to implement Submittable
-type ManpowerDistributionWrapper struct {
-	payloads.ManpowerDistribution
-}
-
-func (w ManpowerDistributionWrapper) DataElementID() string {
-	return "manpower_distribution"
-}
-
-func (w ManpowerDistributionWrapper) GetInternalID() string {
-	return fmt.Sprintf("%s_%s", w.SubmissionMonth, w.OffsiteFabricatorCompanyUEN)
-}
-
-func (w ManpowerDistributionWrapper) ToPushRequest(ctx context.Context) (*PushRequest, error) {
-	// Request level OnBehalfOf for the fabricator
-	onBehalfOf := []OnBehalfWrapper{
-		{ID: w.OffsiteFabricatorCompanyUEN},
-	}
-
-	return &PushRequest{
-		Participants: []ParticipantWrapper{}, // Initialize to empty slice for [] in JSON
-		Payload:      []any{w.ManpowerDistribution},
-		OnBehalfOf:   onBehalfOf,
-	}, nil
-}

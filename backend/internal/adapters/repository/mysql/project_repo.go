@@ -26,7 +26,6 @@ func (r *ProjectRepository) Get(ctx context.Context, userID, id string) (*domain
             p.project_id, p.site_id, p.user_id, p.project_title, p.status, 
             p.project_reference_number, p.project_contract_number, p.project_location_description, p.project_contract_name, p.hdb_precinct_name, 
             p.main_contractor_name, p.main_contractor_uen,
-            p.offsite_fabricator_name, p.offsite_fabricator_uen, p.offsite_fabricator_location,
             p.worker_company_name, p.worker_company_uen,
             p.worker_company_client_name, p.worker_company_client_uen, p.worker_company_trade,
             p.pitstop_auth_id, pa.on_behalf_of_name as pitstop_auth_name,
@@ -47,12 +46,12 @@ func (r *ProjectRepository) Get(ctx context.Context, userID, id string) (*domain
 
 	var p domain.Project
 	var siteID, scanUserID, status, ref, cRef, loc, cName, hdb sql.NullString
-	var mcName, mcUEN, ofName, ofUEN, ofLoc, wcName, wcUEN, wccName, wccUEN, wcTrade, pitstopAuthID, pitstopAuthName sql.NullString
+	var mcName, mcUEN, wcName, wcUEN, wccName, wccUEN, wcTrade, pitstopAuthID, pitstopAuthName sql.NullString
 
 	err := r.db.QueryRowContext(ctx, query, args...).Scan(
 		&p.ID, &siteID, &scanUserID, &p.Title, &status,
 		&ref, &cRef, &loc, &cName, &hdb,
-		&mcName, &mcUEN, &ofName, &ofUEN, &ofLoc, &wcName, &wcUEN, &wccName, &wccUEN, &wcTrade,
+		&mcName, &mcUEN, &wcName, &wcUEN, &wccName, &wccUEN, &wcTrade,
 		&pitstopAuthID, &pitstopAuthName,
 		&p.CreatedAt, &p.UpdatedAt, &p.SiteName, &p.WorkerCount, &p.DeviceCount,
 	)
@@ -93,15 +92,6 @@ func (r *ProjectRepository) Get(ctx context.Context, userID, id string) (*domain
 	if mcUEN.Valid {
 		p.MainContractorUEN = mcUEN.String
 	}
-	if ofName.Valid {
-		p.OffsiteFabricatorName = ofName.String
-	}
-	if ofUEN.Valid {
-		p.OffsiteFabricatorUEN = ofUEN.String
-	}
-	if ofLoc.Valid {
-		p.OffsiteFabricatorLocation = ofLoc.String
-	}
 	if wcName.Valid {
 		p.WorkerCompanyName = wcName.String
 	}
@@ -133,7 +123,6 @@ func (r *ProjectRepository) List(ctx context.Context, userID string) ([]domain.P
             p.project_id, p.site_id, p.user_id, p.project_title, p.status, 
             p.project_reference_number, p.project_contract_number, p.project_location_description, p.project_contract_name, p.hdb_precinct_name, 
             p.main_contractor_name, p.main_contractor_uen,
-            p.offsite_fabricator_name, p.offsite_fabricator_uen, p.offsite_fabricator_location,
             p.worker_company_name, p.worker_company_uen,
             p.worker_company_client_name, p.worker_company_client_uen, p.worker_company_trade,
             p.pitstop_auth_id, pa.on_behalf_of_name as pitstop_auth_name,
@@ -165,11 +154,11 @@ func (r *ProjectRepository) List(ctx context.Context, userID string) ([]domain.P
 	for rows.Next() {
 		var p domain.Project
 		var siteID, uid, status, ref, cRef, loc, cName, hdb sql.NullString
-		var mcName, mcUEN, ofName, ofUEN, ofLoc, wcName, wcUEN, wccName, wccUEN, wcTrade, pitstopAuthID, pitstopAuthName sql.NullString
+		var mcName, mcUEN, wcName, wcUEN, wccName, wccUEN, wcTrade, pitstopAuthID, pitstopAuthName sql.NullString
 		if err := rows.Scan(
 			&p.ID, &siteID, &uid, &p.Title, &status,
 			&ref, &cRef, &loc, &cName, &hdb,
-			&mcName, &mcUEN, &ofName, &ofUEN, &ofLoc, &wcName, &wcUEN, &wccName, &wccUEN, &wcTrade,
+			&mcName, &mcUEN, &wcName, &wcUEN, &wccName, &wccUEN, &wcTrade,
 			&pitstopAuthID, &pitstopAuthName,
 			&p.CreatedAt, &p.UpdatedAt, &p.SiteName, &p.WorkerCount, &p.DeviceCount,
 		); err != nil {
@@ -204,15 +193,6 @@ func (r *ProjectRepository) List(ctx context.Context, userID string) ([]domain.P
 		}
 		if mcUEN.Valid {
 			p.MainContractorUEN = mcUEN.String
-		}
-		if ofName.Valid {
-			p.OffsiteFabricatorName = ofName.String
-		}
-		if ofUEN.Valid {
-			p.OffsiteFabricatorUEN = ofUEN.String
-		}
-		if ofLoc.Valid {
-			p.OffsiteFabricatorLocation = ofLoc.String
 		}
 		if wcName.Valid {
 			p.WorkerCompanyName = wcName.String
@@ -252,18 +232,16 @@ func (r *ProjectRepository) Create(ctx context.Context, p *domain.Project) error
         project_id, site_id, user_id, project_title, status, project_reference_number, 
         project_contract_number, project_location_description, project_contract_name, hdb_precinct_name, 
         main_contractor_name, main_contractor_uen,
-        offsite_fabricator_name, offsite_fabricator_uen, offsite_fabricator_location,
         worker_company_name, worker_company_uen,
         worker_company_client_name, worker_company_client_uen, worker_company_trade,
         pitstop_auth_id,
         created_at, updated_at
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())`
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())`
 
 	_, err = r.db.ExecContext(ctx, query,
 		p.ID, p.SiteID, p.UserID, p.Title, p.Status, p.Reference,
 		p.ContractRef, p.Location, p.ContractName, toNullString(p.HDBPrecinct),
 		toNullString(p.MainContractorName), toNullString(p.MainContractorUEN),
-		toNullString(p.OffsiteFabricatorName), toNullString(p.OffsiteFabricatorUEN), toNullString(p.OffsiteFabricatorLocation),
 		toNullString(p.WorkerCompanyName), toNullString(p.WorkerCompanyUEN),
 		toNullString(p.WorkerCompanyClientName), toNullString(p.WorkerCompanyClientUEN), toNullString(p.WorkerCompanyTrade),
 		toNullableStringPtr(p.PitstopAuthID),
@@ -276,7 +254,6 @@ func (r *ProjectRepository) Update(ctx context.Context, p *domain.Project) error
         site_id=?, user_id=?, project_title=?, status=?, project_reference_number=?, 
         project_contract_number=?, project_location_description=?, project_contract_name=?, hdb_precinct_name=?, 
         main_contractor_name=?, main_contractor_uen=?,
-        offsite_fabricator_name=?, offsite_fabricator_uen=?, offsite_fabricator_location=?,
         worker_company_name=?, worker_company_uen=?,
         worker_company_client_name=?, worker_company_client_uen=?, worker_company_trade=?,
         pitstop_auth_id=?,
@@ -287,7 +264,6 @@ func (r *ProjectRepository) Update(ctx context.Context, p *domain.Project) error
 		p.SiteID, p.UserID, p.Title, p.Status, p.Reference,
 		p.ContractRef, p.Location, p.ContractName, toNullString(p.HDBPrecinct),
 		toNullString(p.MainContractorName), toNullString(p.MainContractorUEN),
-		toNullString(p.OffsiteFabricatorName), toNullString(p.OffsiteFabricatorUEN), toNullString(p.OffsiteFabricatorLocation),
 		toNullString(p.WorkerCompanyName), toNullString(p.WorkerCompanyUEN),
 		toNullString(p.WorkerCompanyClientName), toNullString(p.WorkerCompanyClientUEN), toNullString(p.WorkerCompanyTrade),
 		toNullableStringPtr(p.PitstopAuthID),

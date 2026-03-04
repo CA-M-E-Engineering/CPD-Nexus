@@ -171,7 +171,6 @@ func (r *AttendanceRepository) ExtractPendingAttendance(ctx context.Context) ([]
 			a.time_in, a.time_out, a.direction, a.trade_code, a.status, a.submission_date,
 			s.site_name, s.location,
 			p.project_reference_number,
-			p.offsite_fabricator_name, p.offsite_fabricator_uen, p.offsite_fabricator_location,
 			p.main_contractor_name, p.main_contractor_uen,
 			w.name AS worker_name, w.person_id_no, w.person_trade AS worker_trade,
 			p.worker_company_name, p.worker_company_uen, p.worker_company_trade,
@@ -210,9 +209,6 @@ func (r *AttendanceRepository) ExtractPendingAttendance(ctx context.Context) ([]
 			&res.SiteName,
 			&res.SiteLocation,
 			&res.ProjectRef,
-			&res.OffsiteFabricator,
-			&res.OffsiteFabricatorUEN,
-			&res.OffsiteFabricatorLocation,
 			&mcName,
 			&mcUEN,
 			&res.WorkerName,
@@ -254,59 +250,6 @@ func (r *AttendanceRepository) ExtractPendingAttendance(ctx context.Context) ([]
 
 	if err = rows.Err(); err != nil {
 		return nil, err
-	}
-
-	return results, nil
-}
-
-func (r *AttendanceRepository) ExtractMonthlyDistributionData(ctx context.Context) ([]domain.MonthlyDistributionRow, error) {
-	query := `
-		SELECT 
-			p.offsite_fabricator_name, p.offsite_fabricator_uen, p.offsite_fabricator_location,
-			p.project_reference_number, p.project_title, p.project_location_description,
-			DATE_FORMAT(a.submission_date, '%Y-%m') as submission_month,
-			COUNT(*) as attendance_count
-		FROM attendance a
-		JOIN workers w ON a.worker_id = w.worker_id
-		JOIN projects p ON w.current_project_id = p.project_id
-		WHERE p.offsite_fabricator_uen IS NOT NULL 
-		  AND p.offsite_fabricator_uen != ''
-		  AND DATE_FORMAT(a.submission_date, '%Y-%m') = DATE_FORMAT(CURRENT_DATE, '%Y-%m')
-		GROUP BY 
-			p.offsite_fabricator_name, p.offsite_fabricator_uen, p.offsite_fabricator_location,
-			p.project_reference_number, p.project_title, p.project_location_description,
-			submission_month
-	`
-
-	rows, err := r.db.QueryContext(ctx, query)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-
-	var results []domain.MonthlyDistributionRow
-	for rows.Next() {
-		var res domain.MonthlyDistributionRow
-		var fabName, fabLoc, projRef, projTitle, projLoc sql.NullString
-		err := rows.Scan(
-			&fabName,
-			&res.FabricatorUEN,
-			&fabLoc,
-			&projRef,
-			&projTitle,
-			&projLoc,
-			&res.SubmissionMonth,
-			&res.AttendanceCount,
-		)
-		if err != nil {
-			return nil, err
-		}
-		res.FabricatorName = fabName.String
-		res.FabricatorLocation = fabLoc.String
-		res.ProjectRef = projRef.String
-		res.ProjectTitle = projTitle.String
-		res.ProjectLocation = projLoc.String
-		results = append(results, res)
 	}
 
 	return results, nil

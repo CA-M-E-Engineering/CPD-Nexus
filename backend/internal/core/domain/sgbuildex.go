@@ -23,11 +23,6 @@ type AttendanceRow struct {
 	SiteLocation string
 	ProjectRef   string
 
-	// Offsite Fabricator fields (from Project)
-	OffsiteFabricator         sql.NullString
-	OffsiteFabricatorUEN      sql.NullString
-	OffsiteFabricatorLocation sql.NullString
-
 	// Main Contractor fields (from Project)
 	SiteOwnerName string
 	SiteOwnerUEN  string
@@ -45,16 +40,4 @@ type AttendanceRow struct {
 	PICFIN  string
 
 	SubmissionDate time.Time
-}
-
-// MonthlyDistributionRow represents aggregated attendance data for MD submissions
-type MonthlyDistributionRow struct {
-	FabricatorName     string
-	FabricatorUEN      string
-	FabricatorLocation string
-	ProjectRef         string
-	ProjectTitle       string
-	ProjectLocation    string
-	SubmissionMonth    string
-	AttendanceCount    int
 }

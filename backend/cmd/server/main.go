@@ -130,18 +130,7 @@ func main() {
 			}
 		}
 
-		// 1. Manpower Distribution
-		distRows, err := attendanceRepo.ExtractMonthlyDistributionData(taskCtx)
-		if err == nil {
-			mdPayloads := sgbuildex.MapAggregationToDistribution(distRows)
-			mdSubmittables := make([]sgbuildex.ManpowerDistributionWrapper, len(mdPayloads))
-			for i, p := range mdPayloads {
-				mdSubmittables[i] = sgbuildex.ManpowerDistributionWrapper{ManpowerDistribution: p}
-			}
-			sgbuildex.SubmitPayloads(taskCtx, submissionRepo, client, settings, mdSubmittables)
-		}
-
-		// 2. Manpower Utilization
+		// 1. Manpower Utilization
 		rows, err := attendanceRepo.ExtractPendingAttendance(taskCtx)
 		if err == nil && len(rows) > 0 {
 			muPayloads := sgbuildex.MapAttendanceToManpower(rows)

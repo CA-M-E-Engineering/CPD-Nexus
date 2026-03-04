@@ -52,69 +52,6 @@ func MapAttendanceToManpower(rows []domain.AttendanceRow) []payloads.ManpowerUti
 	return results
 }
 
-// MapAggregationToDistribution converts aggregated SQL results to ManpowerDistribution payloads
-func MapAggregationToDistribution(rows []domain.MonthlyDistributionRow) []payloads.ManpowerDistribution {
-	type fabricatorKey struct {
-		UEN   string
-		Month string
-	}
-
-	type fabricatorData struct {
-		Name     string
-		Location string
-		Projects []payloads.ManpowerDistributionClient
-		Total    int
-	}
-
-	data := make(map[fabricatorKey]*fabricatorData)
-
-	// Group results by fabricator to calculate ratios
-	for _, r := range rows {
-		key := fabricatorKey{UEN: r.FabricatorUEN, Month: r.SubmissionMonth}
-		if _, ok := data[key]; !ok {
-			data[key] = &fabricatorData{
-				Name:     r.FabricatorName,
-				Location: r.FabricatorLocation,
-				Projects: []payloads.ManpowerDistributionClient{},
-			}
-		}
-		fData := data[key]
-		fData.Total += r.AttendanceCount
-		fData.Projects = append(fData.Projects, payloads.ManpowerDistributionClient{
-			ProjectReferenceNumber:     r.ProjectRef,
-			ProjectTitle:               r.ProjectTitle,
-			ProjectLocationDescription: r.ProjectLocation,
-			FabricationStartMonth:      r.SubmissionMonth,
-			FabricationCompleteMonth:   r.SubmissionMonth,
-			ManpowerRatio:              r.AttendanceCount, // Store count temporarily, will convert to ratio next
-		})
-	}
-
-	var results []payloads.ManpowerDistribution
-	for key, fData := range data {
-		payload := payloads.ManpowerDistribution{
-			SubmissionMonth:                      key.Month,
-			OffsiteFabricatorCompanyName:         fData.Name,
-			OffsiteFabricatorCompanyUEN:          key.UEN,
-			OffsiteFabricatorLocationDescription: fData.Location,
-			ManpowerDistributionStorageRatio:     20, // Default value
-			ManpowerDistributionClientDetails:    []payloads.ManpowerDistributionClient{},
-		}
-
-		for _, p := range fData.Projects {
-			ratio := 0
-			if fData.Total > 0 {
-				ratio = (p.ManpowerRatio * 100) / fData.Total
-			}
-			p.ManpowerRatio = ratio
-			payload.ManpowerDistributionClientDetails = append(payload.ManpowerDistributionClientDetails, p)
-		}
-		results = append(results, payload)
-	}
-
-	return results
-}
-
 func formatNullTime(t sql.NullTime) string {
 	if !t.Valid {
 		return ""

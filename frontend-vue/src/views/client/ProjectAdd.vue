@@ -61,9 +61,7 @@ const formData = ref({
   hdb_precinct: '',
   main_contractor_name: '',
   main_contractor_uen: '',
-  offsite_fabricator_name: '',
-  offsite_fabricator_uen: '',
-  offsite_fabricator_location: '',
+
   worker_company_name: '',
   worker_company_uen: '',
   worker_company_client_name: '',
@@ -255,15 +253,6 @@ const handleSubmit = async () => {
                     </div>
                   </div>
               </div>
-            </div>
-          </div>
-
-          <div class="form-section-card">
-            <h3 class="section-title">Offsite Fabricator</h3>
-            <div class="form-grid">
-              <BaseInput v-model="formData.offsite_fabricator_name" label="Company Name" placeholder="e.g., Delta Fabrication Ltd" />
-              <BaseInput v-model="formData.offsite_fabricator_uen" label="UEN" placeholder="e.g., UEN-FAB-001" />
-              <BaseInput v-model="formData.offsite_fabricator_location" label="Location" placeholder="e.g., 10 Industrial Way, Singapore" class="full-width" />
             </div>
           </div>
         </div>

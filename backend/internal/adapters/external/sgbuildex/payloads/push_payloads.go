@@ -44,23 +44,3 @@ type AttendanceDetail struct {
 	TimeIn  string `json:"time_in"`
 	TimeOut string `json:"time_out"`
 }
-
-// ManpowerDistribution represents manpower distribution data for offsite fabrication
-type ManpowerDistribution struct {
-	SubmissionMonth                      string                       `json:"submission_month"` // format "YYYY-MM"
-	OffsiteFabricatorCompanyName         string                       `json:"offsite_fabricator_company_name"`
-	OffsiteFabricatorCompanyUEN          string                       `json:"offsite_fabricator_company_unique_entity_number"`
-	OffsiteFabricatorLocationDescription string                       `json:"offsite_fabricator_location_description"`
-	ManpowerDistributionStorageRatio     int                          `json:"manpower_distribution_storage_ratio"`
-	ManpowerDistributionClientDetails    []ManpowerDistributionClient `json:"manpower_distribution_client_details"`
-}
-
-// ManpowerDistributionClient represents manpower allocation for a client project
-type ManpowerDistributionClient struct {
-	ProjectReferenceNumber     string `json:"project_reference_number"`
-	ProjectTitle               string `json:"project_title"`
-	ProjectLocationDescription string `json:"project_location_description"`
-	FabricationStartMonth      string `json:"fabrication_start_month"`    // format "YYYY-MM"
-	FabricationCompleteMonth   string `json:"fabrication_complete_month"` // format "YYYY-MM"
-	ManpowerRatio              int    `json:"manpower_ratio"`             // e.g., 100 for 100%
-}
