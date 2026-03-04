@@ -7,6 +7,7 @@ import (
 	"sgbuildex/internal/core/ports"
 	"sgbuildex/internal/pkg/apperrors"
 	"sgbuildex/internal/pkg/timeutil"
+	"sgbuildex/internal/pkg/validation"
 	"time"
 )
 
@@ -34,6 +35,9 @@ func (s *WorkerService) ListWorkers(ctx context.Context, userID, siteID string) 
 }
 
 func (s *WorkerService) CreateWorker(ctx context.Context, w *domain.Worker) error {
+	if err := s.validateWorker(w); err != nil {
+		return err
+	}
 	if w.ID == "" {
 		w.ID = "w" + time.Now().Format("20060102150405")
 	}
@@ -66,6 +70,52 @@ func (s *WorkerService) CreateWorker(ctx context.Context, w *domain.Worker) erro
 	return s.repo.Create(ctx, w)
 }
 
+func (s *WorkerService) validateWorker(w *domain.Worker) error {
+	if w.PersonIDNo != "" && !validation.ValidateNRICFIN(w.PersonIDNo) {
+		return apperrors.NewValidationError("invalid person_id_no format (NRIC/FIN)")
+	}
+	if w.PersonIDAndWorkPassType != "" && !validation.ValidateWorkPassType(w.PersonIDAndWorkPassType) {
+		return apperrors.NewValidationError("invalid person_id_and_work_pass_type (Enum: SP, SB, EP, SPASS, WP, ENTREPASS, LTVP)")
+	}
+	if w.PersonNationality != "" && len(w.PersonNationality) != 2 {
+		return apperrors.NewValidationError("person_nationality must be 2 characters (ISO 3166)")
+	}
+	if w.PersonTrade != "" && !validation.ValidatePersonTrade(w.PersonTrade) {
+		return apperrors.NewValidationError("invalid person_trade (e.g. 1.1, 2.5, etc.)")
+	}
+	return nil
+}
+
+func (s *WorkerService) applyPayloadToWorker(existing *domain.Worker, payload map[string]interface{}) {
+	if v, ok := payload["name"].(string); ok {
+		existing.Name = v
+	}
+	if v, ok := payload["email"].(string); ok {
+		existing.Email = v
+	}
+	if v, ok := payload["role"].(string); ok {
+		existing.Role = v
+	}
+	if v, ok := payload["user_type"].(string); ok {
+		existing.UserType = v
+	}
+	if v, ok := payload["status"].(string); ok {
+		existing.Status = v
+	}
+	if v, ok := payload["person_id_no"].(string); ok {
+		existing.PersonIDNo = v
+	}
+	if v, ok := payload["person_id_and_work_pass_type"].(string); ok {
+		existing.PersonIDAndWorkPassType = v
+	}
+	if v, ok := payload["person_nationality"].(string); ok {
+		existing.PersonNationality = v
+	}
+	if v, ok := payload["person_trade"].(string); ok {
+		existing.PersonTrade = v
+	}
+}
+
 func (s *WorkerService) UpdateWorker(ctx context.Context, userID, id string, payload map[string]interface{}) error {
 	if userID == "" {
 		return apperrors.NewPermissionDenied("user_id scope required")
@@ -73,6 +123,14 @@ func (s *WorkerService) UpdateWorker(ctx context.Context, userID, id string, pay
 
 	existing, err := s.repo.Get(ctx, userID, id)
 	if err != nil {
+		return err
+	}
+
+	// Dynamic overlay logic
+	// Temporarily apply modifications for validation
+	temp := *existing
+	s.applyPayloadToWorker(&temp, payload)
+	if err := s.validateWorker(&temp); err != nil {
 		return err
 	}
 

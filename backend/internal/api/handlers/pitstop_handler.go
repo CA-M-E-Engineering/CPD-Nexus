@@ -68,3 +68,45 @@ func (h *PitstopHandler) AssignOnBehalfOf(w http.ResponseWriter, r *http.Request
 	w.WriteHeader(http.StatusOK)
 	w.Write([]byte(`{"message": "On behalf of entities successfully assigned to user"}`))
 }
+
+// TestSubmission handles manual triggering of the CPD submission for a specific project
+func (h *PitstopHandler) TestSubmission(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	projectID := vars["project_id"]
+
+	if projectID == "" {
+		http.Error(w, "project_id is required", http.StatusBadRequest)
+		return
+	}
+
+	count, err := h.pitstopService.TestSubmission(r.Context(), projectID)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	response := map[string]interface{}{
+		"message": "Test submission completed successfully.",
+		"metrics": map[string]int{
+			"payloads_submitted": count,
+		},
+	}
+	json.NewEncoder(w).Encode(response)
+}
+
+// GetTestingProjects handles retrieving a list of unique projects that currently have pending attendance records
+func (h *PitstopHandler) GetTestingProjects(w http.ResponseWriter, r *http.Request) {
+	projects, err := h.pitstopService.GetProjectsWithPendingAttendance(r.Context())
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	if len(projects) == 0 {
+		json.NewEncoder(w).Encode(map[string]interface{}{"data": []interface{}{}})
+		return
+	}
+	json.NewEncoder(w).Encode(map[string]interface{}{"data": projects})
+}

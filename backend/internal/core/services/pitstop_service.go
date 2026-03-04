@@ -10,14 +10,26 @@ import (
 )
 
 type PitstopService struct {
-	pitstopRepo   ports.PitstopRepository
-	pitstopClient *sgbuildex.Client
+	pitstopRepo    ports.PitstopRepository
+	pitstopClient  *sgbuildex.Client
+	attendanceRepo ports.AttendanceRepository
+	submissionRepo ports.SubmissionRepository
+	settingsRepo   ports.SettingsRepository
 }
 
-func NewPitstopService(repo ports.PitstopRepository, client *sgbuildex.Client) *PitstopService {
+func NewPitstopService(
+	repo ports.PitstopRepository,
+	client *sgbuildex.Client,
+	attendanceRepo ports.AttendanceRepository,
+	submissionRepo ports.SubmissionRepository,
+	settingsRepo ports.SettingsRepository,
+) *PitstopService {
 	return &PitstopService{
-		pitstopRepo:   repo,
-		pitstopClient: client,
+		pitstopRepo:    repo,
+		pitstopClient:  client,
+		attendanceRepo: attendanceRepo,
+		submissionRepo: submissionRepo,
+		settingsRepo:   settingsRepo,
 	}
 }
 
@@ -138,6 +150,50 @@ func (s *PitstopService) SyncConfig(ctx context.Context, userID string) error {
 	}
 
 	return nil
+}
+
+// GetProjectsWithPendingAttendance returns a list of unique projects that have pending attendance records
+func (s *PitstopService) GetProjectsWithPendingAttendance(ctx context.Context) ([]domain.Project, error) {
+	return s.attendanceRepo.ExtractProjectsWithPendingAttendance(ctx)
+}
+
+// TestSubmission extracts pending attendance for a given project and immediately pushes it
+func (s *PitstopService) TestSubmission(ctx context.Context, projectID string) (int, error) {
+	// 1. Fetch latest settings for limits
+	settings, err := s.settingsRepo.GetSettings(ctx)
+	if err != nil {
+		// Use defaults if settings fetch fails
+		settings = &domain.SystemSettings{
+			MaxWorkersPerRequest: 100,
+			MaxPayloadSizeKB:     256,
+			MaxRequestsPerMinute: 150,
+		}
+	}
+
+	// 2. Extact pending attendance specifically for this project
+	rows, err := s.attendanceRepo.ExtractPendingAttendanceByProject(ctx, projectID)
+	if err != nil {
+		return 0, fmt.Errorf("failed to extract project attendance: %w", err)
+	}
+
+	if len(rows) == 0 {
+		return 0, nil // Nothing to submit
+	}
+
+	// 3. Map to payloads and wrap for submittable interface
+	muPayloads := sgbuildex.MapAttendanceToManpower(rows)
+	muSubmittables := make([]sgbuildex.ManpowerUtilizationWrapper, len(muPayloads))
+	for i, p := range muPayloads {
+		muSubmittables[i] = sgbuildex.ManpowerUtilizationWrapper{ManpowerUtilization: p}
+	}
+
+	// 4. Submit specifically these payloads
+	err = sgbuildex.SubmitPayloads(ctx, s.submissionRepo, s.pitstopClient, settings, muSubmittables)
+	if err != nil {
+		return 0, fmt.Errorf("failed to submit payloads: %w", err)
+	}
+
+	return len(muSubmittables), nil
 }
 
 // AssignOnBehalfOfToUser assigns a set of contractor names to a specific UserID for pitstop authorisations

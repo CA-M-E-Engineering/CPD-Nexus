@@ -6,6 +6,7 @@ import PageHeader from '../../components/ui/PageHeader.vue';
 import BaseInput from '../../components/ui/BaseInput.vue';
 import BaseButton from '../../components/ui/BaseButton.vue';
 import PersonnelAssignment from '../../components/project/PersonnelAssignment.vue';
+import { validateProjectRef, validateUEN, validateHDBContract, validateLTAContract, sanitizeUEN } from '../../utils/validation.js';
 
 const TRADES = [
   { value: '1.1', label: '1.1 - Site Management (Ancillary Works)' },
@@ -73,6 +74,7 @@ const formData = ref({
 
 const sites = ref([]);
 const pitstopAuths = ref([]);
+const formErrors = ref({});
 const isEdit = computed(() => props.mode === 'edit');
 
 const fetchData = async () => {
@@ -157,14 +159,62 @@ onMounted(async () => {
     await fetchProject();
 });
 
+const validateForm = () => {
+    const errors = {};
+    if (!formData.value.reference) {
+        errors.reference = 'Project reference is required';
+    } else if (!validateProjectRef(formData.value.reference)) {
+        errors.reference = 'Invalid format. Expected: A1234-12345-2022';
+    }
+
+    if (!formData.value.title) {
+        errors.title = 'Project title is required';
+    } else if (formData.value.title.length > 1000) {
+        errors.title = 'Title too long (max 1000)';
+    }
+
+    if (formData.value.contract) {
+        const isHDB = validateHDBContract(formData.value.contract);
+        const isLTA = validateLTAContract(formData.value.contract);
+        if (!isHDB && !isLTA) {
+            errors.contract = 'Invalid contract format (HDB: D/NNNNN/YY, LTA: Max 20 chars)';
+        }
+    }
+
+    if (formData.value.main_contractor_uen && !validateUEN(formData.value.main_contractor_uen)) {
+        errors.main_contractor_uen = 'Invalid UEN format';
+    }
+    if (formData.value.worker_company_uen && !validateUEN(formData.value.worker_company_uen)) {
+        errors.worker_company_uen = 'Invalid UEN format';
+    }
+    if (formData.value.worker_company_client_uen && !validateUEN(formData.value.worker_company_client_uen)) {
+        errors.worker_company_client_uen = 'Invalid UEN format';
+    }
+
+    formErrors.value = errors;
+    return Object.keys(errors).length === 0;
+};
+
 const handleSubmit = async () => {
+  if (!validateForm()) {
+    notification.error('Please fix the errors in the form before submitting');
+    return;
+  }
+
   isSaving.value = true;
   try {
+    const dataToSave = {
+        ...formData.value,
+        main_contractor_uen: sanitizeUEN(formData.value.main_contractor_uen),
+        worker_company_uen: sanitizeUEN(formData.value.worker_company_uen),
+        worker_company_client_uen: sanitizeUEN(formData.value.worker_company_client_uen),
+    };
+    
     if (isEdit.value) {
-      await api.updateProject(props.id, formData.value);
+      await api.updateProject(props.id, dataToSave);
       notification.success('Project details updated');
     } else {
-      await api.createProject(formData.value);
+      await api.createProject(dataToSave);
       notification.success('New project created successfully');
     }
     emit('navigate', 'projects');
@@ -194,8 +244,8 @@ const handleSubmit = async () => {
           <div class="form-section-card">
             <h3 class="section-title">Project Details</h3>
             <div class="form-grid">
-              <BaseInput v-model="formData.reference" label="Project Reference Number" placeholder="e.g., PRJ-2024-001" required />
-              <BaseInput v-model="formData.title" label="Project Title" placeholder="e.g., Marina Bay Tower" required />
+              <BaseInput v-model="formData.reference" label="Project Reference Number" placeholder="e.g., A1234-12345-2022" :error="formErrors.reference" required />
+              <BaseInput v-model="formData.title" label="Project Title" placeholder="e.g., Marina Bay Tower" :error="formErrors.title" required />
               
               <div class="form-group">
                   <label class="form-label">Assign to Site <span class="required">*</span></label>
@@ -218,10 +268,10 @@ const handleSubmit = async () => {
                   <span class="help-text">Links this project to CPD Data submission if selected.</span>
               </div>
 
-              <BaseInput v-model="formData.location" label="Project Location Description" placeholder="e.g., Marina Bay, Central Singapore" required />
-              <BaseInput v-model="formData.contract" label="Project Contract Number" placeholder="e.g., CNT-2024-MB" required />
-              <BaseInput v-model="formData.contract_name" label="Project Contract Name" placeholder="e.g., Marina Bay Development" required />
-              <BaseInput v-model="formData.hdb_precinct" label="HDB Precinct Name" placeholder="e.g., Marina Precinct (if applicable)" />
+              <BaseInput v-model="formData.location" label="Project Location Description" placeholder="e.g., Marina Bay, Central Singapore" :error="formErrors.location" required />
+              <BaseInput v-model="formData.contract" label="Project Contract Number" placeholder="HDB Case: D/12345/24" :error="formErrors.contract" required />
+              <BaseInput v-model="formData.contract_name" label="Project Contract Name" placeholder="e.g., Marina Bay Development" :error="formErrors.contract_name" required />
+              <BaseInput v-model="formData.hdb_precinct" label="HDB Precinct Name" placeholder="e.g., Marina Precinct (if applicable)" :error="formErrors.hdb_precinct" />
             </div>
           </div>
 
@@ -229,11 +279,11 @@ const handleSubmit = async () => {
             <h3 class="section-title">Contractor & Workforce</h3>
             <div class="form-grid">
               <BaseInput v-model="formData.main_contractor_name" label="Main Contractor" placeholder="e.g., Mega Engineering Pte Ltd" />
-              <BaseInput v-model="formData.main_contractor_uen" label="Main Contractor UEN" placeholder="e.g., 200012345X" />
+              <BaseInput v-model="formData.main_contractor_uen" label="Main Contractor UEN" placeholder="e.g., 200012345X" :error="formErrors.main_contractor_uen" />
               <BaseInput v-model="formData.worker_company_name" label="Worker Company Name" placeholder="e.g., WorkForce Solutions Pte Ltd" />
-              <BaseInput v-model="formData.worker_company_uen" label="Worker Company UEN" placeholder="e.g., 201998765W" />
+              <BaseInput v-model="formData.worker_company_uen" label="Worker Company UEN" placeholder="e.g., 201998765W" :error="formErrors.worker_company_uen" />
               <BaseInput v-model="formData.worker_company_client_name" label="Worker Company Client Name" placeholder="e.g., HDB Infrastructure" />
-              <BaseInput v-model="formData.worker_company_client_uen" label="Worker Company Client UEN" placeholder="e.g., 196100018G" />
+              <BaseInput v-model="formData.worker_company_client_uen" label="Worker Company Client UEN" placeholder="e.g., 196100018G" :error="formErrors.worker_company_client_uen" />
               <div class="form-group full-width">
                   <label class="form-label">Worker Company Trade(s)</label>
                   <div class="trade-selection-area">

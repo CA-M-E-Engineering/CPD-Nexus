@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"log"
 	"net/http"
 	"os"
 	"strings"
@@ -34,9 +35,9 @@ func (c *Client) FetchAPIKey() string {
 	return strings.TrimSpace(os.Getenv("SGTRADEX_API_KEY"))
 }
 
-// PostJSON sends a JSON payload to the specified endpoint
+// PostJSON sends a JSON payload to the specified endpoint on the Pitstop server
 func (c *Client) PostJSON(endpoint string, payload any) (*http.Response, error) {
-	url := fmt.Sprintf("%s/%s", c.BaseURL, endpoint)
+	url := fmt.Sprintf("%s/%s", c.PitstopURL, endpoint)
 
 	jsonBytes, err := json.Marshal(payload)
 	if err != nil {
@@ -49,8 +50,18 @@ func (c *Client) PostJSON(endpoint string, payload any) (*http.Response, error) 
 	}
 
 	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Accept", "application/json")
 	if c.APIKey != "" {
 		req.Header.Set("SGTRADEX-API-KEY", c.APIKey)
+		req.Header.Set("x-api-key", c.APIKey)
+		req.Header.Set("Authorization", c.APIKey)
+	}
+
+	log.Printf("[SGBuildex] Executing POST request to: %s", url)
+	if c.APIKey == "" {
+		log.Printf("[SGBuildex] WARNING: API Key is empty!")
+	} else {
+		log.Printf("[SGBuildex] API Key is set (length: %d)", len(c.APIKey))
 	}
 
 	resp, err := c.HTTPClient.Do(req)

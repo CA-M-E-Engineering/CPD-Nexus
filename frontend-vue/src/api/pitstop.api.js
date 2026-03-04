@@ -22,5 +22,20 @@ export const pitstopApi = {
      */
     assignOnBehalfOfs(userId, onBehalfOfNames) {
         return http.post(`/users/${userId}/pitstop-on-behalf-of`, { on_behalf_of_names: onBehalfOfNames });
+    },
+
+    /**
+     * Submit an isolated test payload containing pending attendance for a given project
+     * @param {string} projectId 
+     */
+    testSubmission(projectId) {
+        return http.post(`/pitstop/authorisations/test-submission/${projectId}`);
+    },
+
+    /**
+     * Fetch projects that specifically have pending attendance records for testing
+     */
+    getTestingProjects() {
+        return http.get('/pitstop/authorisations/testing-projects');
     }
 };

@@ -17,13 +17,16 @@ type ManpowerUtilization struct {
 	ProjectReferenceNumber     *string `json:"project_reference_number,omitempty"`
 	ProjectTitle               *string `json:"project_title,omitempty"`
 	ProjectLocationDescription *string `json:"project_location_description,omitempty"`
+	ProjectContractNumber      *string `json:"project_contract_number,omitempty"`
+	ProjectContractName        *string `json:"project_contract_name,omitempty"`
+	HdbPrecinctName            *string `json:"hdb_precinct_name,omitempty"`
 	MainContractorCompanyName  *string `json:"main_contractor_company_name,omitempty"`
 	MainContractorCompanyUEN   *string `json:"main_contractor_company_unique_entity_number,omitempty"`
 
 	// Person
 	PersonIDNo                      string   `json:"person_id_no"`
-	PersonName                      string   `json:"person_name"`
 	PersonIDAndWorkPassType         string   `json:"person_id_and_work_pass_type"`
+	PersonNationality               *string  `json:"person_nationality,omitempty"`
 	PersonTrade                     string   `json:"person_trade"`
 	PersonEmployerCompanyName       string   `json:"person_employer_company_name"`
 	PersonEmployerCompanyUEN        string   `json:"person_employer_company_unique_entity_number"`

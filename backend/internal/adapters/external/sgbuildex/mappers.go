@@ -3,6 +3,7 @@ package sgbuildex
 import (
 	"database/sql"
 	"sgbuildex/internal/core/domain"
+	"sgbuildex/internal/pkg/validation"
 	"strings"
 	"time"
 
@@ -11,7 +12,12 @@ import (
 
 // MapAttendanceToManpower converts DB rows to ManpowerUtilization payloads
 func MapAttendanceToManpower(rows []domain.AttendanceRow) []payloads.ManpowerUtilization {
-	ptr := func(s string) *string { return &s }
+	ptr := func(s string) *string {
+		if s == "" {
+			return nil
+		}
+		return &s
+	}
 
 	var results []payloads.ManpowerUtilization
 	for _, r := range rows {
@@ -27,17 +33,20 @@ func MapAttendanceToManpower(rows []domain.AttendanceRow) []payloads.ManpowerUti
 			ProjectReferenceNumber:          ptr(r.ProjectRef),
 			ProjectTitle:                    ptr(r.ProjectTitle),
 			ProjectLocationDescription:      ptr(r.ProjectLocation),
+			ProjectContractNumber:           ptr(r.ProjectContractNo),
+			ProjectContractName:             ptr(r.ProjectContractName),
+			HdbPrecinctName:                 ptr(r.HDBPrecinctName),
 			MainContractorCompanyName:       ptr(r.SiteOwnerName),
-			MainContractorCompanyUEN:        ptr(r.SiteOwnerUEN),
-			PersonIDNo:                      r.WorkerFIN,
-			PersonName:                      r.WorkerName,
-			PersonIDAndWorkPassType:         r.WorkerWorkPassType,
+			MainContractorCompanyUEN:        ptr(validation.SanitizeUEN(r.SiteOwnerUEN)),
+			PersonIDNo:                      strings.ToUpper(strings.TrimSpace(r.WorkerFIN)),
+			PersonIDAndWorkPassType:         strings.ToUpper(strings.TrimSpace(r.WorkerWorkPassType)),
+			PersonNationality:               ptr(strings.ToUpper(strings.TrimSpace(r.WorkerNationality))),
 			PersonTrade:                     r.TradeCode,
 			PersonEmployerCompanyName:       r.EmployerName,
-			PersonEmployerCompanyUEN:        r.EmployerUEN,
+			PersonEmployerCompanyUEN:        validation.SanitizeUEN(r.EmployerUEN),
 			PersonEmployerCompanyTrade:      parseTrades(r.EmployerTrade),
 			PersonEmployerClientCompanyName: r.EmployerClientName,
-			PersonEmployerClientCompanyUEN:  r.EmployerClientUEN,
+			PersonEmployerClientCompanyUEN:  validation.SanitizeUEN(r.EmployerClientUEN),
 			PersonAttendanceDate:            r.TimeIn.Format("2006-01-02"),
 			PersonAttendanceDetails: []payloads.AttendanceDetail{
 				{

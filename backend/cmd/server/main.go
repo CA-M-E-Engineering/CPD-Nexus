@@ -68,7 +68,7 @@ func main() {
 
 	// Internal client for external fetch
 	sgClient := sgbuildex.NewClient(cfg.IngressURL, cfg.PitstopURL)
-	pitstopService := services.NewPitstopService(pitstopRepo, sgClient)
+	pitstopService := services.NewPitstopService(pitstopRepo, sgClient, attendanceRepo, submissionRepo, settingsRepo)
 
 	// Handlers
 	routerCfg := api.RouterConfig{

@@ -6,6 +6,7 @@ import PageHeader from '../../components/ui/PageHeader.vue';
 import BaseInput from '../../components/ui/BaseInput.vue';
 import BaseButton from '../../components/ui/BaseButton.vue';
 import BaseBadge from '../../components/ui/BaseBadge.vue';
+import { validateNRICFIN, validateWorkPassType, validatePersonTrade } from '../../utils/validation.js';
 
 const props = defineProps({
   id: [Number, String],
@@ -28,6 +29,8 @@ const formData = ref({
   person_nationality: '',
   person_trade: '1.2'
 });
+
+const formErrors = ref({});
 
 const getTodayStr = () => {
     const d = new Date();
@@ -165,14 +168,39 @@ watch(() => props.id, async (newId) => {
     }
 });
 
-const validateId = (val) => {
-    const regex = /^[STFGM]\d{7}[A-Z0-9]$/;
-    return regex.test(val);
+const validateForm = () => {
+    const errors = {};
+    if (!formData.value.name) {
+        errors.name = 'Full name is required';
+    }
+
+    if (!formData.value.person_id_no) {
+        errors.person_id_no = 'Person Identity Number is required';
+    } else if (!validateNRICFIN(formData.value.person_id_no)) {
+        errors.person_id_no = 'Invalid NRIC/FIN format (e.g. S1234567D)';
+    }
+
+    if (!formData.value.person_nationality) {
+        errors.person_nationality = 'Nationality is required';
+    } else if (formData.value.person_nationality.length !== 2) {
+        errors.person_nationality = 'Must be 2-character ISO code (e.g. SG)';
+    }
+
+    if (formData.value.person_id_and_work_pass_type && !validateWorkPassType(formData.value.person_id_and_work_pass_type)) {
+        errors.person_id_and_work_pass_type = 'Invalid work pass type';
+    }
+
+    if (formData.value.person_trade && !validatePersonTrade(formData.value.person_trade)) {
+        errors.person_trade = 'Invalid trade code';
+    }
+
+    formErrors.value = errors;
+    return Object.keys(errors).length === 0;
 };
 
 const handleSubmit = async () => {
-  if (!validateId(formData.value.person_id_no)) {
-      notification.error('Invalid Person Identity Number format (e.g. S1234567D)');
+  if (!validateForm()) {
+      notification.error('Please fix the errors in the form before submitting');
       return;
   }
 
@@ -235,8 +263,8 @@ const handleSubmit = async () => {
       <div class="form-section">
           <h3 class="section-title">Personal Information</h3>
           <div class="form-grid">
-            <BaseInput v-model="formData.name" label="Full Name" placeholder="e.g., John Smith" required />
-            <BaseInput v-model="formData.email" label="Email Address" type="email" placeholder="john@company.com" />
+            <BaseInput v-model="formData.name" label="Full Name" placeholder="e.g., John Smith" :error="formErrors.name" required />
+            <BaseInput v-model="formData.email" label="Email Address" type="email" placeholder="john@company.com" :error="formErrors.email" />
             
             <div class="form-group">
                 <label class="form-label">Designated Role</label>
@@ -259,26 +287,29 @@ const handleSubmit = async () => {
                 placeholder="e.g., S1234567D" 
                 required 
                 maxlength="9"
+                :error="formErrors.person_id_no"
             />
             
             <div class="form-group">
                 <label class="form-label">ID / Work Pass Type</label>
-                <select v-model="formData.person_id_and_work_pass_type" class="form-select">
+                <select v-model="formData.person_id_and_work_pass_type" class="form-select" :class="{ 'has-error': formErrors.person_id_and_work_pass_type }">
                     <option v-for="type in passTypes" :key="type.value" :value="type.value">
                         {{ type.label }}
                     </option>
                 </select>
+                <span v-if="formErrors.person_id_and_work_pass_type" class="error-text">{{ formErrors.person_id_and_work_pass_type }}</span>
             </div>
 
-            <BaseInput v-model="formData.person_nationality" label="Nationality (ISO Code)" placeholder="e.g., SG, BD, IN" maxlength="2" required />
+            <BaseInput v-model="formData.person_nationality" label="Nationality (ISO Code)" placeholder="e.g., SG, BD, IN" maxlength="2" :error="formErrors.person_nationality" required />
             
             <div class="form-group">
                 <label class="form-label">Designated Trade</label>
-                <select v-model="formData.person_trade" class="form-select">
+                <select v-model="formData.person_trade" class="form-select" :class="{ 'has-error': formErrors.person_trade }">
                     <option v-for="trade in bcaTrades" :key="trade.value" :value="trade.value">
                         {{ trade.label }}
                     </option>
                 </select>
+                <span v-if="formErrors.person_trade" class="error-text">{{ formErrors.person_trade }}</span>
             </div>
           </div>
       </div>
@@ -506,6 +537,16 @@ const handleSubmit = async () => {
     color: var(--color-text-primary);
     font-size: 14px;
     outline: none;
+}
+
+.form-select.has-error {
+    border-color: #ef4444;
+}
+
+.error-text {
+    font-size: 11px;
+    color: #ef4444;
+    margin-top: 4px;
 }
 
 .required {

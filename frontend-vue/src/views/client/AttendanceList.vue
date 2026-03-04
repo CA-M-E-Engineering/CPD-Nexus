@@ -29,8 +29,11 @@ const filteredAttendance = computed(() => {
   if (!selectedStatus.value) return attendance.value;
   return attendance.value.filter(a => {
     const s = (a.status || 'pending').toLowerCase();
-    // Some status might be 'success' instead of submitted depending on old data, handle if needed, but user asked for pending/submitted
-    return s === selectedStatus.value || (selectedStatus.value === 'submitted' && s === 'success');
+    const isSubmitted = s === 'submitted' || s === 'success';
+    
+    if (selectedStatus.value === 'pending') return !isSubmitted;
+    if (selectedStatus.value === 'submitted') return isSubmitted;
+    return s === selectedStatus.value;
   });
 });
 

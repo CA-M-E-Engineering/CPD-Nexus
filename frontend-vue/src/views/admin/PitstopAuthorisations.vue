@@ -8,14 +8,23 @@ import { notification } from '../../services/notification';
 
 const isLoading = ref(false);
 const isSyncing = ref(false);
+const isSubmitting = ref({});
 const authorisations = ref([]);
+const projects = ref([]);
 
-const columns = [
+const authColumns = [
     { key: 'dataset_name', label: 'Dataset Name', sortable: true },
     { key: 'regulator_name', label: 'Regulator', sortable: true },
     { key: 'on_behalf_of_name', label: 'On Behalf Of', sortable: true },
     { key: 'status', label: 'Status' },
     { key: 'last_synced_at', label: 'Last Synced' }
+];
+
+const projectColumns = [
+    { key: 'reference', label: 'Ref Num', sortable: true },
+    { key: 'title', label: 'Title', sortable: true },
+    { key: 'status', label: 'Status' },
+    { key: 'actions', label: 'Actions', align: 'right' }
 ];
 
 const fetchAuthorisations = async () => {
@@ -44,8 +53,33 @@ const handleSync = async () => {
     }
 };
 
+const fetchProjects = async () => {
+    try {
+        const response = await pitstopApi.getTestingProjects();
+        projects.value = response.data.data || response.data || [];
+    } catch (error) {
+        console.error('Failed to load testing projects:', error);
+        notification.error('Failed to load projects for testing.');
+    }
+};
+
+const handleTestSubmission = async (projectId) => {
+    isSubmitting.value[projectId] = true;
+    try {
+        const result = await pitstopApi.testSubmission(projectId);
+        const count = result.data?.metrics?.payloads_submitted || 0;
+        notification.success(`Test complete. Submitted ${count} payloads.`);
+    } catch (error) {
+        console.error('Test submission failed:', error);
+        notification.error('Test submission failed. Check console for details.');
+    } finally {
+        isSubmitting.value[projectId] = false;
+    }
+};
+
 onMounted(() => {
     fetchAuthorisations();
+    fetchProjects();
 });
 </script>
 
@@ -69,7 +103,7 @@ onMounted(() => {
 
         <div class="content-section">
             <DataTable 
-                :columns="columns"
+                :columns="authColumns"
                 :data="authorisations"
                 :loading="isLoading"
                 empty-message="No configurations found. Run a sync to fetch data."
@@ -82,6 +116,37 @@ onMounted(() => {
                 <template #cell-last_synced_at="{ value }">
                     <span v-if="value">{{ new Date(value).toLocaleString() }}</span>
                     <span v-else class="text-muted">Never synced</span>
+                </template>
+            </DataTable>
+        </div>
+
+        <div class="section-title">
+            <h2 style="margin-top: 2rem; margin-bottom: 1rem;">CPD Submission Testing</h2>
+            <p class="text-muted" style="margin-bottom: 1rem;">Manually trigger an external API push containing the latest un-synced attendance for a specific project.</p>
+        </div>
+
+        <div class="content-section">
+            <DataTable 
+                :columns="projectColumns"
+                :data="projects"
+                :loading="isLoading"
+                empty-message="No active projects available for testing."
+            >
+                <template #cell-status="{ value }">
+                    <span class="status-badge" :class="value?.toLowerCase() || 'inactive'">
+                        {{ value || 'UNKNOWN' }}
+                    </span>
+                </template>
+                <template #cell-actions="{ row }">
+                    <BaseButton 
+                        variant="secondary" 
+                        size="sm"
+                        icon="ri-send-plane-fill"
+                        :loading="isSubmitting[row.project_id]"
+                        @click="handleTestSubmission(row.project_id)"
+                    >
+                        {{ isSubmitting[row.project_id] ? 'Submitting...' : 'Submit Test' }}
+                    </BaseButton>
                 </template>
             </DataTable>
         </div>

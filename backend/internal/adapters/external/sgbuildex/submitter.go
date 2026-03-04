@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"log"
 	"sgbuildex/internal/adapters/external/sgbuildex/payloads"
 	"sgbuildex/internal/core/domain"
@@ -109,6 +110,7 @@ func SubmitPayloads[T Submittable](ctx context.Context, repo ports.SubmissionRep
 		fullJSON, _ := json.MarshalIndent(finalReq, "", "  ")
 
 		log.Printf("[SGBuildex] Submitting batch of %d items for %s (Size: %d bytes)", len(batchIDs), dataElementID, len(fullJSON))
+		log.Printf("[SGBuildex] JSON Payload:\n%s", string(fullJSON))
 
 		// Execute submission
 		resp, err := client.PostJSON(fmt.Sprintf("api/v1/data/push/%s", dataElementID), finalReq)
@@ -120,12 +122,13 @@ func SubmitPayloads[T Submittable](ctx context.Context, repo ports.SubmissionRep
 			errorMessage = err.Error()
 			log.Printf("[SGBuildex] Batch submission failed: %v", err)
 		} else {
-			resp.Body.Close()
 			if resp.StatusCode >= 400 {
 				status = "failed"
-				errorMessage = fmt.Sprintf("HTTP %d", resp.StatusCode)
+				bodyBytes, _ := io.ReadAll(resp.Body)
+				errorMessage = fmt.Sprintf("HTTP %d: %s", resp.StatusCode, string(bodyBytes))
 				log.Printf("[SGBuildex] Batch submission returned error: %s", errorMessage)
 			}
+			resp.Body.Close()
 		}
 
 		// Update database for each individual item in the batch

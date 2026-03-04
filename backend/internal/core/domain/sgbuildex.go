@@ -23,12 +23,15 @@ type AttendanceRow struct {
 	SiteLocation string
 
 	// Projects Fields
-	ProjectRef      string
-	ProjectTitle    string
-	ProjectLocation string
-	RegulatorID     string
-	RegulatorName   string
-	OnBehalfOfID    string
+	ProjectRef          string
+	ProjectTitle        string
+	ProjectLocation     string
+	ProjectContractNo   string
+	ProjectContractName string
+	HDBPrecinctName     string
+	RegulatorID         string
+	RegulatorName       string
+	OnBehalfOfID        string
 
 	// Main Contractor fields (from Project)
 	SiteOwnerName string
@@ -38,6 +41,7 @@ type AttendanceRow struct {
 	WorkerName         string
 	WorkerFIN          string
 	WorkerWorkPassType string
+	WorkerNationality  string
 	WorkerTrade        string
 	EmployerName       string
 	EmployerUEN        string
