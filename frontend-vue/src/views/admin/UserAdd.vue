@@ -204,10 +204,10 @@ const handleSubmit = async () => {
             </div>
           </div>
           
-          <!-- Pitstop Integrations -->
+          <!-- CPD Data Integrations -->
           <div class="form-panel integration-panel">
-              <div class="section-title">Pitstop Integrations</div>
-              <p class="bridge-description">Assign one or more 'On Behalf Of' entities synced via Pitstop configuration to assign datasets directly to this client organization.</p>
+              <div class="section-title">Submit CPD Data On Behalf Of</div>
+              <p class="bridge-description">Assign one or more 'On Behalf Of' entities synced via configuration to assign datasets directly to this client organization.</p>
               <div class="form-group" style="margin-top: 16px;">
                   <label class="form-label">Assign Entities</label>
                   
@@ -223,7 +223,7 @@ const handleSubmit = async () => {
                         </summary>
                         <div class="dropdown-content contractor-list">
                             <div v-if="availableOnBehalfOfs.length === 0" class="no-contractors">
-                                No entities fetched from Pitstop yet. Go to Configuration -> Pitstop to sync.
+                                No entities fetched yet. Go to Configuration -> Submit CPD Data to sync.
                             </div>
                             <label v-for="entity in availableOnBehalfOfs" :key="entity" class="checkbox-label">
                                 <input type="checkbox" :value="entity" v-model="formData.assigned_on_behalf_ofs" />
@@ -232,7 +232,7 @@ const handleSubmit = async () => {
                         </div>
                     </details>
                   </div>
-                  <span class="field-help" style="margin-top: 8px; display: block;">Selected entities will automatically map their Pitstop dataset authorizations to this user ID.</span>
+                  <span class="field-help" style="margin-top: 8px; display: block;">Selected entities will automatically map their dataset authorizations to this user ID.</span>
               </div>
           </div>
       </div>

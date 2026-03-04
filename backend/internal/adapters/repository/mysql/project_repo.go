@@ -29,12 +29,13 @@ func (r *ProjectRepository) Get(ctx context.Context, userID, id string) (*domain
             p.offsite_fabricator_name, p.offsite_fabricator_uen, p.offsite_fabricator_location,
             p.worker_company_name, p.worker_company_uen,
             p.worker_company_client_name, p.worker_company_client_uen, p.worker_company_trade,
-            p.pitstop_auth_id,
+            p.pitstop_auth_id, pa.on_behalf_of_name as pitstop_auth_name,
             p.created_at, p.updated_at, s.site_name,
             (SELECT COUNT(*) FROM workers w WHERE w.current_project_id = p.project_id) as worker_count,
             (SELECT COUNT(*) FROM devices d WHERE d.site_id = p.site_id) as device_count
 		FROM projects p
-		LEFT JOIN sites s ON p.site_id = s.site_id`
+		LEFT JOIN sites s ON p.site_id = s.site_id
+		LEFT JOIN pitstop_authorisations pa ON p.pitstop_auth_id = pa.pitstop_auth_id`
 
 	args := []interface{}{id}
 	if middleware.IsVendor(ctx) {
@@ -46,13 +47,13 @@ func (r *ProjectRepository) Get(ctx context.Context, userID, id string) (*domain
 
 	var p domain.Project
 	var siteID, scanUserID, status, ref, cRef, loc, cName, hdb sql.NullString
-	var mcName, mcUEN, ofName, ofUEN, ofLoc, wcName, wcUEN, wccName, wccUEN, wcTrade, pitstopAuthID sql.NullString
+	var mcName, mcUEN, ofName, ofUEN, ofLoc, wcName, wcUEN, wccName, wccUEN, wcTrade, pitstopAuthID, pitstopAuthName sql.NullString
 
 	err := r.db.QueryRowContext(ctx, query, args...).Scan(
 		&p.ID, &siteID, &scanUserID, &p.Title, &status,
 		&ref, &cRef, &loc, &cName, &hdb,
 		&mcName, &mcUEN, &ofName, &ofUEN, &ofLoc, &wcName, &wcUEN, &wccName, &wccUEN, &wcTrade,
-		&pitstopAuthID,
+		&pitstopAuthID, &pitstopAuthName,
 		&p.CreatedAt, &p.UpdatedAt, &p.SiteName, &p.WorkerCount, &p.DeviceCount,
 	)
 	if err == sql.ErrNoRows {
@@ -119,6 +120,9 @@ func (r *ProjectRepository) Get(ctx context.Context, userID, id string) (*domain
 	if pitstopAuthID.Valid {
 		p.PitstopAuthID = &pitstopAuthID.String
 	}
+	if pitstopAuthName.Valid {
+		p.PitstopAuthName = &pitstopAuthName.String
+	}
 
 	return &p, nil
 }
@@ -132,12 +136,13 @@ func (r *ProjectRepository) List(ctx context.Context, userID string) ([]domain.P
             p.offsite_fabricator_name, p.offsite_fabricator_uen, p.offsite_fabricator_location,
             p.worker_company_name, p.worker_company_uen,
             p.worker_company_client_name, p.worker_company_client_uen, p.worker_company_trade,
-            p.pitstop_auth_id,
+            p.pitstop_auth_id, pa.on_behalf_of_name as pitstop_auth_name,
             p.created_at, p.updated_at, s.site_name,
             (SELECT COUNT(*) FROM workers w WHERE w.current_project_id = p.project_id) as worker_count,
             (SELECT COUNT(*) FROM devices d WHERE d.site_id = p.site_id AND d.status != 'inactive') as device_count
         FROM projects p
         LEFT JOIN sites s ON p.site_id = s.site_id
+		LEFT JOIN pitstop_authorisations pa ON p.pitstop_auth_id = pa.pitstop_auth_id
         WHERE (p.status != 'inactive' OR p.status IS NULL)`
 
 	if userID == "" && !middleware.IsVendor(ctx) {
@@ -160,12 +165,12 @@ func (r *ProjectRepository) List(ctx context.Context, userID string) ([]domain.P
 	for rows.Next() {
 		var p domain.Project
 		var siteID, uid, status, ref, cRef, loc, cName, hdb sql.NullString
-		var mcName, mcUEN, ofName, ofUEN, ofLoc, wcName, wcUEN, wccName, wccUEN, wcTrade, pitstopAuthID sql.NullString
+		var mcName, mcUEN, ofName, ofUEN, ofLoc, wcName, wcUEN, wccName, wccUEN, wcTrade, pitstopAuthID, pitstopAuthName sql.NullString
 		if err := rows.Scan(
 			&p.ID, &siteID, &uid, &p.Title, &status,
 			&ref, &cRef, &loc, &cName, &hdb,
 			&mcName, &mcUEN, &ofName, &ofUEN, &ofLoc, &wcName, &wcUEN, &wccName, &wccUEN, &wcTrade,
-			&pitstopAuthID,
+			&pitstopAuthID, &pitstopAuthName,
 			&p.CreatedAt, &p.UpdatedAt, &p.SiteName, &p.WorkerCount, &p.DeviceCount,
 		); err != nil {
 			return nil, err
@@ -226,6 +231,9 @@ func (r *ProjectRepository) List(ctx context.Context, userID string) ([]domain.P
 		}
 		if pitstopAuthID.Valid {
 			p.PitstopAuthID = &pitstopAuthID.String
+		}
+		if pitstopAuthName.Valid {
+			p.PitstopAuthName = &pitstopAuthName.String
 		}
 
 		projects = append(projects, p)

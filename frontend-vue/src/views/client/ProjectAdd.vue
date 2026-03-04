@@ -210,14 +210,14 @@ const handleSubmit = async () => {
               </div>
 
               <div class="form-group">
-                  <label class="form-label">Pitstop Authorisation</label>
+                  <label class="form-label">Submit CPD Data On Behalf Of</label>
                   <select v-model="formData.pitstop_auth_id" class="form-select">
                       <option value="">None</option>
                       <option v-for="pa in pitstopAuths" :key="pa.pitstop_auth_id" :value="pa.pitstop_auth_id">
-                          {{ pa.on_behalf_of_name }} - {{ pa.dataset_name }}
+                          {{ pa.on_behalf_of_name }}
                       </option>
                   </select>
-                  <span class="help-text">Links this project to BCA Pitstop if selected.</span>
+                  <span class="help-text">Links this project to CPD Data submission if selected.</span>
               </div>
 
               <BaseInput v-model="formData.location" label="Project Location Description" placeholder="e.g., Marina Bay, Central Singapore" required />
