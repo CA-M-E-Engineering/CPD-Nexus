@@ -11,31 +11,30 @@ import (
 	"time"
 )
 
-// Client represents the Ingress API client for SGBuildex
+// Client is the HTTP client for communicating with the SGBuildex / Pitstop API.
 type Client struct {
 	BaseURL    string
 	PitstopURL string
 	HTTPClient *http.Client
-	APIKey     string // store API Key here
+	APIKey     string
 }
 
-// NewClient creates a new Ingress API client
+// NewClient creates a new Client and loads the API key from the environment.
 func NewClient(baseURL, pitstopURL string) *Client {
-	client := &Client{
+	apiKey := strings.TrimSpace(os.Getenv("SGTRADEX_API_KEY"))
+	if apiKey == "" {
+		log.Printf("[SGBuildex] WARNING: SGTRADEX_API_KEY is not set — requests may be rejected.")
+	}
+	return &Client{
 		BaseURL:    baseURL,
 		PitstopURL: pitstopURL,
-		HTTPClient: &http.Client{Timeout: 10 * time.Second},
+		HTTPClient: &http.Client{Timeout: 30 * time.Second},
+		APIKey:     apiKey,
 	}
-	client.APIKey = client.FetchAPIKey()
-	return client
 }
 
-// FetchAPIKey gets the SGTRADEX API key from environment
-func (c *Client) FetchAPIKey() string {
-	return strings.TrimSpace(os.Getenv("SGTRADEX_API_KEY"))
-}
-
-// PostJSON sends a JSON payload to the specified endpoint on the Pitstop server
+// PostJSON marshals payload as JSON and POSTs it to the given endpoint on the Pitstop server.
+// The SGTRADEX-API-KEY header is set automatically if an API key is configured.
 func (c *Client) PostJSON(endpoint string, payload any) (*http.Response, error) {
 	url := fmt.Sprintf("%s/%s", c.PitstopURL, endpoint)
 
@@ -54,18 +53,13 @@ func (c *Client) PostJSON(endpoint string, payload any) (*http.Response, error) 
 	if c.APIKey != "" {
 		req.Header.Set("SGTRADEX-API-KEY", c.APIKey)
 		req.Header.Set("x-api-key", c.APIKey)
-		req.Header.Set("Authorization", c.APIKey)
 	}
 
-	if c.APIKey == "" {
-		log.Printf("[SGBuildex] WARNING: SGTRADEX_API_KEY is not set. Requests may be rejected.")
-	}
-
-	log.Printf("[SGBuildex] POST %s (KeyLength: %d)", url, len(c.APIKey))
+	log.Printf("[SGBuildex] POST %s", url)
 
 	resp, err := c.HTTPClient.Do(req)
 	if err != nil {
-		return nil, fmt.Errorf("failed to execute request: %w", err)
+		return nil, fmt.Errorf("request failed: %w", err)
 	}
 
 	return resp, nil

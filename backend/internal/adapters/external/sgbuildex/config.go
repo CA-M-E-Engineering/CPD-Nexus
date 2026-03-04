@@ -29,7 +29,7 @@ type PitstopConfigResponse struct {
 func (c *Client) FetchConfig(ctx context.Context) (*PitstopConfigResponse, error) {
 	url := fmt.Sprintf("%s/api/v1/config", c.PitstopURL)
 
-	data, err := c.doRequest(ctx, "GET", url, nil, c.FetchAPIKey())
+	data, err := c.doRequest(ctx, "GET", url, nil, c.APIKey)
 	if err != nil {
 		return nil, fmt.Errorf("failed to fetch pitstop config: %w", err)
 	}
