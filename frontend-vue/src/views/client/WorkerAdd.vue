@@ -6,6 +6,7 @@ import PageHeader from '../../components/ui/PageHeader.vue';
 import BaseInput from '../../components/ui/BaseInput.vue';
 import BaseButton from '../../components/ui/BaseButton.vue';
 import BaseBadge from '../../components/ui/BaseBadge.vue';
+import { TRADES, PASS_TYPES } from '../../utils/constants.js';
 import { validateNRICFIN, validateWorkPassType, validatePersonTrade } from '../../utils/validation.js';
 
 const props = defineProps({
@@ -82,33 +83,7 @@ const handleFileUpload = async (event) => {
 // Sync and Deployment handlers removed as backend handles saving together
 
 
-const passTypes = [
-    { value: 'SP', label: 'Singapore Pink IC (SP)' },
-    { value: 'SB', label: 'Singapore Blue IC (SB)' },
-    { value: 'EP', label: 'Employment Pass (EP)' },
-    { value: 'SPASS', label: 'S Pass (SPASS)' },
-    { value: 'WP', label: 'Work Permit (WP)' },
-    { value: 'ENTREPASS', label: 'EntrePass' },
-    { value: 'LTVP', label: 'Long-Term Visit Pass (LTVP)' }
-];
 
-const bcaTrades = [
-    { value: '1.1', label: '1.1 - Site Management (Ancillary)' },
-    { value: '1.2', label: '1.2 - Site Support (Ancillary)' },
-    { value: '1.3', label: '1.3 - General Machine Operation' },
-    { value: '1.4', label: '1.4 - Site Preparation' },
-    { value: '1.5', label: '1.5 - Scaffolding' },
-    { value: '2.1', label: '2.1 - Demolition (Civil/Structural)' },
-    { value: '2.2', label: '2.2 - Earthworks' },
-    { value: '2.3', label: '2.3 - Foundation' },
-    { value: '2.4', label: '2.4 - Tunnelling' },
-    { value: '2.5', label: '2.5 - Reinforced Concrete' },
-    { value: '2.6', label: '2.6 - Structural Steel' },
-    { value: '3.1', label: '3.1 - Ceiling (Architectural)' },
-    { value: '3.2', label: '3.2 - Partition Wall' },
-    { value: '4.1', label: '4.1 - Plumbing, Sanitary & Gas' },
-    { value: '4.3', label: '4.3 - Electrical' }
-];
 
 const isEdit = computed(() => props.mode === 'edit');
 
@@ -293,7 +268,7 @@ const handleSubmit = async () => {
             <div class="form-group">
                 <label class="form-label">ID / Work Pass Type</label>
                 <select v-model="formData.person_id_and_work_pass_type" class="form-select" :class="{ 'has-error': formErrors.person_id_and_work_pass_type }">
-                    <option v-for="type in passTypes" :key="type.value" :value="type.value">
+                    <option v-for="type in PASS_TYPES" :key="type.value" :value="type.value">
                         {{ type.label }}
                     </option>
                 </select>
@@ -305,7 +280,7 @@ const handleSubmit = async () => {
             <div class="form-group">
                 <label class="form-label">Designated Trade</label>
                 <select v-model="formData.person_trade" class="form-select" :class="{ 'has-error': formErrors.person_trade }">
-                    <option v-for="trade in bcaTrades" :key="trade.value" :value="trade.value">
+                    <option v-for="trade in TRADES" :key="trade.value" :value="trade.value">
                         {{ trade.label }}
                     </option>
                 </select>

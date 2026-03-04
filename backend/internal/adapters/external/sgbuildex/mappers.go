@@ -1,7 +1,6 @@
 package sgbuildex
 
 import (
-	"database/sql"
 	"sgbuildex/internal/core/domain"
 	"sgbuildex/internal/pkg/validation"
 	"strings"
@@ -12,13 +11,6 @@ import (
 
 // MapAttendanceToManpower converts DB rows to ManpowerUtilization payloads
 func MapAttendanceToManpower(rows []domain.AttendanceRow) []payloads.ManpowerUtilization {
-	ptr := func(s string) *string {
-		if s == "" {
-			return nil
-		}
-		return &s
-	}
-
 	var results []payloads.ManpowerUtilization
 	for _, r := range rows {
 		payload := payloads.ManpowerUtilization{
@@ -30,17 +22,17 @@ func MapAttendanceToManpower(rows []domain.AttendanceRow) []payloads.ManpowerUti
 			InternalOnBehalfOfID:            r.OnBehalfOfID,
 			SubmissionEntity:                1, // 1 for Onsite Builder
 			SubmissionMonth:                 r.SubmissionDate.Format("2006-01"),
-			ProjectReferenceNumber:          ptr(r.ProjectRef),
-			ProjectTitle:                    ptr(r.ProjectTitle),
-			ProjectLocationDescription:      ptr(r.ProjectLocation),
-			ProjectContractNumber:           ptr(r.ProjectContractNo),
-			ProjectContractName:             ptr(r.ProjectContractName),
-			HdbPrecinctName:                 ptr(r.HDBPrecinctName),
-			MainContractorCompanyName:       ptr(r.SiteOwnerName),
-			MainContractorCompanyUEN:        ptr(validation.SanitizeUEN(r.SiteOwnerUEN)),
+			ProjectReferenceNumber:          Ptr(r.ProjectRef),
+			ProjectTitle:                    Ptr(r.ProjectTitle),
+			ProjectLocationDescription:      Ptr(r.ProjectLocation),
+			ProjectContractNumber:           Ptr(r.ProjectContractNo),
+			ProjectContractName:             Ptr(r.ProjectContractName),
+			HdbPrecinctName:                 Ptr(r.HDBPrecinctName),
+			MainContractorCompanyName:       Ptr(r.SiteOwnerName),
+			MainContractorCompanyUEN:        Ptr(validation.SanitizeUEN(r.SiteOwnerUEN)),
 			PersonIDNo:                      strings.ToUpper(strings.TrimSpace(r.WorkerFIN)),
 			PersonIDAndWorkPassType:         strings.ToUpper(strings.TrimSpace(r.WorkerWorkPassType)),
-			PersonNationality:               ptr(strings.ToUpper(strings.TrimSpace(r.WorkerNationality))),
+			PersonNationality:               Ptr(strings.ToUpper(strings.TrimSpace(r.WorkerNationality))),
 			PersonTrade:                     r.TradeCode,
 			PersonEmployerCompanyName:       r.EmployerName,
 			PersonEmployerCompanyUEN:        validation.SanitizeUEN(r.EmployerUEN),
@@ -51,7 +43,7 @@ func MapAttendanceToManpower(rows []domain.AttendanceRow) []payloads.ManpowerUti
 			PersonAttendanceDetails: []payloads.AttendanceDetail{
 				{
 					TimeIn:  r.TimeIn.Format(time.RFC3339),
-					TimeOut: formatNullTime(r.TimeOut),
+					TimeOut: FormatOptionalTime(r.TimeOut),
 				},
 			},
 		}
@@ -60,13 +52,6 @@ func MapAttendanceToManpower(rows []domain.AttendanceRow) []payloads.ManpowerUti
 	}
 
 	return results
-}
-
-func formatNullTime(t sql.NullTime) string {
-	if !t.Valid {
-		return ""
-	}
-	return t.Time.Format(time.RFC3339)
 }
 
 func parseTrades(tradeStr string) []string {

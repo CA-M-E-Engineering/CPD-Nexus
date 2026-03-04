@@ -79,7 +79,6 @@ func (s *PitstopService) SyncConfig(ctx context.Context, userID string) error {
 				seenKeys[key] = true
 
 				if existing, exists := existingMap[key]; exists {
-					// Check if data actually changed
 					modified := false
 					if existing.DatasetName != datasetName ||
 						existing.RegulatorName != regulatorName ||
@@ -93,7 +92,6 @@ func (s *PitstopService) SyncConfig(ctx context.Context, userID string) error {
 						modified = true
 					}
 
-					// Apply updates only if modified from the payload changes
 					if modified {
 						existing.DatasetName = datasetName
 						existing.RegulatorName = regulatorName
@@ -103,7 +101,6 @@ func (s *PitstopService) SyncConfig(ctx context.Context, userID string) error {
 						toUpdate = append(toUpdate, existing)
 					}
 				} else {
-					// Insert New
 					authID := fmt.Sprintf("pa%s%04d", idTimestamp, seq)
 					seq++
 
@@ -125,7 +122,7 @@ func (s *PitstopService) SyncConfig(ctx context.Context, userID string) error {
 		}
 	}
 
-	// 3.5 Check for authorisations that are no longer in the pitstop config and mark as INACTIVE
+	// 3.5 Mark entries no longer in Pitstop config as INACTIVE
 	for key, existing := range existingMap {
 		if !seenKeys[key] {
 			if existing.Status != "INACTIVE" {
@@ -136,7 +133,7 @@ func (s *PitstopService) SyncConfig(ctx context.Context, userID string) error {
 		}
 	}
 
-	// 4. Store into the database using Repository
+	// 4. Persist changes via Repository
 	if len(toInsert) > 0 {
 		if err := s.pitstopRepo.InsertAuthorisations(ctx, toInsert); err != nil {
 			return err
@@ -159,41 +156,47 @@ func (s *PitstopService) GetProjectsWithPendingAttendance(ctx context.Context) (
 
 // TestSubmission extracts pending attendance for a given project and immediately pushes it
 func (s *PitstopService) TestSubmission(ctx context.Context, projectID string) (int, error) {
-	// 1. Fetch latest settings for limits
-	settings, err := s.settingsRepo.GetSettings(ctx)
+	settings, err := s.loadSettings(ctx)
 	if err != nil {
-		// Use defaults if settings fetch fails
-		settings = &domain.SystemSettings{
-			MaxWorkersPerRequest: 100,
-			MaxPayloadSizeKB:     256,
-			MaxRequestsPerMinute: 150,
-		}
+		return 0, err
 	}
 
-	// 2. Extact pending attendance specifically for this project
 	rows, err := s.attendanceRepo.ExtractPendingAttendanceByProject(ctx, projectID)
 	if err != nil {
 		return 0, fmt.Errorf("failed to extract project attendance: %w", err)
 	}
 
 	if len(rows) == 0 {
-		return 0, nil // Nothing to submit
+		return 0, nil
 	}
 
-	// 3. Map to payloads and wrap for submittable interface
-	muPayloads := sgbuildex.MapAttendanceToManpower(rows)
-	muSubmittables := make([]sgbuildex.ManpowerUtilizationWrapper, len(muPayloads))
-	for i, p := range muPayloads {
-		muSubmittables[i] = sgbuildex.ManpowerUtilizationWrapper{ManpowerUtilization: p}
-	}
-
-	// 4. Submit specifically these payloads
-	err = sgbuildex.SubmitPayloads(ctx, s.submissionRepo, s.pitstopClient, settings, muSubmittables)
-	if err != nil {
+	muSubmittables := s.mapRowsToSubmittables(rows)
+	if err := sgbuildex.SubmitPayloads(ctx, s.submissionRepo, s.pitstopClient, settings, muSubmittables); err != nil {
 		return 0, fmt.Errorf("failed to submit payloads: %w", err)
 	}
 
 	return len(muSubmittables), nil
+}
+
+// SubmitPendingAttendance extracts all non-submitted attendance and pushes it to SGBuildex.
+// This is the method called by the scheduled task in main.go.
+func (s *PitstopService) SubmitPendingAttendance(ctx context.Context) error {
+	settings, err := s.loadSettings(ctx)
+	if err != nil {
+		return err
+	}
+
+	rows, err := s.attendanceRepo.ExtractPendingAttendance(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to extract pending attendance: %w", err)
+	}
+
+	if len(rows) == 0 {
+		return nil
+	}
+
+	muSubmittables := s.mapRowsToSubmittables(rows)
+	return sgbuildex.SubmitPayloads(ctx, s.submissionRepo, s.pitstopClient, settings, muSubmittables)
 }
 
 // AssignOnBehalfOfToUser assigns a set of contractor names to a specific UserID for pitstop authorisations
@@ -202,4 +205,30 @@ func (s *PitstopService) AssignOnBehalfOfToUser(ctx context.Context, userID stri
 		return fmt.Errorf("user ID cannot be empty")
 	}
 	return s.pitstopRepo.AssignOnBehalfOfToUser(ctx, userID, onBehalfOfNames)
+}
+
+// --- private helpers ---
+
+// loadSettings fetches system settings, falling back to safe defaults on error.
+func (s *PitstopService) loadSettings(ctx context.Context) (*domain.SystemSettings, error) {
+	settings, err := s.settingsRepo.GetSettings(ctx)
+	if err != nil {
+		// Return defaults rather than failing — submission is best-effort
+		return &domain.SystemSettings{
+			MaxWorkersPerRequest: 100,
+			MaxPayloadSizeKB:     256,
+			MaxRequestsPerMinute: 150,
+		}, nil
+	}
+	return settings, nil
+}
+
+// mapRowsToSubmittables converts attendance rows to typed Submittable wrappers.
+func (s *PitstopService) mapRowsToSubmittables(rows []domain.AttendanceRow) []sgbuildex.ManpowerUtilizationWrapper {
+	muPayloads := sgbuildex.MapAttendanceToManpower(rows)
+	wrappers := make([]sgbuildex.ManpowerUtilizationWrapper, len(muPayloads))
+	for i, p := range muPayloads {
+		wrappers[i] = sgbuildex.ManpowerUtilizationWrapper{ManpowerUtilization: p}
+	}
+	return wrappers
 }

@@ -1,9 +1,6 @@
 package domain
 
-import (
-	"database/sql"
-	"time"
-)
+import "time"
 
 // AttendanceRow represents a row fetched from the DB with joined info for SGBuildex submission
 type AttendanceRow struct {
@@ -13,7 +10,7 @@ type AttendanceRow struct {
 	SiteID       string
 	UserID       string
 	TimeIn       time.Time
-	TimeOut      sql.NullTime
+	TimeOut      *time.Time
 	Direction    string
 	TradeCode    string
 	Status       string

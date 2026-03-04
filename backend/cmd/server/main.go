@@ -102,9 +102,6 @@ func main() {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	// --- 3. Component B: Submission Workers & Schedulers ---
-	client := sgbuildex.NewClient(cfg.IngressURL, cfg.PitstopURL)
-
 	// Task 1: Attendance Sync (Bridge -> Nexus)
 	syncTask := func(taskCtx context.Context) {
 		logger.Infof("[AttendanceSync] Starting scheduled bridge fetch...")
@@ -115,30 +112,13 @@ func main() {
 		}
 	}
 
-	// Task 2: CPD Submission (Nexus -> SGBuildex)
+	// Task 2: CPD Submission (Nexus → SGBuildex) — delegated to the service layer
 	submitTask := func(taskCtx context.Context) {
 		logger.Infof("[CPDSubmission] Starting scheduled submission cycle...")
-
-		// 0. Fetch latest settings for limits
-		settings, err := settingsRepo.GetSettings(taskCtx)
-		if err != nil {
-			logger.Errorf("[CPDSubmission] Failed to fetch settings: %v. Using defaults.", err)
-			settings = &domain.SystemSettings{
-				MaxWorkersPerRequest: 100,
-				MaxPayloadSizeKB:     256,
-				MaxRequestsPerMinute: 150,
-			}
-		}
-
-		// 1. Manpower Utilization
-		rows, err := attendanceRepo.ExtractPendingAttendance(taskCtx)
-		if err == nil && len(rows) > 0 {
-			muPayloads := sgbuildex.MapAttendanceToManpower(rows)
-			muSubmittables := make([]sgbuildex.ManpowerUtilizationWrapper, len(muPayloads))
-			for i, p := range muPayloads {
-				muSubmittables[i] = sgbuildex.ManpowerUtilizationWrapper{ManpowerUtilization: p}
-			}
-			sgbuildex.SubmitPayloads(taskCtx, submissionRepo, client, settings, muSubmittables)
+		if err := pitstopService.SubmitPendingAttendance(taskCtx); err != nil {
+			logger.Errorf("[CPDSubmission] Submission cycle failed: %v", err)
+		} else {
+			logger.Infof("[CPDSubmission] Submission cycle completed.")
 		}
 	}
 

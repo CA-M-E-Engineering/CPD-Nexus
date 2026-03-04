@@ -57,12 +57,11 @@ func (c *Client) PostJSON(endpoint string, payload any) (*http.Response, error) 
 		req.Header.Set("Authorization", c.APIKey)
 	}
 
-	log.Printf("[SGBuildex] Executing POST request to: %s", url)
 	if c.APIKey == "" {
-		log.Printf("[SGBuildex] WARNING: API Key is empty!")
-	} else {
-		log.Printf("[SGBuildex] API Key is set (length: %d)", len(c.APIKey))
+		log.Printf("[SGBuildex] WARNING: SGTRADEX_API_KEY is not set. Requests may be rejected.")
 	}
+
+	log.Printf("[SGBuildex] POST %s (KeyLength: %d)", url, len(c.APIKey))
 
 	resp, err := c.HTTPClient.Do(req)
 	if err != nil {

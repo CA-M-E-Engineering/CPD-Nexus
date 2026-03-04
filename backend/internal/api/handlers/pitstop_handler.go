@@ -3,16 +3,18 @@ package handlers
 import (
 	"encoding/json"
 	"net/http"
-	"sgbuildex/internal/core/services"
+	"sgbuildex/internal/core/ports"
 
 	"github.com/gorilla/mux"
 )
 
+// PitstopHandler handles HTTP requests for Pitstop/SGBuildex operations.
+// It depends on the ports.PitstopService interface, not the concrete service type.
 type PitstopHandler struct {
-	pitstopService *services.PitstopService
+	pitstopService ports.PitstopService
 }
 
-func NewPitstopHandler(pitstopService *services.PitstopService) *PitstopHandler {
+func NewPitstopHandler(pitstopService ports.PitstopService) *PitstopHandler {
 	return &PitstopHandler{
 		pitstopService: pitstopService,
 	}
@@ -30,7 +32,7 @@ func (h *PitstopHandler) GetAuthorisations(w http.ResponseWriter, r *http.Reques
 	json.NewEncoder(w).Encode(auths)
 }
 
-// SyncConfig handles triggering an immediate sync over external pitstop endpoints
+// SyncConfig triggers an immediate sync with the external Pitstop configuration endpoint
 func (h *PitstopHandler) SyncConfig(w http.ResponseWriter, r *http.Request) {
 	userID := r.Header.Get("X-User-ID")
 	if userID == "" {
