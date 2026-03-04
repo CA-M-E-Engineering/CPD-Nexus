@@ -5,6 +5,7 @@ DROP TABLE IF EXISTS `projects`;
 CREATE TABLE IF NOT EXISTS `projects` (
     `project_id` varchar(50) NOT NULL,
     `user_id` varchar(50) DEFAULT NULL,
+    `pitstop_auth_id` varchar(50) DEFAULT NULL,
     `site_id` varchar(50) DEFAULT NULL,
     `project_reference_number` varchar(50) NOT NULL,
     `project_title` varchar(255) NOT NULL,

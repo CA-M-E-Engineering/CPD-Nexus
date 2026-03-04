@@ -19,7 +19,7 @@ func NewPitstopRepository(db *sql.DB) *PitstopRepository {
 func (r *PitstopRepository) GetAuthorisations(ctx context.Context) ([]*domain.PitstopAuthorisation, error) {
 	query := `
 		SELECT pitstop_auth_id, dataset_id, dataset_name, user_id, 
-		       regulator_id, regulator_name, maincon_id, maincon_name, status, last_synced_at
+		       regulator_id, regulator_name, on_behalf_of_id, on_behalf_of_name, status, last_synced_at
 		FROM pitstop_authorisations
 		ORDER BY dataset_name ASC
 	`
@@ -34,7 +34,7 @@ func (r *PitstopRepository) GetAuthorisations(ctx context.Context) ([]*domain.Pi
 		var a domain.PitstopAuthorisation
 		if err := rows.Scan(
 			&a.PitstopAuthID, &a.DatasetID, &a.DatasetName, &a.UserID,
-			&a.RegulatorID, &a.RegulatorName, &a.MainconID, &a.MainconName, &a.Status, &a.LastSyncedAt,
+			&a.RegulatorID, &a.RegulatorName, &a.OnBehalfOfID, &a.OnBehalfOfName, &a.Status, &a.LastSyncedAt,
 		); err != nil {
 			return nil, fmt.Errorf("failed to scan pitstop authorisation: %w", err)
 		}
@@ -61,14 +61,14 @@ func (r *PitstopRepository) InsertAuthorisations(ctx context.Context, auths []*d
 		valueStrings = append(valueStrings, "(?, ?, ?, ?, ?, ?, ?, ?, ?, ?)")
 		valueArgs = append(valueArgs,
 			a.PitstopAuthID, a.DatasetID, a.DatasetName, a.UserID,
-			a.RegulatorID, a.RegulatorName, a.MainconID, a.MainconName, a.Status, a.LastSyncedAt,
+			a.RegulatorID, a.RegulatorName, a.OnBehalfOfID, a.OnBehalfOfName, a.Status, a.LastSyncedAt,
 		)
 	}
 
 	query := fmt.Sprintf(`
 		INSERT INTO pitstop_authorisations (
 			pitstop_auth_id, dataset_id, dataset_name, user_id, 
-			regulator_id, regulator_name, maincon_id, maincon_name, status, last_synced_at
+			regulator_id, regulator_name, on_behalf_of_id, on_behalf_of_name, status, last_synced_at
 		) VALUES %s
 	`, strings.Join(valueStrings, ","))
 
@@ -92,7 +92,7 @@ func (r *PitstopRepository) UpdateAuthorisations(ctx context.Context, auths []*d
 
 	stmt, err := tx.PrepareContext(ctx, `
 		UPDATE pitstop_authorisations SET
-			dataset_name = ?, user_id = ?, regulator_name = ?, maincon_name = ?,
+			dataset_name = ?, user_id = ?, regulator_name = ?, on_behalf_of_name = ?,
 			status = ?, last_synced_at = ?
 		WHERE pitstop_auth_id = ?
 	`)
@@ -104,7 +104,7 @@ func (r *PitstopRepository) UpdateAuthorisations(ctx context.Context, auths []*d
 
 	for _, a := range auths {
 		if _, err := stmt.ExecContext(ctx,
-			a.DatasetName, a.UserID, a.RegulatorName, a.MainconName,
+			a.DatasetName, a.UserID, a.RegulatorName, a.OnBehalfOfName,
 			a.Status, a.LastSyncedAt, a.PitstopAuthID,
 		); err != nil {
 			tx.Rollback()
@@ -115,5 +115,42 @@ func (r *PitstopRepository) UpdateAuthorisations(ctx context.Context, auths []*d
 	if err := tx.Commit(); err != nil {
 		return fmt.Errorf("failed to commit update transaction: %w", err)
 	}
+	return nil
+}
+
+func (r *PitstopRepository) AssignOnBehalfOfToUser(ctx context.Context, userID string, onBehalfOfNames []string) error {
+	tx, err := r.db.BeginTx(ctx, nil)
+	if err != nil {
+		return fmt.Errorf("failed to begin transaction: %w", err)
+	}
+
+	// 1. Clear existing assignments for this user
+	if _, err := tx.ExecContext(ctx, `UPDATE pitstop_authorisations SET user_id = NULL WHERE user_id = ?`, userID); err != nil {
+		tx.Rollback()
+		return fmt.Errorf("failed to clear existing assignments: %w", err)
+	}
+
+	// 2. Assign the new ones
+	if len(onBehalfOfNames) > 0 {
+		placeholders := make([]string, len(onBehalfOfNames))
+		args := make([]interface{}, len(onBehalfOfNames)+1)
+		args[0] = userID
+
+		for i, name := range onBehalfOfNames {
+			placeholders[i] = "?"
+			args[i+1] = name
+		}
+
+		query := fmt.Sprintf(`UPDATE pitstop_authorisations SET user_id = ? WHERE on_behalf_of_name IN (%s)`, strings.Join(placeholders, ","))
+		if _, err := tx.ExecContext(ctx, query, args...); err != nil {
+			tx.Rollback()
+			return fmt.Errorf("failed to assign new on_behalf_ofs: %w", err)
+		}
+	}
+
+	if err := tx.Commit(); err != nil {
+		return fmt.Errorf("failed to commit assignment transaction: %w", err)
+	}
+
 	return nil
 }

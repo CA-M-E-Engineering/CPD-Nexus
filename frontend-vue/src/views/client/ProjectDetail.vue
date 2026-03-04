@@ -47,7 +47,8 @@ const projectInfo = computed(() => [
   { label: 'Site', value: project.value?.site_name || '---' },
   { label: 'Contract Number', value: project.value?.contract || '---' },
   { label: 'Contract Name', value: project.value?.contract_name || '---' },
-  { label: 'Location', value: project.value?.location || '---' }
+  { label: 'Location', value: project.value?.location || '---' },
+  { label: 'Pitstop Auth ID', value: project.value?.pitstop_auth_id || '---' }
 ]);
 
 const contractorInfo = computed(() => {

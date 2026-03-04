@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"net/http"
 	"sgbuildex/internal/core/services"
+
+	"github.com/gorilla/mux"
 )
 
 type PitstopHandler struct {
@@ -42,4 +44,27 @@ func (h *PitstopHandler) SyncConfig(w http.ResponseWriter, r *http.Request) {
 
 	w.WriteHeader(http.StatusOK)
 	w.Write([]byte(`{"message": "Pitstop configurations synced successfully"}`))
+}
+
+// AssignOnBehalfOf handles setting the user context for certain on_behalf_of names in pitstop configuration
+func (h *PitstopHandler) AssignOnBehalfOf(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	userID := vars["id"]
+
+	var input struct {
+		OnBehalfOfNames []string `json:"on_behalf_of_names"`
+	}
+
+	if err := json.NewDecoder(r.Body).Decode(&input); err != nil {
+		http.Error(w, "invalid request body", http.StatusBadRequest)
+		return
+	}
+
+	if err := h.pitstopService.AssignOnBehalfOfToUser(r.Context(), userID, input.OnBehalfOfNames); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
+	w.Write([]byte(`{"message": "On behalf of entities successfully assigned to user"}`))
 }

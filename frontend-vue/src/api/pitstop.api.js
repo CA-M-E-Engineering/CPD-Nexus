@@ -13,5 +13,14 @@ export const pitstopApi = {
      */
     syncAuthorisations() {
         return http.post('/pitstop/authorisations/sync');
+    },
+
+    /**
+     * Assign specific pitstop "on behalf of" entities to a user account
+     * @param {string} userId 
+     * @param {string[]} onBehalfOfNames 
+     */
+    assignOnBehalfOfs(userId, onBehalfOfNames) {
+        return http.post(`/users/${userId}/pitstop-on-behalf-of`, { on_behalf_of_names: onBehalfOfNames });
     }
 };

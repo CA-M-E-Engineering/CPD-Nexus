@@ -38,7 +38,7 @@ func (s *PitstopService) SyncConfig(ctx context.Context, userID string) error {
 	existingAuths, _ := s.pitstopRepo.GetAuthorisations(ctx)
 	existingMap := make(map[string]*domain.PitstopAuthorisation)
 	for _, e := range existingAuths {
-		key := fmt.Sprintf("%s|%s|%s", e.DatasetID, e.RegulatorID, e.MainconID)
+		key := fmt.Sprintf("%s|%s|%s", e.DatasetID, e.RegulatorID, e.OnBehalfOfID)
 		existingMap[key] = e
 	}
 
@@ -47,6 +47,8 @@ func (s *PitstopService) SyncConfig(ctx context.Context, userID string) error {
 	now := time.Now()
 	idTimestamp := now.Format("20060102150405")
 	seq := 1
+
+	seenKeys := make(map[string]bool)
 
 	// 3. Map JSON Response to Domain Entities
 	for _, produce := range cfgResponse.Data.Produces {
@@ -58,18 +60,24 @@ func (s *PitstopService) SyncConfig(ctx context.Context, userID string) error {
 			regulatorName := to.Name
 
 			for _, behalf := range to.OnBehalfOf {
-				mainconID := behalf.ID
-				mainconName := behalf.Name
+				onBehalfOfID := behalf.ID
+				onBehalfOfName := behalf.Name
 
-				key := fmt.Sprintf("%s|%s|%s", datasetID, regulatorID, mainconID)
+				key := fmt.Sprintf("%s|%s|%s", datasetID, regulatorID, onBehalfOfID)
+				seenKeys[key] = true
 
 				if existing, exists := existingMap[key]; exists {
 					// Check if data actually changed
 					modified := false
 					if existing.DatasetName != datasetName ||
 						existing.RegulatorName != regulatorName ||
-						existing.MainconName != mainconName ||
+						existing.OnBehalfOfName != onBehalfOfName ||
 						existing.Status != "ACTIVE" {
+						modified = true
+					}
+
+					if existing.UserID == nil || *existing.UserID == "" {
+						existing.UserID = &userID
 						modified = true
 					}
 
@@ -77,12 +85,9 @@ func (s *PitstopService) SyncConfig(ctx context.Context, userID string) error {
 					if modified {
 						existing.DatasetName = datasetName
 						existing.RegulatorName = regulatorName
-						existing.MainconName = mainconName
+						existing.OnBehalfOfName = onBehalfOfName
 						existing.Status = "ACTIVE"
 						existing.LastSyncedAt = &now
-						if existing.UserID == nil || *existing.UserID != userID {
-							existing.UserID = &userID
-						}
 						toUpdate = append(toUpdate, existing)
 					}
 				} else {
@@ -91,19 +96,30 @@ func (s *PitstopService) SyncConfig(ctx context.Context, userID string) error {
 					seq++
 
 					auth := &domain.PitstopAuthorisation{
-						PitstopAuthID: authID,
-						DatasetID:     datasetID,
-						DatasetName:   datasetName,
-						UserID:        &userID,
-						RegulatorID:   regulatorID,
-						RegulatorName: regulatorName,
-						MainconID:     mainconID,
-						MainconName:   mainconName,
-						Status:        "ACTIVE",
-						LastSyncedAt:  &now,
+						PitstopAuthID:  authID,
+						DatasetID:      datasetID,
+						DatasetName:    datasetName,
+						UserID:         &userID,
+						RegulatorID:    regulatorID,
+						RegulatorName:  regulatorName,
+						OnBehalfOfID:   onBehalfOfID,
+						OnBehalfOfName: onBehalfOfName,
+						Status:         "ACTIVE",
+						LastSyncedAt:   &now,
 					}
 					toInsert = append(toInsert, auth)
 				}
+			}
+		}
+	}
+
+	// 3.5 Check for authorisations that are no longer in the pitstop config and mark as INACTIVE
+	for key, existing := range existingMap {
+		if !seenKeys[key] {
+			if existing.Status != "INACTIVE" {
+				existing.Status = "INACTIVE"
+				existing.LastSyncedAt = &now
+				toUpdate = append(toUpdate, existing)
 			}
 		}
 	}
@@ -122,4 +138,12 @@ func (s *PitstopService) SyncConfig(ctx context.Context, userID string) error {
 	}
 
 	return nil
+}
+
+// AssignOnBehalfOfToUser assigns a set of contractor names to a specific UserID for pitstop authorisations
+func (s *PitstopService) AssignOnBehalfOfToUser(ctx context.Context, userID string, onBehalfOfNames []string) error {
+	if userID == "" {
+		return fmt.Errorf("user ID cannot be empty")
+	}
+	return s.pitstopRepo.AssignOnBehalfOfToUser(ctx, userID, onBehalfOfNames)
 }

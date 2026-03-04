@@ -9,6 +9,7 @@ import { analyticsApi } from '../api/analytics.api';
 import { attendanceApi } from '../api/attendance.api';
 import { settingsApi } from '../api/settings.api';
 import { bridgeApi } from '../api/bridge.api';
+import { pitstopApi } from '../api/pitstop.api';
 
 import { http } from '../api/http';
 
@@ -73,6 +74,10 @@ export const liveApi = {
 
     // --- Bridge ---
     syncUsers: bridgeApi.syncUsers,
+
+    // --- Pitstop ---
+    getPitstopAuthorisations: pitstopApi.getAuthorisations,
+    assignPitstopOnBehalfOfs: pitstopApi.assignOnBehalfOfs,
 
     // --- Utilities ---
     async simulateExport(label) {

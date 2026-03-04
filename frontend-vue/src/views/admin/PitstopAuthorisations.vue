@@ -13,7 +13,7 @@ const authorisations = ref([]);
 const columns = [
     { key: 'dataset_name', label: 'Dataset Name', sortable: true },
     { key: 'regulator_name', label: 'Regulator', sortable: true },
-    { key: 'maincon_name', label: 'Main Contractor', sortable: true },
+    { key: 'on_behalf_of_name', label: 'On Behalf Of', sortable: true },
     { key: 'status', label: 'Status' },
     { key: 'last_synced_at', label: 'Last Synced' }
 ];

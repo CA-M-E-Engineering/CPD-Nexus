@@ -121,6 +121,7 @@ func RegisterRoutes(r *mux.Router, cfg RouterConfig) {
 	if cfg.PitstopHandler != nil {
 		api.HandleFunc("/pitstop/authorisations", cfg.PitstopHandler.GetAuthorisations).Methods("GET")
 		api.HandleFunc("/pitstop/authorisations/sync", cfg.PitstopHandler.SyncConfig).Methods("POST")
+		api.HandleFunc("/users/{id}/pitstop-on-behalf-of", cfg.PitstopHandler.AssignOnBehalfOf).Methods("POST")
 	}
 
 	// Serve Static Files

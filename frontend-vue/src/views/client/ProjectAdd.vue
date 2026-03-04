@@ -69,10 +69,12 @@ const formData = ref({
   worker_company_client_name: '',
   worker_company_client_uen: '',
   worker_company_trade: '',
+  pitstop_auth_id: '',
   status: 'active'
 });
 
 const sites = ref([]);
+const pitstopAuths = ref([]);
 const isEdit = computed(() => props.mode === 'edit');
 
 const fetchData = async () => {
@@ -89,8 +91,16 @@ const fetchData = async () => {
         }
         formData.value.user_id = userId;
         
-        const sitesData = await api.getSites({ user_id: userId });
+        const promises = [
+            api.getSites({ user_id: userId }),
+            api.getPitstopAuthorisations().catch(() => []) // Fallback on fail
+        ];
+        
+        const [sitesData, authsData] = await Promise.all(promises);
         sites.value = sitesData || [];
+        
+        // Filter pitstop authorisations for this specific user
+        pitstopAuths.value = (authsData || []).filter(auth => auth.user_id === userId);
     } catch (err) {
         console.error('Failed to load dependency data', err);
     }
@@ -104,7 +114,8 @@ const fetchProject = async () => {
     if (data) {
       formData.value = { 
         ...data,
-        site_id: data.site_id || ''
+        site_id: data.site_id || '',
+        pitstop_auth_id: data.pitstop_auth_id || ''
       };
       if (data.worker_company_trade) {
         selectedTrades.value = data.worker_company_trade.split(',').map(s => s.trim()).filter(Boolean);
@@ -196,6 +207,17 @@ const handleSubmit = async () => {
                           {{ s.site_name }}
                       </option>
                   </select>
+              </div>
+
+              <div class="form-group">
+                  <label class="form-label">Pitstop Authorisation</label>
+                  <select v-model="formData.pitstop_auth_id" class="form-select">
+                      <option value="">None</option>
+                      <option v-for="pa in pitstopAuths" :key="pa.pitstop_auth_id" :value="pa.pitstop_auth_id">
+                          {{ pa.on_behalf_of_name }} - {{ pa.dataset_name }}
+                      </option>
+                  </select>
+                  <span class="help-text">Links this project to BCA Pitstop if selected.</span>
               </div>
 
               <BaseInput v-model="formData.location" label="Project Location Description" placeholder="e.g., Marina Bay, Central Singapore" required />

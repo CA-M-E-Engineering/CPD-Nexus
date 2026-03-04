@@ -35,16 +35,42 @@ const formData = ref({
   status: 'active',
   bridge_ws_url: '',
   bridge_auth_token: '',
-  bridge_status: 'inactive'
+  bridge_status: 'inactive',
+  assigned_on_behalf_ofs: []
 });
 
-const fetchUser = async () => {
-  if (!isEdit.value || !props.id) return;
+const availableOnBehalfOfs = ref([]);
+
+const fetchUserAndAuthorisations = async () => {
   isLoading.value = true;
   try {
-    const data = await api.getUserById(props.id);
-    if (data) {
+    const promises = [api.getPitstopAuthorisations()];
+    if (isEdit.value && props.id) {
+        promises.push(api.getUserById(props.id));
+    }
+    
+    const results = await Promise.all(promises);
+    const authsData = results[0] || [];
+    // Extract unique onBehalfOfs from pitstop authorisations
+    const onBehalfOfSet = new Set();
+    const assignedToUser = new Set();
+    
+    authsData.forEach(auth => {
+        if (auth.on_behalf_of_name) {
+            onBehalfOfSet.add(auth.on_behalf_of_name);
+            if (isEdit.value && props.id && auth.user_id === props.id) {
+                assignedToUser.add(auth.on_behalf_of_name);
+            }
+        }
+    });
+    
+    availableOnBehalfOfs.value = Array.from(onBehalfOfSet).sort();
+    
+    // Setup form data
+    if (isEdit.value && results[1]) {
+      const data = results[1];
       formData.value = {
+        ...formData.value,
         user_name: data.user_name,
         user_type: data.user_type || USER_TYPES.CLIENT,
         username: data.username || '',
@@ -56,15 +82,18 @@ const fetchUser = async () => {
         status: data.status || 'active',
         bridge_ws_url: data.bridge_ws_url || '',
         bridge_auth_token: data.bridge_auth_token || '',
-        bridge_status: data.bridge_status || 'inactive'
+        bridge_status: data.bridge_status || 'inactive',
+        assigned_on_behalf_ofs: Array.from(assignedToUser)
       };
     }
+  } catch (err) {
+      console.error('Failed to init user form:', err);
   } finally {
     isLoading.value = false;
   }
 };
 
-onMounted(fetchUser);
+onMounted(fetchUserAndAuthorisations);
 
 const handleSubmit = async () => {
   isSaving.value = true;
@@ -75,13 +104,27 @@ const handleSubmit = async () => {
         lng: parseFloat(formData.value.longitude) || 0
     };
 
+    let savedUserId = props.id;
+
     if (isEdit.value) {
-      await api.updateUser(props.id, payload);
+      await api.updateUser(savedUserId, payload);
       notification.success('Organization updated successfully');
     } else {
-      await api.createUser(payload);
+      const response = await api.createUser(payload);
+      savedUserId = response.user_id || response.id; // handle id retrieval based on create response mapping
       notification.success('New organization registered successfully');
     }
+    
+    // Now dispatch pitstop onBehalfOfs assignment array
+    if (savedUserId && formData.value.assigned_on_behalf_ofs) {
+        try {
+            await api.assignPitstopOnBehalfOfs(savedUserId, formData.value.assigned_on_behalf_ofs);
+        } catch (authErr) {
+            console.error('Pitstop assignment failed:', authErr);
+            notification.error('Organization saved, but Pitstop On Behalf Of assignments failed to sync.');
+        }
+    }
+
     emit('navigate', 'users');
   } catch (err) {
     console.error('[UserAdd] Save failed:', err);
@@ -109,8 +152,8 @@ const handleSubmit = async () => {
         <span>Creating a User will automatically generate a <strong>Login Account</strong> and a corresponding <strong>Primary Business Entity</strong>.</span>
       </div>
 
-      <!-- Two-column layout -->
-      <div class="two-col-layout">
+      <!-- Three-column layout -->
+      <div class="three-col-layout">
 
         <!-- LEFT: User info -->
         <div class="form-panel">
@@ -129,37 +172,69 @@ const handleSubmit = async () => {
           </div>
         </div>
 
-        <!-- RIGHT: Bridge config -->
+        <!-- MIDDLE: Bridge config -->
         <div class="form-panel bridge-panel">
-          <div class="section-title">Bridge Connection</div>
-          <p class="bridge-description">Configure the IoT Bridge WebSocket connection for this organization. When active, the system will connect automatically on startup.</p>
+            <div class="section-title">Bridge Connection</div>
+            <p class="bridge-description">Configure the IoT Bridge WebSocket connection for this organization. When active, the system will connect automatically on startup.</p>
 
-          <div class="bridge-status-indicator" :class="formData.bridge_status === 'active' ? 'status-active' : 'status-inactive'">
-            <i :class="formData.bridge_status === 'active' ? 'ri-wifi-line' : 'ri-wifi-off-line'"></i>
-            <span>{{ formData.bridge_status === 'active' ? 'Bridge Active' : 'Bridge Inactive' }}</span>
-          </div>
+            <div class="bridge-status-indicator" :class="formData.bridge_status === 'active' ? 'status-active' : 'status-inactive'">
+              <i :class="formData.bridge_status === 'active' ? 'ri-wifi-line' : 'ri-wifi-off-line'"></i>
+              <span>{{ formData.bridge_status === 'active' ? 'Bridge Active' : 'Bridge Inactive' }}</span>
+            </div>
 
-          <div class="bridge-fields">
-            <BaseInput
-              v-model="formData.bridge_ws_url"
-              label="WebSocket URL"
-              placeholder="ws://192.168.1.100:8081/ws"
-            />
-            <BaseInput
-              v-model="formData.bridge_auth_token"
-              label="Auth Token (Optional)"
-              placeholder="Leave blank if not required"
-            />
-            <div class="form-group">
-              <label class="form-label">Connection Status</label>
-              <select v-model="formData.bridge_status" class="form-select">
-                <option value="active">Active — Connect on startup</option>
-                <option value="inactive">Inactive — Do not connect</option>
-              </select>
-              <span class="field-help">Set to Active to enable the IoT Bridge WebSocket connection for this organization's devices.</span>
+            <div class="bridge-fields">
+              <BaseInput
+                v-model="formData.bridge_ws_url"
+                label="WebSocket URL"
+                placeholder="ws://192.168.1.100:8081/ws"
+              />
+              <BaseInput
+                v-model="formData.bridge_auth_token"
+                label="Auth Token (Optional)"
+                placeholder="Leave blank if not required"
+              />
+              <div class="form-group">
+                <label class="form-label">Connection Status</label>
+                <select v-model="formData.bridge_status" class="form-select">
+                  <option value="active">Active — Connect on startup</option>
+                  <option value="inactive">Inactive — Do not connect</option>
+                </select>
+                <span class="field-help">Set to Active to enable the IoT Bridge WebSocket connection for this organization's devices.</span>
+              </div>
             </div>
           </div>
-        </div>
+          
+          <!-- Pitstop Integrations -->
+          <div class="form-panel integration-panel">
+              <div class="section-title">Pitstop Integrations</div>
+              <p class="bridge-description">Assign one or more 'On Behalf Of' entities synced via Pitstop configuration to assign datasets directly to this client organization.</p>
+              <div class="form-group" style="margin-top: 16px;">
+                  <label class="form-label">Assign Entities</label>
+                  
+                  <div class="dropdown-wrapper">
+                    <details class="custom-dropdown">
+                        <summary class="dropdown-summary">
+                            <span>
+                                {{ formData.assigned_on_behalf_ofs.length > 0 
+                                   ? `${formData.assigned_on_behalf_ofs.length} entity(s) selected` 
+                                   : 'Select entities...' }}
+                            </span>
+                            <i class="ri-arrow-down-s-line"></i>
+                        </summary>
+                        <div class="dropdown-content contractor-list">
+                            <div v-if="availableOnBehalfOfs.length === 0" class="no-contractors">
+                                No entities fetched from Pitstop yet. Go to Configuration -> Pitstop to sync.
+                            </div>
+                            <label v-for="entity in availableOnBehalfOfs" :key="entity" class="checkbox-label">
+                                <input type="checkbox" :value="entity" v-model="formData.assigned_on_behalf_ofs" />
+                                <span>{{ entity }}</span>
+                            </label>
+                        </div>
+                    </details>
+                  </div>
+                  <span class="field-help" style="margin-top: 8px; display: block;">Selected entities will automatically map their Pitstop dataset authorizations to this user ID.</span>
+              </div>
+          </div>
       </div>
 
       <!-- Map full-width below both panels -->
@@ -189,7 +264,7 @@ const handleSubmit = async () => {
 <style scoped>
 /* Styles updated for premium look */
 .form-container {
-  max-width: 1200px;
+  max-width: 1600px;
   background: rgba(255, 255, 255, 0.03);
   backdrop-filter: blur(10px);
   border: 1px solid rgba(255, 255, 255, 0.08);
@@ -217,17 +292,23 @@ const handleSubmit = async () => {
   flex-shrink: 0;
 }
 
-/* Two-column layout */
-.two-col-layout {
+/* Three-column layout */
+.three-col-layout {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: 1fr 1fr 1fr;
   gap: 32px;
   margin-bottom: 32px;
   align-items: start;
 }
 
+@media (max-width: 1300px) {
+  .three-col-layout {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
 @media (max-width: 900px) {
-  .two-col-layout {
+  .three-col-layout {
     grid-template-columns: 1fr;
   }
 }
@@ -380,5 +461,115 @@ const handleSubmit = async () => {
   padding: 80px;
   text-align: center;
   color: var(--color-text-secondary);
+}
+
+/* Integration Panel */
+.integration-panel {
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  border-radius: var(--radius-lg);
+  padding: 28px;
+  display: flex;
+  flex-direction: column;
+}
+
+.contractor-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 250px;
+  overflow-y: auto;
+  padding: 12px;
+}
+
+/* Custom Dropdown Styling */
+.dropdown-wrapper {
+    position: relative;
+    width: 100%;
+}
+
+.custom-dropdown {
+    width: 100%;
+    position: relative;
+}
+
+.custom-dropdown[open] .dropdown-summary i {
+    transform: rotate(180deg);
+}
+
+.dropdown-summary {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px 14px;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: var(--radius-md);
+    color: var(--color-text-primary);
+    font-size: 14px;
+    cursor: pointer;
+    list-style: none;
+    transition: all 0.2s ease;
+}
+
+.dropdown-summary::-webkit-details-marker {
+    display: none;
+}
+
+.dropdown-summary:hover {
+    background: rgba(255, 255, 255, 0.08);
+}
+
+.dropdown-summary i {
+    transition: transform 0.2s ease;
+    color: var(--color-text-muted);
+}
+
+.dropdown-content {
+    position: absolute;
+    top: calc(100% + 4px);
+    left: 0;
+    right: 0;
+    background: #1e293b; /* Solid dark background to avoid transparency issues over other elements */
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: var(--radius-md);
+    box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.5);
+    z-index: 50;
+}
+
+.no-contractors {
+    font-size: 13px;
+    color: var(--color-text-muted);
+    font-style: italic;
+    text-align: center;
+    padding: 12px;
+}
+
+.checkbox-label {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  cursor: pointer;
+  padding: 8px 12px;
+  border-radius: var(--radius-sm);
+  transition: all 0.2s ease;
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.checkbox-label:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.checkbox-label input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+  accent-color: var(--color-accent);
+  cursor: pointer;
+}
+
+.checkbox-label span {
+  font-size: 14px;
+  color: var(--color-text-primary);
+  user-select: none;
 }
 </style>

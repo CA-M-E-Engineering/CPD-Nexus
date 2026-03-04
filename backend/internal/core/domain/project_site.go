@@ -3,16 +3,17 @@ package domain
 import "time"
 
 type Project struct {
-	ID           string `json:"project_id"`
-	SiteID       string `json:"site_id"`
-	UserID       string `json:"user_id"`
-	Title        string `json:"title"`
-	Status       string `json:"status"`
-	Reference    string `json:"reference"`
-	ContractRef  string `json:"contract"`
-	ContractName string `json:"contract_name"`
-	Location     string `json:"location"`
-	HDBPrecinct  string `json:"hdb_precinct"`
+	ID            string  `json:"project_id"`
+	SiteID        string  `json:"site_id"`
+	UserID        string  `json:"user_id"`
+	Title         string  `json:"title"`
+	Status        string  `json:"status"`
+	Reference     string  `json:"reference"`
+	ContractRef   string  `json:"contract"`
+	ContractName  string  `json:"contract_name"`
+	Location      string  `json:"location"`
+	HDBPrecinct   string  `json:"hdb_precinct"`
+	PitstopAuthID *string `json:"pitstop_auth_id,omitempty"`
 
 	// Inline company details (no FK to companies table)
 	MainContractorName        string `json:"main_contractor_name,omitempty"`
