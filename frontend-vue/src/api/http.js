@@ -96,7 +96,7 @@ async function request(endpoint, options = {}) {
     try {
         const response = await fetch(url, config);
         clearTimeout(timeoutId);
-        console.log(`[HTTP Debug] ${config.method || 'GET'} ${url} -> Status ${response.status}`);
+
         const contentType = response.headers.get('content-type');
         let data = null;
 
@@ -105,7 +105,6 @@ async function request(endpoint, options = {}) {
         } else {
             data = await response.text().catch(() => null);
         }
-        console.log(`[HTTP Debug] Data:`, data);
 
         if (!response.ok) {
             const errorMessage = (typeof data === 'object' ? data?.message : data) || `Request failed with status ${response.status}`;

@@ -29,17 +29,11 @@ const columns = [
 const deviceStore = useDeviceStore();
 const { devices, loading: isLoading } = storeToRefs(deviceStore);
 
-// Computed stats from store
-const siteCount = ref(0); // TODO: Move sites to store
-const workerCount = ref(0); // TODO: Move workers to store
-
 const fetchDevices = async () => {
   try {
     // Parallel fetch: Devices from store, others from API (for now)
     await Promise.all([
-        deviceStore.fetchDevices(),
-        api.getSites().then(data => siteCount.value = (data || []).length),
-        api.getWorkers().then(data => workerCount.value = (data || []).length)
+        deviceStore.fetchDevices()
     ]);
   } catch (err) {
     console.error('Fetch Failed:', err);

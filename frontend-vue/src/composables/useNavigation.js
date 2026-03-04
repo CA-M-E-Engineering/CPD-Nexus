@@ -84,7 +84,7 @@ export function useNavigation() {
     });
 
     const setRole = (role) => {
-        console.log("useNavigation: Switching role to", role);
+
         currentRole.value = role;
         activeNavId.value = 'dashboard';
         contextData.value = null;

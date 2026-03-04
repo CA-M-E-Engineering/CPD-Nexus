@@ -8,7 +8,7 @@ export const sitesApi = {
      * Fetch all sites
      */
     getSites: (params) => {
-        console.log('[SitesAPI] getSites called with:', params);
+
         return http.get('/sites', { params });
     },
 

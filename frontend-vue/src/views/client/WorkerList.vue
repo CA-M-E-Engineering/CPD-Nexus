@@ -32,7 +32,7 @@ const isLoading = ref(false);
 const error = ref(null);
 
 const fetchWorkers = async () => {
-  console.log('[WorkerList] Fetching workers...');
+
   isLoading.value = true;
   try {
     const savedUser = localStorage.getItem('auth_user');
@@ -52,14 +52,14 @@ const fetchWorkers = async () => {
         return;
     }
     
-    console.log('[WorkerList] Requesting workers for User:', userId);
+
     const data = await api.getWorkers({ user_id: userId });
-    console.log('[WorkerList] Received workers:', data);
+
     workers.value = data || [];
 
     // Calculate Stats
     totalWorkers.value = workers.value.length;
-    console.log('[WorkerList] Total workers set to:', totalWorkers.value);
+
     unassignedCount.value = workers.value.filter(w => !w.current_project_id).length;
 
   } catch (err) {

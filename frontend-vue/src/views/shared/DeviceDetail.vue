@@ -92,7 +92,7 @@ onMounted(async () => {
 
 watch(() => props.id, (newId) => {
   if (newId) {
-    console.log(`[DeviceDetail] ID changed to ${newId}, refetching...`);
+
     fetchDevice();
   }
 });
@@ -128,7 +128,7 @@ const showAssignSiteModal = ref(false);
 const selectedSiteId = ref('');
 
 const handleAssign = async () => {
-  console.log('[DeviceDetail] handleAssign triggered. Selected User:', selecteduserId.value);
+
   if (!selecteduserId.value || selecteduserId.value === '') {
     notification.error('Please select an organization from the dropdown.');
     return;

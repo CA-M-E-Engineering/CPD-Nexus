@@ -23,8 +23,7 @@ const handleLogin = async () => {
 
   try {
     const response = await api.login(username.value, password.value);
-    console.log('[Login] Received response:', response);
-    
+
     // Store token
     if (response.token) {
       localStorage.setItem('auth_token', response.token);

@@ -116,26 +116,24 @@ const handleSave = async () => {
   const currentId = String(worker.value?.current_project_id || '');
   const newId = String(selectedProjectId.value || '');
 
-  console.log('[WorkerAssignProject] Comparing IDs:', { current: currentId, new: newId });
 
   if (newId === currentId) {
-    console.log('[WorkerAssignProject] No change in project selection');
+
     emit('navigate', 'worker-detail', { id: props.id });
     return;
   }
 
   isSaving.value = true;
   try {
-    console.log('[WorkerAssignProject] Current worker state:', worker.value);
-    console.log('[WorkerAssignProject] New project selection:', newId);
-    console.log('[WorkerAssignProject] Updating project assignment:', { from: currentId, to: newId });
-    
+
+
+
     // We only need to send the field we want to update
     const updateData = {
       current_project_id: newId
     };
     
-    console.log('[WorkerAssignProject] Calling updateWorker with payload:', updateData);
+
     await api.updateWorker(props.id, updateData);
     notification.success('Project assignment updated');
     emit('navigate', 'worker-detail', { id: props.id });
