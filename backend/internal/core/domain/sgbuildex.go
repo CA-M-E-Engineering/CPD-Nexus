@@ -21,19 +21,29 @@ type AttendanceRow struct {
 	// Joined Site fields
 	SiteName     string
 	SiteLocation string
-	ProjectRef   string
+
+	// Projects Fields
+	ProjectRef      string
+	ProjectTitle    string
+	ProjectLocation string
+	RegulatorID     string
+	RegulatorName   string
+	OnBehalfOfID    string
 
 	// Main Contractor fields (from Project)
 	SiteOwnerName string
 	SiteOwnerUEN  string
 
 	// Joined Worker fields
-	WorkerName    string
-	WorkerFIN     string
-	WorkerTrade   string
-	EmployerName  string
-	EmployerUEN   string
-	EmployerTrade string
+	WorkerName         string
+	WorkerFIN          string
+	WorkerWorkPassType string
+	WorkerTrade        string
+	EmployerName       string
+	EmployerUEN        string
+	EmployerTrade      string
+	EmployerClientName string
+	EmployerClientUEN  string
 
 	// PIC (Person In Charge) for on-behalf submission
 	PICName string

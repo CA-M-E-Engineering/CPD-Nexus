@@ -170,15 +170,18 @@ func (r *AttendanceRepository) ExtractPendingAttendance(ctx context.Context) ([]
 			a.attendance_id, a.device_id, a.worker_id, a.site_id, a.user_id,
 			a.time_in, a.time_out, a.direction, a.trade_code, a.status, a.submission_date,
 			s.site_name, s.location,
-			p.project_reference_number,
+			p.project_reference_number, p.project_title, p.project_location_description,
 			p.main_contractor_name, p.main_contractor_uen,
-			w.name AS worker_name, w.person_id_no, w.person_trade AS worker_trade,
+			w.name AS worker_name, w.person_id_no, w.person_id_and_work_pass_type, w.person_trade AS worker_trade,
 			p.worker_company_name, p.worker_company_uen, p.worker_company_trade,
-			pic.name AS pic_name, pic.person_id_no AS pic_fin
+			p.worker_company_client_name, p.worker_company_client_uen,
+			pic.name AS pic_name, pic.person_id_no AS pic_fin,
+			pa.regulator_id, pa.regulator_name, pa.on_behalf_of_id
 		FROM attendance a
 		JOIN sites s ON a.site_id = s.site_id
 		JOIN workers w ON a.worker_id = w.worker_id
 		LEFT JOIN projects p ON w.current_project_id = p.project_id
+		LEFT JOIN pitstop_authorisations pa ON p.pitstop_auth_id = pa.pitstop_auth_id
 		LEFT JOIN workers pic ON p.project_id = pic.current_project_id AND pic.role = 'pic'
 		WHERE a.status = 'pending'
 		ORDER BY a.submission_date, a.attendance_id
@@ -193,7 +196,8 @@ func (r *AttendanceRepository) ExtractPendingAttendance(ctx context.Context) ([]
 	var results []domain.AttendanceRow
 	for rows.Next() {
 		var res domain.AttendanceRow
-		var mcName, mcUEN, wcName, wcUEN, wcTrade, picName, picFIN sql.NullString
+		var mcName, mcUEN, wcName, wcUEN, wcTrade, wccName, wccUEN, picName, picFIN sql.NullString
+		var pTitle, pLoc, wPassType, regID, regName, obID sql.NullString
 		err := rows.Scan(
 			&res.AttendanceID,
 			&res.DeviceID,
@@ -209,19 +213,45 @@ func (r *AttendanceRepository) ExtractPendingAttendance(ctx context.Context) ([]
 			&res.SiteName,
 			&res.SiteLocation,
 			&res.ProjectRef,
+			&pTitle,
+			&pLoc,
 			&mcName,
 			&mcUEN,
 			&res.WorkerName,
 			&res.WorkerFIN,
+			&wPassType,
 			&res.WorkerTrade,
 			&wcName,
 			&wcUEN,
 			&wcTrade,
+			&wccName,
+			&wccUEN,
 			&picName,
 			&picFIN,
+			&regID,
+			&regName,
+			&obID,
 		)
 		if err != nil {
 			return nil, err
+		}
+		if pTitle.Valid {
+			res.ProjectTitle = pTitle.String
+		}
+		if pLoc.Valid {
+			res.ProjectLocation = pLoc.String
+		}
+		if wPassType.Valid {
+			res.WorkerWorkPassType = wPassType.String
+		}
+		if regID.Valid {
+			res.RegulatorID = regID.String
+		}
+		if regName.Valid {
+			res.RegulatorName = regName.String
+		}
+		if obID.Valid {
+			res.OnBehalfOfID = obID.String
 		}
 		if mcName.Valid {
 			res.SiteOwnerName = mcName.String
@@ -237,6 +267,12 @@ func (r *AttendanceRepository) ExtractPendingAttendance(ctx context.Context) ([]
 		}
 		if wcTrade.Valid {
 			res.EmployerTrade = wcTrade.String
+		}
+		if wccName.Valid {
+			res.EmployerClientName = wccName.String
+		}
+		if wccUEN.Valid {
+			res.EmployerClientUEN = wccUEN.String
 		}
 		if picName.Valid {
 			res.PICName = picName.String

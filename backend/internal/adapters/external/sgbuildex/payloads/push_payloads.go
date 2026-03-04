@@ -3,11 +3,12 @@ package payloads
 // ManpowerUtilization represents the manpower utilization record for a project
 type ManpowerUtilization struct {
 	// Internal fields (not exported to JSON)
-	InternalAttendanceID string `json:"-"`
-	InternalWorkerID     string `json:"-"`
-	InternalSiteID       string `json:"-"`
-	InternalPICName      string `json:"-"`
-	InternalPICFIN       string `json:"-"`
+	InternalAttendanceID  string `json:"-"`
+	InternalWorkerID      string `json:"-"`
+	InternalSiteID        string `json:"-"`
+	InternalRegulatorID   string `json:"-"`
+	InternalRegulatorName string `json:"-"`
+	InternalOnBehalfOfID  string `json:"-"`
 
 	SubmissionEntity int    `json:"submission_entity"`
 	SubmissionMonth  string `json:"submission_month"` // YYYY-MM
@@ -18,11 +19,6 @@ type ManpowerUtilization struct {
 	ProjectLocationDescription *string `json:"project_location_description,omitempty"`
 	MainContractorCompanyName  *string `json:"main_contractor_company_name,omitempty"`
 	MainContractorCompanyUEN   *string `json:"main_contractor_company_unique_entity_number,omitempty"`
-
-	// Offsite Fabricator (submission_entity = 2)
-	OffsiteFabricatorCompanyName         *string `json:"offsite_fabricator_company_name,omitempty"`
-	OffsiteFabricatorCompanyUEN          *string `json:"offsite_fabricator_company_unique_entity_number,omitempty"`
-	OffsiteFabricatorLocationDescription *string `json:"offsite_fabricator_location_description,omitempty"`
 
 	// Person
 	PersonIDNo                      string   `json:"person_id_no"`

@@ -169,35 +169,23 @@ func (w ManpowerUtilizationWrapper) ToPushRequest(ctx context.Context) (*PushReq
 		projectRef = *w.ProjectReferenceNumber
 	}
 
-	// Use the pre-fetched PIC from the payload
-	var participantOnBehalf *OnBehalfWrapper
-	if w.InternalPICFIN != "" {
-		participantOnBehalf = &OnBehalfWrapper{
-			ID:   w.InternalPICFIN,
-			Name: w.InternalPICName,
-		}
-	} else {
-		fmt.Printf("Warning: No PIC found for project associated with worker %s\n", w.InternalWorkerID)
-	}
-
 	// Participants
 	participants := []ParticipantWrapper{
 		{
-			ID:   w.PersonIDNo,
-			Name: w.PersonName,
+			ID:   w.InternalRegulatorID,
+			Name: w.InternalRegulatorName,
 			Meta: &ParticipantMeta{
 				DataRefID: projectRef,
 			},
-			OnBehalfOf: participantOnBehalf,
 		},
 	}
 
-	// Request level OnBehalfOf (Participant's company and Main Contractor)
-	onBehalfOf := []OnBehalfWrapper{
-		{ID: w.PersonEmployerCompanyUEN},
-	}
-	if w.MainContractorCompanyUEN != nil && *w.MainContractorCompanyUEN != "" {
-		onBehalfOf = append(onBehalfOf, OnBehalfWrapper{ID: *w.MainContractorCompanyUEN})
+	// Request level OnBehalfOf
+	var onBehalfOf []OnBehalfWrapper
+	if w.InternalOnBehalfOfID != "" {
+		onBehalfOf = []OnBehalfWrapper{
+			{ID: w.InternalOnBehalfOfID},
+		}
 	}
 
 	return &PushRequest{
