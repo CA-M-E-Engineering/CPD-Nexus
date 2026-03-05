@@ -18,7 +18,6 @@ const filters = ['All', 'Synced', 'Pending'];
 
 const columns = [
   { key: 'name', label: 'Name', size: 'lg', bold: true },
-  { key: 'role', label: 'Role', size: 'md', muted: true },
   { key: 'person_trade', label: 'Trade', size: 'sm', muted: true },
   { key: 'project_name', label: 'Project Name', size: 'md' },
   { key: 'is_synced', label: 'Bridge Sync', size: 'sm' },
@@ -178,14 +177,6 @@ const deleteWorker = async () => {
       </template>
 
 
-      <template #cell-role="{ item }">
-        {{ 
-          item.role === 'pic' ? 'PIC (Person In Charge)' : 
-          item.role === 'manager' ? 'Manager' : 
-          item.role === 'worker' ? 'Worker' : 
-          item.role 
-        }}
-      </template>
 
       <template #cell-project_name="{ item }">
         <span v-if="item.project_name">{{ item.project_name }}</span>

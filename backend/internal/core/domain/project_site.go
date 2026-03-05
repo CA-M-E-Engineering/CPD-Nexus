@@ -3,18 +3,20 @@ package domain
 import "time"
 
 type Project struct {
-	ID              string  `json:"project_id"`
-	SiteID          string  `json:"site_id"`
-	UserID          string  `json:"user_id"`
-	Title           string  `json:"title"`
-	Status          string  `json:"status"`
-	Reference       string  `json:"reference"`
-	ContractRef     string  `json:"contract"`
-	ContractName    string  `json:"contract_name"`
-	Location        string  `json:"location"`
-	HDBPrecinct     string  `json:"hdb_precinct"`
-	PitstopAuthID   *string `json:"pitstop_auth_id,omitempty"`
-	PitstopAuthName *string `json:"pitstop_auth_name,omitempty"`
+	ID     string `json:"project_id"`
+	SiteID string `json:"site_id"`
+	UserID string `json:"user_id"`
+	Title  string `json:"title"`
+	Status string `json:"status"`
+	// SubmissionEntity: 1 = Onsite Builder, 2 = Offsite Fabricator (BCA validation rule)
+	SubmissionEntity int     `json:"submission_entity"`
+	Reference        string  `json:"reference"`
+	ContractRef      string  `json:"contract"`
+	ContractName     string  `json:"contract_name"`
+	Location         string  `json:"location"`
+	HDBPrecinct      string  `json:"hdb_precinct"`
+	PitstopAuthID    *string `json:"pitstop_auth_id,omitempty"`
+	PitstopAuthName  *string `json:"pitstop_auth_name,omitempty"`
 
 	// Inline company details (no FK to companies table)
 	MainContractorName      string `json:"main_contractor_name,omitempty"`
@@ -24,6 +26,11 @@ type Project struct {
 	WorkerCompanyClientName string `json:"worker_company_client_name,omitempty"`
 	WorkerCompanyClientUEN  string `json:"worker_company_client_uen,omitempty"`
 	WorkerCompanyTrade      string `json:"worker_company_trade,omitempty"`
+
+	// Offsite Fabricator details
+	OffsiteFabricatorName     string `json:"offsite_fabricator_name,omitempty"`
+	OffsiteFabricatorUEN      string `json:"offsite_fabricator_uen,omitempty"`
+	OffsiteFabricatorLocation string `json:"offsite_fabricator_location,omitempty"`
 
 	CreatedAt time.Time `json:"created_at"`
 	UpdatedAt time.Time `json:"updated_at"`

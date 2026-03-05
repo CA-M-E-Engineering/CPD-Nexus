@@ -2,7 +2,7 @@ SET FOREIGN_KEY_CHECKS = 0;
 
 DROP TABLE IF EXISTS `projects`;
 
-CREATE TABLE IF NOT EXISTS `projects` (
+CREATE TABLE `projects` (
     `project_id` varchar(50) NOT NULL,
     `user_id` varchar(50) DEFAULT NULL,
     `pitstop_auth_id` varchar(50) DEFAULT NULL,
@@ -15,6 +15,9 @@ CREATE TABLE IF NOT EXISTS `projects` (
     `hdb_precinct_name` varchar(100) DEFAULT NULL,
     `main_contractor_name` varchar(255) DEFAULT NULL,
     `main_contractor_uen` varchar(50) DEFAULT NULL,
+    `offsite_fabricator_name` varchar(255) DEFAULT NULL,
+    `offsite_fabricator_uen` varchar(50) DEFAULT NULL,
+    `offsite_fabricator_location` varchar(255) DEFAULT NULL,
     `worker_company_name` varchar(255) DEFAULT NULL,
     `worker_company_uen` varchar(50) DEFAULT NULL,
     `worker_company_client_name` varchar(255) DEFAULT NULL,
@@ -26,6 +29,7 @@ CREATE TABLE IF NOT EXISTS `projects` (
         'archived',
         'inactive'
     ) NOT NULL DEFAULT 'active',
+    `submission_entity` int NOT NULL DEFAULT '1',
     `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
     `updated_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     PRIMARY KEY (`project_id`),

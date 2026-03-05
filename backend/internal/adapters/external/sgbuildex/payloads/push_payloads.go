@@ -10,7 +10,7 @@ type ManpowerUtilization struct {
 	InternalRegulatorName string `json:"-"`
 	InternalOnBehalfOfID  string `json:"-"`
 
-	SubmissionEntity int    `json:"submission_entity"`
+	SubmissionEntity *int   `json:"submission_entity,omitempty"`
 	SubmissionMonth  string `json:"submission_month"` // YYYY-MM
 
 	// Onsite Builder (submission_entity = 1)
@@ -23,16 +23,21 @@ type ManpowerUtilization struct {
 	MainContractorCompanyName  *string `json:"main_contractor_company_name,omitempty"`
 	MainContractorCompanyUEN   *string `json:"main_contractor_company_unique_entity_number,omitempty"`
 
+	// Offsite Fabricator (submission_entity = 2)
+	OffsiteFabricatorCompanyName         *string `json:"offsite_fabricator_company_name,omitempty"`
+	OffsiteFabricatorCompanyUEN          *string `json:"offsite_fabricator_company_unique_entity_number,omitempty"`
+	OffsiteFabricatorLocationDescription *string `json:"offsite_fabricator_location_description,omitempty"`
+
 	// Person
-	PersonIDNo                      string   `json:"person_id_no"`
-	PersonIDAndWorkPassType         string   `json:"person_id_and_work_pass_type"`
+	PersonIDNo                      *string  `json:"person_id_no,omitempty"`
+	PersonIDAndWorkPassType         *string  `json:"person_id_and_work_pass_type,omitempty"`
 	PersonNationality               *string  `json:"person_nationality,omitempty"`
-	PersonTrade                     string   `json:"person_trade"`
-	PersonEmployerCompanyName       string   `json:"person_employer_company_name"`
-	PersonEmployerCompanyUEN        string   `json:"person_employer_company_unique_entity_number"`
-	PersonEmployerCompanyTrade      []string `json:"person_employer_company_trade"`
-	PersonEmployerClientCompanyName string   `json:"person_employer_client_company_name"`
-	PersonEmployerClientCompanyUEN  string   `json:"person_employer_client_company_unique_entity_number"`
+	PersonTrade                     *string  `json:"person_trade,omitempty"`
+	PersonEmployerCompanyName       *string  `json:"person_employer_company_name,omitempty"`
+	PersonEmployerCompanyUEN        *string  `json:"person_employer_company_unique_entity_number,omitempty"`
+	PersonEmployerCompanyTrade      []string `json:"person_employer_company_trade,omitempty"`
+	PersonEmployerClientCompanyName *string  `json:"person_employer_client_company_name,omitempty"`
+	PersonEmployerClientCompanyUEN  *string  `json:"person_employer_client_company_unique_entity_number,omitempty"`
 
 	// Attendance
 	PersonAttendanceDate    string             `json:"person_attendance_date"` // YYYY-MM-DD
@@ -40,6 +45,6 @@ type ManpowerUtilization struct {
 }
 
 type AttendanceDetail struct {
-	TimeIn  string `json:"time_in"`
-	TimeOut string `json:"time_out"`
+	TimeIn  string  `json:"time_in"`
+	TimeOut *string `json:"time_out,omitempty"`
 }

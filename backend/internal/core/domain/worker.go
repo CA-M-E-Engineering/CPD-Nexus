@@ -9,8 +9,6 @@ const (
 type Worker struct {
 	ID               string `json:"worker_id"`
 	Name             string `json:"name"`
-	Email            string `json:"email"`
-	Role             string `json:"role"`
 	UserType         string `json:"user_type"`
 	Status           string `json:"status"`
 	CurrentProjectID string `json:"current_project_id,omitempty"`

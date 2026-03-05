@@ -45,7 +45,7 @@ func (r *WorkerRepository) GetByFIN(ctx context.Context, fin string) (*domain.Wo
 
 const workerBaseSelect = `
     SELECT 
-        w.worker_id, w.name, w.email, w.role, w.user_type, w.status, w.current_project_id,
+        w.worker_id, w.name, w.user_type, w.status, w.current_project_id,
         w.person_id_no, w.person_id_and_work_pass_type, w.person_nationality, w.person_trade, 
         w.auth_start_time, w.auth_end_time, w.fdid, w.face_img_loc, w.card_number, w.card_type, w.is_synced,
         p.project_title,
@@ -63,9 +63,9 @@ const workerBaseSelect = `
     LEFT JOIN users u ON w.user_id = u.user_id`
 
 func (r *WorkerRepository) List(ctx context.Context, userID, siteID string) ([]domain.Worker, error) {
-	query := workerBaseSelect + " WHERE w.status = '" + domain.StatusActive + "' AND w.role IN ('worker', 'pic', 'manager')"
-
+	query := workerBaseSelect + " WHERE w.status = '" + domain.StatusActive + "'"
 	args := []interface{}{}
+
 	if userID != "" && !middleware.IsVendor(ctx) {
 		query += " AND w.user_id = ?"
 		args = append(args, userID)
@@ -75,7 +75,7 @@ func (r *WorkerRepository) List(ctx context.Context, userID, siteID string) ([]d
 		args = append(args, siteID)
 	}
 
-	query += " ORDER BY w.role DESC, w.name ASC"
+	query += " ORDER BY w.name ASC"
 
 	rows, err := r.db.QueryContext(ctx, query, args...)
 	if err != nil {
@@ -103,11 +103,11 @@ func (r *WorkerRepository) Create(ctx context.Context, w *domain.Worker) error {
 
 	query := `
         INSERT INTO workers (
-            worker_id, user_id, name, email, role, user_type, status, current_project_id,
+            worker_id, user_id, name, user_type, status, current_project_id,
             person_id_no, person_id_and_work_pass_type, person_nationality, person_trade,
             auth_start_time, auth_end_time, fdid, face_img_loc, card_number, card_type, is_synced
         ) 
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
 
 	// DB constraint: fdid defaults to 1
 	fdidToInsert := w.FDID
@@ -121,7 +121,7 @@ func (r *WorkerRepository) Create(ctx context.Context, w *domain.Worker) error {
 	}
 
 	_, err = r.db.ExecContext(ctx, query,
-		w.ID, w.UserID, w.Name, w.Email, w.Role, userType, w.Status,
+		w.ID, w.UserID, w.Name, userType, w.Status,
 		sql.NullString{String: w.CurrentProjectID, Valid: w.CurrentProjectID != ""},
 		w.PersonIDNo, w.PersonIDAndWorkPassType, w.PersonNationality, w.PersonTrade,
 		sql.NullString{String: timeutil.CleanDateTime(w.AuthStartTime), Valid: w.AuthStartTime != ""},
@@ -141,7 +141,7 @@ func (r *WorkerRepository) Create(ctx context.Context, w *domain.Worker) error {
 func (r *WorkerRepository) Update(ctx context.Context, w *domain.Worker) error {
 	query := `
         UPDATE workers SET 
-            name=?, email=?, status=?, role=?, user_type=?, current_project_id=?, user_id=?,
+            name=?, status=?, user_type=?, current_project_id=?, user_id=?,
             person_id_no=?, person_id_and_work_pass_type=?, person_nationality=?, person_trade=?,
             auth_start_time=?, auth_end_time=?, fdid=?, face_img_loc=?, card_number=?, card_type=?, is_synced=?
         WHERE worker_id=?`
@@ -157,7 +157,7 @@ func (r *WorkerRepository) Update(ctx context.Context, w *domain.Worker) error {
 	}
 
 	_, err := r.db.ExecContext(ctx, query,
-		w.Name, w.Email, w.Status, w.Role, userType,
+		w.Name, w.Status, userType,
 		sql.NullString{String: w.CurrentProjectID, Valid: w.CurrentProjectID != ""},
 		w.UserID,
 		w.PersonIDNo, w.PersonIDAndWorkPassType, w.PersonNationality, w.PersonTrade,
@@ -232,7 +232,7 @@ func (r *WorkerRepository) scanRow(scanner Scanner) (*domain.Worker, error) {
 	var fdid, isSynced sql.NullInt64
 
 	err := scanner.Scan(
-		&w.ID, &w.Name, &w.Email, &w.Role, &userType, &status, &projID,
+		&w.ID, &w.Name, &userType, &status, &projID,
 		&w.PersonIDNo, &pPassType, &pNationality, &pTrade,
 		&aStart, &aEnd, &fdid, &fImg, &cNum, &cType, &isSynced,
 		&pName, &sName, &sLoc, &uName, &uID, &uLat, &uLng, &uAdd,
@@ -317,7 +317,6 @@ func (r *WorkerRepository) AssignToProject(ctx context.Context, projectID string
 	defer tx.Rollback()
 
 	// 1. Unassign all workers currently on this project for this user
-	// Also mark them as unsynced so they can be cleaned up or re-assigned later
 	_, err = tx.ExecContext(ctx, "UPDATE workers SET current_project_id = NULL, is_synced = 0 WHERE current_project_id = ? AND user_id = ?", projectID, userID)
 	if err != nil {
 		return fmt.Errorf("failed to clear old assignments: %w", err)

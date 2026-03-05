@@ -66,6 +66,36 @@ func ValidatePersonTrade(v string) bool {
 	return validPersonTrades[v]
 }
 
+// localPassTypes are pass types that require a Singapore citizen prefix (S or T).
+var localPassTypes = map[string]bool{"SP": true, "SB": true}
+
+// foreignPassTypes are pass types that require a foreign identification prefix (F, G, or M).
+var foreignPassTypes = map[string]bool{
+	"EP": true, "SPASS": true, "WP": true, "ENTREPASS": true, "LTVP": true,
+}
+
+// ValidateNRICWithPassType cross-checks the NRIC/FIN century prefix against the pass type.
+// Per ICA/MOM spec:
+//   - SP (Singapore Pink IC) / SB (Singapore Blue IC): prefix must be S or T
+//   - EP / SPASS / WP / ENTREPASS / LTVP: prefix must be F, G, or M
+//
+// Returns true if the combination is valid or if either field is empty (validated separately).
+func ValidateNRICWithPassType(nric, passType string) bool {
+	nric = strings.ToUpper(strings.TrimSpace(nric))
+	passType = strings.ToUpper(strings.TrimSpace(passType))
+	if nric == "" || passType == "" {
+		return true // Missing values are caught by individual field validators
+	}
+	prefix := rune(nric[0])
+	if localPassTypes[passType] {
+		return prefix == 'S' || prefix == 'T'
+	}
+	if foreignPassTypes[passType] {
+		return prefix == 'F' || prefix == 'G' || prefix == 'M'
+	}
+	return true // Unknown pass type — don't fail here, let ValidateWorkPassType catch it
+}
+
 // ValidateHDBContractNumber validates HDB contract number format (D/NNNNN/YY).
 func ValidateHDBContractNumber(v string) bool {
 	return len(v) <= 10 && reHDBContract.MatchString(v)

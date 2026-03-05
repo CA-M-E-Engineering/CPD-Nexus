@@ -16,11 +16,11 @@ const (
 			s.site_name, s.location,
 			p.project_reference_number, p.project_title, p.project_location_description,
 			p.project_contract_number, p.project_contract_name, p.hdb_precinct_name,
+			p.submission_entity, p.offsite_fabricator_name, p.offsite_fabricator_uen, p.offsite_fabricator_location,
 			p.main_contractor_name, p.main_contractor_uen,
 			w.name AS worker_name, w.person_id_no, w.person_id_and_work_pass_type, w.person_nationality, w.person_trade AS worker_trade,
 			p.worker_company_name, p.worker_company_uen, p.worker_company_trade,
 			p.worker_company_client_name, p.worker_company_client_uen,
-			pic.name AS pic_name, pic.person_id_no AS pic_fin,
 			pa.regulator_id, pa.regulator_name, pa.on_behalf_of_id
 	`
 	attendanceJoinBlock = `
@@ -29,7 +29,6 @@ const (
 		JOIN workers w ON a.worker_id = w.worker_id
 		LEFT JOIN projects p ON w.current_project_id = p.project_id
 		LEFT JOIN pitstop_authorisations pa ON p.pitstop_auth_id = pa.pitstop_auth_id
-		LEFT JOIN workers pic ON p.project_id = pic.current_project_id AND pic.role = 'pic'
 	`
 )
 
@@ -219,6 +218,7 @@ func (r *AttendanceRepository) ExtractProjectsWithPendingAttendance(ctx context.
 			p.project_id, p.site_id, p.user_id, p.project_title, p.status,
 			p.project_reference_number, p.project_contract_number, p.project_contract_name,
 			p.project_location_description, p.hdb_precinct_name,
+			p.submission_entity, p.offsite_fabricator_name, p.offsite_fabricator_uen, p.offsite_fabricator_location,
 			p.pitstop_auth_id, pa.dataset_name AS pitstop_auth_name,
 			p.main_contractor_name, p.main_contractor_uen,
 			p.worker_company_name, p.worker_company_uen,
@@ -258,10 +258,13 @@ func (r *AttendanceRepository) ExtractProjectsWithPendingAttendance(ctx context.
 		var p domain.Project
 		var title, ref, status, cRef, cName, loc, hdb, pAuthID, pAuthName, siteName sql.NullString
 		var mcName, mcUEN, wcName, wcUEN, wccName, wccUEN, wcTrade sql.NullString
+		var ofEnt sql.NullInt64 // SubmissionEntity is int
+		var ofStrName, ofStrUEN, ofStrLoc sql.NullString
 
 		if err := rows.Scan(
 			&p.ID, &p.SiteID, &p.UserID,
 			&title, &status, &ref, &cRef, &cName, &loc, &hdb,
+			&ofEnt, &ofStrName, &ofStrUEN, &ofStrLoc,
 			&pAuthID, &pAuthName,
 			&mcName, &mcUEN,
 			&wcName, &wcUEN, &wccName, &wccUEN, &wcTrade,
@@ -277,6 +280,12 @@ func (r *AttendanceRepository) ExtractProjectsWithPendingAttendance(ctx context.
 		p.ContractName = mapNull(cName)
 		p.Location = mapNull(loc)
 		p.HDBPrecinct = mapNull(hdb)
+		if ofEnt.Valid {
+			p.SubmissionEntity = int(ofEnt.Int64)
+		}
+		p.OffsiteFabricatorName = mapNull(ofStrName)
+		p.OffsiteFabricatorUEN = mapNull(ofStrUEN)
+		p.OffsiteFabricatorLocation = mapNull(ofStrLoc)
 		p.PitstopAuthID = mapNullPtr(pAuthID)
 		p.PitstopAuthName = mapNullPtr(pAuthName)
 		p.MainContractorName = mapNull(mcName)
@@ -319,8 +328,10 @@ func (r *AttendanceRepository) queryAttendanceRows(ctx context.Context, query st
 func (r *AttendanceRepository) scanAttendanceRow(rows *sql.Rows) (domain.AttendanceRow, error) {
 	var res domain.AttendanceRow
 	var timeOut sql.NullTime
-	var mcName, mcUEN, wcName, wcUEN, wcTrade, wccName, wccUEN, picName, picFIN sql.NullString
+	var mcName, mcUEN, wcName, wcUEN, wcTrade, wccName, wccUEN sql.NullString
 	var pTitle, pLoc, pCNo, pCName, pHDB, wPassType, pNat, regID, regName, obID sql.NullString
+	var ofEnt sql.NullInt64
+	var ofName, ofUEN, ofLoc sql.NullString
 
 	err := rows.Scan(
 		&res.AttendanceID,
@@ -342,6 +353,10 @@ func (r *AttendanceRepository) scanAttendanceRow(rows *sql.Rows) (domain.Attenda
 		&pCNo,
 		&pCName,
 		&pHDB,
+		&ofEnt,
+		&ofName,
+		&ofUEN,
+		&ofLoc,
 		&mcName,
 		&mcUEN,
 		&res.WorkerName,
@@ -354,8 +369,6 @@ func (r *AttendanceRepository) scanAttendanceRow(rows *sql.Rows) (domain.Attenda
 		&wcTrade,
 		&wccName,
 		&wccUEN,
-		&picName,
-		&picFIN,
 		&regID,
 		&regName,
 		&obID,
@@ -390,11 +403,16 @@ func (r *AttendanceRepository) scanAttendanceRow(rows *sql.Rows) (domain.Attenda
 	mapNull(wcTrade, &res.EmployerTrade)
 	mapNull(wccName, &res.EmployerClientName)
 	mapNull(wccUEN, &res.EmployerClientUEN)
-	mapNull(picName, &res.PICName)
-	mapNull(picFIN, &res.PICFIN)
 	mapNull(regID, &res.RegulatorID)
 	mapNull(regName, &res.RegulatorName)
 	mapNull(obID, &res.OnBehalfOfID)
+
+	if ofEnt.Valid {
+		res.SubmissionEntity = int(ofEnt.Int64)
+	}
+	mapNull(ofName, &res.OffsiteFabricatorName)
+	mapNull(ofUEN, &res.OffsiteFabricatorUEN)
+	mapNull(ofLoc, &res.OffsiteFabricatorLocation)
 
 	return res, nil
 }

@@ -1,13 +1,11 @@
 <script setup>
 import { ref, onMounted } from 'vue';
-import StatCard from '../../components/ui/StatCard.vue';
 import { api } from '../../services/api.js';
 import { MAP_MODES } from '../../utils/constants.js';
 import PageHeader from '../../components/ui/PageHeader.vue';
 import BaseButton from '../../components/ui/BaseButton.vue';
 import UnifiedMap from '../../components/ui/UnifiedMap.vue';
 
-const stats = ref([]);
 const activities = ref([]);
 const loading = ref(true);
 
@@ -35,14 +33,7 @@ const loadDashboardData = async () => {
       api.getActivityLog({ user_id: userId })
     ]);
 
-    // Transform stats object to array for UI
-    stats.value = [
-        { label: 'Total Companies', value: statsData.active_sites + 4, trend: '↑ 2% from last month', trendType: 'positive', icon: 'ri-building-line', color: 'blue' }, // Mock logic for total companies based on active sites + others
-        { label: 'Total Workers', value: statsData.total_workers.toLocaleString(), trend: '↑ 12% from last month', trendType: 'positive', icon: 'ri-group-line', color: 'blue' },
-        { label: 'Active Devices', value: statsData.total_devices.toLocaleString(), trend: '↑ 18% from last month', trendType: 'positive', icon: 'ri-cpu-line', color: 'green' },
-        { label: 'System Uptime', value: '99.98%', trend: 'Stable', trendType: 'neutral', icon: 'ri-shield-check-line', color: 'purple' },
-        { label: 'Compliance Rate', value: statsData.compliance_rate + '%', trend: '↓ 1% from last week', trendType: 'negative', icon: 'ri-task-line', color: 'yellow' },
-    ];
+    // Transform activities for UI
 
     activities.value = activityData.map(a => ({
         title: `${a.action}: ${a.target}`,
@@ -76,13 +67,6 @@ defineEmits(['navigate']);
       </template>
     </PageHeader>
 
-    <div class="stats-grid">
-      <StatCard 
-        v-for="stat in stats" 
-        :key="stat.label"
-        v-bind="stat"
-      />
-    </div>
 
     <div class="quick-actions">
       <div class="action-card" @click="$emit('navigate', 'device-add')">

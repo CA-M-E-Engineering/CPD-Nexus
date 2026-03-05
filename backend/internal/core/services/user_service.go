@@ -6,6 +6,7 @@ import (
 	"sgbuildex/internal/core/domain"
 	"sgbuildex/internal/core/ports"
 	"strings"
+	"time"
 
 	"golang.org/x/crypto/bcrypt"
 )
@@ -30,9 +31,9 @@ func (s *UserService) CreateUser(ctx context.Context, u *domain.User, password s
 	// 1. Force client type as per user request
 	u.UserType = "client"
 
-	// 2. Generate ID if missing
+	// 2. Generate ID if missing (Standard format: uYYYYMMDDHHMMSS)
 	if u.ID == "" {
-		u.ID = strings.ToLower(strings.ReplaceAll(u.Name, " ", ".")) + ".ltd"
+		u.ID = "u" + time.Now().Format("20060102150405")
 	}
 
 	// 2. Generate Username if missing

@@ -90,12 +90,6 @@ func (s *WorkerService) applyPayloadToWorker(existing *domain.Worker, payload ma
 	if v, ok := payload["name"].(string); ok {
 		existing.Name = v
 	}
-	if v, ok := payload["email"].(string); ok {
-		existing.Email = v
-	}
-	if v, ok := payload["role"].(string); ok {
-		existing.Role = v
-	}
 	if v, ok := payload["user_type"].(string); ok {
 		existing.UserType = v
 	}
@@ -143,12 +137,6 @@ func (s *WorkerService) UpdateWorker(ctx context.Context, userID, id string, pay
 			requiresSync = true
 		}
 		existing.Name = v
-	}
-	if v, ok := payload["email"].(string); ok {
-		existing.Email = v
-	}
-	if v, ok := payload["role"].(string); ok {
-		existing.Role = v
 	}
 	if v, ok := payload["user_type"].(string); ok {
 		existing.UserType = v

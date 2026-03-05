@@ -50,6 +50,10 @@ A BCA-registered construction project within a site. Workers are assigned to pro
 | `site_id` | VARCHAR(50) FK → sites | ✅ | Linked construction site |
 | `project_title` | VARCHAR(1000) | ✅ | Project name (max 1000 chars) |
 | `project_reference_number` | VARCHAR(50) | ✅ | BCA ref, e.g. `A1234-AB123-2022` |
+| `submission_entity` | INT | ❌ | `1` = Onsite Builder, `2` = Offsite Fabricator |
+| `offsite_fabricator_name` | VARCHAR(255) | ✅ | Required if `submission_entity = 2` |
+| `offsite_fabricator_uen` | VARCHAR(20) | ✅ | Required if `submission_entity = 2` |
+| `offsite_fabricator_location` | VARCHAR(2000) | ✅ | Required if `submission_entity = 2` |
 | `project_location_description` | TEXT | ✅ | Location text (max 2000 chars) |
 | `project_contract_number` | VARCHAR(50) | ✅ | HDB (`D/NNNNN/YY`) or LTA (max 20 chars) |
 | `project_contract_name` | VARCHAR(100) | ✅ | Contract name (max 100 chars) |

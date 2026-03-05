@@ -26,6 +26,7 @@ type AttendanceRow struct {
 	ProjectContractNo   string
 	ProjectContractName string
 	HDBPrecinctName     string
+	SubmissionEntity    int // 1 = Onsite Builder, 2 = Offsite Fabricator
 	RegulatorID         string
 	RegulatorName       string
 	OnBehalfOfID        string
@@ -46,9 +47,10 @@ type AttendanceRow struct {
 	EmployerClientName string
 	EmployerClientUEN  string
 
-	// PIC (Person In Charge) for on-behalf submission
-	PICName string
-	PICFIN  string
+	// Offsite Fabricator fields (from Project)
+	OffsiteFabricatorName     string
+	OffsiteFabricatorUEN      string
+	OffsiteFabricatorLocation string
 
 	SubmissionDate time.Time
 }

@@ -20,15 +20,13 @@ const isSaving = ref(false);
 
 const columns = [
   { key: 'name', label: 'Name' },
-  { key: 'role', label: 'Role' },
-  { key: 'user_name', label: 'Company' },
+  { key: 'user_name', label: 'Client / Company' },
   { key: 'actions', label: 'Actions', width: '80px' }
 ];
 
 const modalColumns = [
   { key: 'name', label: 'Name' },
-  { key: 'role', label: 'Role' },
-  { key: 'user_name', label: 'Company' },
+  { key: 'user_name', label: 'Client / Company' },
   { key: 'status', label: 'Current Assignment' },
   { key: 'actions', label: '', width: '60px' }
 ];
@@ -72,6 +70,7 @@ const handleAssign = async (workerId) => {
 
     await api.assignWorkersToProject(props.projectId, workerIds);
     notification.success('Personnel updated');
+    isAdding.value = false;
     await fetchWorkers();
   } catch (err) {
     notification.error('Failed to update personnel');
@@ -99,13 +98,6 @@ const handleRemove = async (worker) => {
 
 onMounted(fetchWorkers);
 
-const getRoleBadge = (role) => {
-  switch (role?.toLowerCase()) {
-    case 'pic': return 'warning';
-    case 'manager': return 'info';
-    default: return 'success';
-  }
-};
 </script>
 
 <template>
@@ -121,9 +113,6 @@ const getRoleBadge = (role) => {
           <strong>{{ item.name }}</strong>
           <span v-if="item.person_id_no" class="fin-text">{{ item.person_id_no }}</span>
         </div>
-      </template>
-      <template #cell-role="{ item }">
-        <BaseBadge :type="getRoleBadge(item.role)">{{ item.role?.toUpperCase() }}</BaseBadge>
       </template>
       <template #cell-actions="{ item }">
         <BaseButton 

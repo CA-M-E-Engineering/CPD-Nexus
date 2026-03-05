@@ -6,8 +6,6 @@ CREATE TABLE IF NOT EXISTS `workers` (
     `worker_id` varchar(50) NOT NULL,
     `user_id` varchar(50) NOT NULL,
     `name` varchar(255) NOT NULL,
-    `email` varchar(255) DEFAULT NULL,
-    `role` enum('pic', 'manager', 'worker') NOT NULL,
     `user_type` enum(
         'user',
         'visitor',
@@ -42,7 +40,6 @@ CREATE TABLE IF NOT EXISTS `workers` (
     `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
     `updated_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     PRIMARY KEY (`worker_id`),
-    UNIQUE KEY `email` (`email`),
     KEY `user_id` (`user_id`),
     KEY `idx_status` (`status`),
     CONSTRAINT `workers_ibfk_1` FOREIGN KEY (`user_id`) REFERENCES `users` (`user_id`)

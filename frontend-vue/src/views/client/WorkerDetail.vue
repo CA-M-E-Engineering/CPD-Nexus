@@ -69,15 +69,7 @@ const getTradeLabel = (val) => bcaTrades.find(t => t.value === val)?.label || va
 const workerInfo = computed(() => [
   { label: 'Full Name', value: worker.value?.name || '---' },
   { label: 'NRIC / FIN', value: worker.value?.person_id_no || '---' },
-  { label: 'Nationality', value: worker.value?.person_nationality || '---' },
-  { 
-    label: 'System Role', 
-    value: worker.value?.role === 'pic' ? 'PIC (Person In Charge)' : 
-           worker.value?.role === 'manager' ? 'Manager' : 
-           worker.value?.role === 'worker' ? 'Worker' : 
-           (worker.value?.role || '---') 
-  },
-  { label: 'Email', value: worker.value?.email || '---' }
+  { label: 'Nationality', value: worker.value?.person_nationality || '---' }
 ]);
 
 const complianceInfo = computed(() => [

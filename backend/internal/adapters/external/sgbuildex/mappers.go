@@ -1,6 +1,7 @@
 package sgbuildex
 
 import (
+	"log"
 	"sgbuildex/internal/core/domain"
 	"sgbuildex/internal/pkg/validation"
 	"strings"
@@ -9,10 +10,72 @@ import (
 	"sgbuildex/internal/adapters/external/sgbuildex/payloads"
 )
 
-// MapAttendanceToManpower converts DB rows to ManpowerUtilization payloads
+// validateMandatoryFields enforces all API-mandatory fields before a row is submitted.
+// It enforces the universal mandatory fields AND regulator-specific fields (BCA/HDB/LTA).
+// Returns the name of the first missing field, or "" if all mandatory fields are present.
+func validateMandatoryFields(r domain.AttendanceRow) string {
+	// ── Universal mandatory (all regulators) ──
+	universal := []struct {
+		name string
+		val  string
+	}{
+		{"person_id_no", r.WorkerFIN},
+		{"person_id_and_work_pass_type", r.WorkerWorkPassType},
+		{"person_trade", r.WorkerTrade},
+		{"person_employer_company_name", r.EmployerName},
+		{"person_employer_company_unique_entity_number", r.EmployerUEN},
+	}
+	for _, f := range universal {
+		if strings.TrimSpace(f.val) == "" {
+			return f.name
+		}
+	}
+
+	// ── Regulator-specific mandatory fields ──
+	reg := strings.ToUpper(strings.TrimSpace(r.RegulatorName))
+
+	// BCA: person_employer_client_company_name, _uen, and person_employer_company_trade
+	if reg == "BCA" {
+		if strings.TrimSpace(r.EmployerClientName) == "" {
+			return "person_employer_client_company_name (BCA mandatory)"
+		}
+		if strings.TrimSpace(r.EmployerClientUEN) == "" {
+			return "person_employer_client_company_unique_entity_number (BCA mandatory)"
+		}
+		if strings.TrimSpace(r.EmployerTrade) == "" {
+			return "person_employer_company_trade (BCA mandatory)"
+		}
+	}
+
+	// LTA: person_employer_company_trade
+	if reg == "LTA" {
+		if strings.TrimSpace(r.EmployerTrade) == "" {
+			return "person_employer_company_trade (LTA mandatory)"
+		}
+	}
+
+	// HDB: person_nationality
+	if reg == "HDB" {
+		if strings.TrimSpace(r.WorkerNationality) == "" {
+			return "person_nationality (HDB mandatory)"
+		}
+	}
+
+	return "" // all checks passed
+}
+
+// MapAttendanceToManpower converts DB rows to ManpowerUtilization payloads.
+// Records that are missing API-mandatory fields are skipped and logged.
 func MapAttendanceToManpower(rows []domain.AttendanceRow) []payloads.ManpowerUtilization {
 	var results []payloads.ManpowerUtilization
 	for _, r := range rows {
+		// Guard: skip rows missing any mandatory fields (universal + regulator-specific)
+		if missing := validateMandatoryFields(r); missing != "" {
+			log.Printf("[SGBuildex] SKIP attendance %s (regulator=%s worker=%s): mandatory field '%s' is empty",
+				r.AttendanceID, r.RegulatorName, r.WorkerFIN, missing)
+			continue
+		}
+
 		payload := payloads.ManpowerUtilization{
 			InternalAttendanceID:            r.AttendanceID,
 			InternalWorkerID:                r.WorkerID,
@@ -20,25 +83,17 @@ func MapAttendanceToManpower(rows []domain.AttendanceRow) []payloads.ManpowerUti
 			InternalRegulatorID:             r.RegulatorID,
 			InternalRegulatorName:           r.RegulatorName,
 			InternalOnBehalfOfID:            r.OnBehalfOfID,
-			SubmissionEntity:                1, // 1 for Onsite Builder
+			SubmissionEntity:                ptrIntOrDefault(r.SubmissionEntity, 1),
 			SubmissionMonth:                 r.SubmissionDate.Format("2006-01"),
-			ProjectReferenceNumber:          Ptr(r.ProjectRef),
-			ProjectTitle:                    Ptr(r.ProjectTitle),
-			ProjectLocationDescription:      Ptr(r.ProjectLocation),
-			ProjectContractNumber:           Ptr(r.ProjectContractNo),
-			ProjectContractName:             Ptr(r.ProjectContractName),
-			HdbPrecinctName:                 Ptr(r.HDBPrecinctName),
-			MainContractorCompanyName:       Ptr(r.SiteOwnerName),
-			MainContractorCompanyUEN:        Ptr(validation.SanitizeUEN(r.SiteOwnerUEN)),
-			PersonIDNo:                      strings.ToUpper(strings.TrimSpace(r.WorkerFIN)),
-			PersonIDAndWorkPassType:         strings.ToUpper(strings.TrimSpace(r.WorkerWorkPassType)),
+			PersonIDNo:                      Ptr(strings.ToUpper(strings.TrimSpace(r.WorkerFIN))),
+			PersonIDAndWorkPassType:         Ptr(strings.ToUpper(strings.TrimSpace(r.WorkerWorkPassType))),
 			PersonNationality:               Ptr(strings.ToUpper(strings.TrimSpace(r.WorkerNationality))),
-			PersonTrade:                     r.TradeCode,
-			PersonEmployerCompanyName:       r.EmployerName,
-			PersonEmployerCompanyUEN:        validation.SanitizeUEN(r.EmployerUEN),
+			PersonTrade:                     Ptr(r.WorkerTrade),
+			PersonEmployerCompanyName:       Ptr(r.EmployerName),
+			PersonEmployerCompanyUEN:        Ptr(validation.SanitizeUEN(r.EmployerUEN)),
 			PersonEmployerCompanyTrade:      parseTrades(r.EmployerTrade),
-			PersonEmployerClientCompanyName: r.EmployerClientName,
-			PersonEmployerClientCompanyUEN:  validation.SanitizeUEN(r.EmployerClientUEN),
+			PersonEmployerClientCompanyName: Ptr(r.EmployerClientName),
+			PersonEmployerClientCompanyUEN:  Ptr(validation.SanitizeUEN(r.EmployerClientUEN)),
 			PersonAttendanceDate:            r.TimeIn.Format("2006-01-02"),
 			PersonAttendanceDetails: []payloads.AttendanceDetail{
 				{
@@ -48,6 +103,24 @@ func MapAttendanceToManpower(rows []domain.AttendanceRow) []payloads.ManpowerUti
 			},
 		}
 
+		// Conditional fields based on Submission Entity
+		if r.SubmissionEntity == 2 {
+			// Offsite Fabricator (SubmissionEntity = 2)
+			payload.OffsiteFabricatorCompanyName = Ptr(r.OffsiteFabricatorName)
+			payload.OffsiteFabricatorCompanyUEN = Ptr(validation.SanitizeUEN(r.OffsiteFabricatorUEN))
+			payload.OffsiteFabricatorLocationDescription = Ptr(r.OffsiteFabricatorLocation)
+		} else {
+			// Onsite Builder (SubmissionEntity = 1 - Default)
+			payload.ProjectReferenceNumber = Ptr(r.ProjectRef)
+			payload.ProjectTitle = Ptr(r.ProjectTitle)
+			payload.ProjectLocationDescription = Ptr(r.ProjectLocation)
+			payload.ProjectContractNumber = Ptr(r.ProjectContractNo)
+			payload.ProjectContractName = Ptr(r.ProjectContractName)
+			payload.HdbPrecinctName = Ptr(r.HDBPrecinctName)
+			payload.MainContractorCompanyName = Ptr(r.SiteOwnerName)
+			payload.MainContractorCompanyUEN = Ptr(validation.SanitizeUEN(r.SiteOwnerUEN))
+		}
+
 		results = append(results, payload)
 	}
 
@@ -55,8 +128,9 @@ func MapAttendanceToManpower(rows []domain.AttendanceRow) []payloads.ManpowerUti
 }
 
 func parseTrades(tradeStr string) []string {
-	if tradeStr == "" {
-		return []string{}
+	trimmed := strings.TrimSpace(tradeStr)
+	if trimmed == "" || strings.ToLower(trimmed) == "null" {
+		return nil
 	}
 	parts := strings.Split(tradeStr, ",")
 	var result []string

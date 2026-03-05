@@ -17,7 +17,11 @@ defineEmits(['update:modelValue']);
 
 <template>
   <div class="form-group">
-    <label v-if="label" class="form-label">{{ label }}</label>
+    <label v-if="label" class="form-label">
+      {{ label }}
+      <slot name="label-suffix"></slot>
+      <span v-if="$attrs.required" class="required">*</span>
+    </label>
     <div class="input-group">
       <span v-if="$attrs.icon" class="input-icon">
         <i :class="$attrs.icon"></i>

@@ -48,3 +48,25 @@ export const validateWorkPassType = (val) => VALID_PASS_TYPES.has(val);
 
 /** Normalises a UEN by trimming and uppercasing. */
 export const sanitizeUEN = (val) => (val ?? '').trim().toUpperCase();
+
+// Pass types that require a Singapore citizen NRIC prefix (S or T)
+const LOCAL_PASS_TYPES = new Set(['SP', 'SB']);
+// Pass types that require a foreign identification prefix (F, G, or M)
+const FOREIGN_PASS_TYPES = new Set(['EP', 'SPASS', 'WP', 'ENTREPASS', 'LTVP']);
+
+/**
+ * Cross-checks the NRIC/FIN century prefix against the work pass type.
+ * Per ICA/MOM spec:
+ *   SP / SB  → prefix must be S or T (Singapore citizen/PR)
+ *   EP / SPASS / WP / ENTREPASS / LTVP → prefix must be F, G, or M (foreign)
+ * Returns true if valid or if either field is empty (validated separately).
+ */
+export const validateNRICWithPassType = (nric, passType) => {
+    if (!nric || !passType) return true;
+    const prefix = nric.trim().toUpperCase()[0];
+    const pt = passType.trim().toUpperCase();
+    if (LOCAL_PASS_TYPES.has(pt)) return prefix === 'S' || prefix === 'T';
+    if (FOREIGN_PASS_TYPES.has(pt)) return prefix === 'F' || prefix === 'G' || prefix === 'M';
+    return true; // Unknown pass type — caught separately by validateWorkPassType
+};
+
