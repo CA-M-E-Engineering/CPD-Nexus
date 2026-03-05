@@ -4,7 +4,6 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
-	"log"
 	"sgbuildex/internal/api/middleware"
 	"sgbuildex/internal/core/domain"
 	"sgbuildex/internal/core/ports"
@@ -26,32 +25,17 @@ func NewWorkerRepository(db *sql.DB) ports.WorkerRepository {
 }
 
 func (r *WorkerRepository) Get(ctx context.Context, userID, id string) (*domain.Worker, error) {
-	query := `
-        SELECT 
-            w.worker_id, w.name, w.email, w.role, w.user_type, w.status, w.current_project_id,
-            w.person_id_no, w.person_id_and_work_pass_type, w.person_nationality, w.person_trade, 
-            w.auth_start_time, w.auth_end_time, w.fdid, w.face_img_loc, w.card_number, w.card_type, w.is_synced,
-            p.project_title,
-            s.site_name,
-            s.location,
-            u.user_name,
-            w.user_id,
-            u.latitude,
-            u.longitude,
-            u.address,
-            p.site_id
-        FROM workers w
-        LEFT JOIN projects p ON w.current_project_id = p.project_id
-        LEFT JOIN sites s ON p.site_id = s.site_id
-        LEFT JOIN users u ON w.user_id = u.user_id`
-
+	var worker *domain.Worker
+	var err error
 	if middleware.IsVendor(ctx) {
-		query += " WHERE w.worker_id = ?"
-		return r.scanRow(r.db.QueryRowContext(ctx, query, id))
+		worker, err = r.scanRow(r.db.QueryRowContext(ctx, workerBaseSelect+" WHERE w.worker_id = ?", id))
 	} else {
-		query += " WHERE w.worker_id = ? AND w.user_id = ?"
-		return r.scanRow(r.db.QueryRowContext(ctx, query, id, userID))
+		worker, err = r.scanRow(r.db.QueryRowContext(ctx, workerBaseSelect+" WHERE w.worker_id = ? AND w.user_id = ?", id, userID))
 	}
+	if err == sql.ErrNoRows {
+		return nil, apperrors.NewNotFound("worker", id)
+	}
+	return worker, err
 }
 
 func (r *WorkerRepository) GetByFIN(ctx context.Context, fin string) (*domain.Worker, error) {
@@ -93,9 +77,6 @@ func (r *WorkerRepository) List(ctx context.Context, userID, siteID string) ([]d
 
 	query += " ORDER BY w.role DESC, w.name ASC"
 
-	log.Printf("[WorkerRepo] List: userID=%s, siteID=%s", userID, siteID)
-	log.Printf("[WorkerRepo] Executing query: %s", query)
-
 	rows, err := r.db.QueryContext(ctx, query, args...)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list workers: %w", err)
@@ -106,12 +87,11 @@ func (r *WorkerRepository) List(ctx context.Context, userID, siteID string) ([]d
 	for rows.Next() {
 		w, err := r.scanRow(rows)
 		if err != nil {
-			log.Printf("[WorkerRepo] Scan error: %v", err)
-			continue
+			return nil, fmt.Errorf("failed to scan worker: %w", err)
 		}
 		workers = append(workers, *w)
 	}
-	return workers, nil
+	return workers, rows.Err()
 }
 
 func (r *WorkerRepository) Create(ctx context.Context, w *domain.Worker) error {
@@ -128,8 +108,6 @@ func (r *WorkerRepository) Create(ctx context.Context, w *domain.Worker) error {
             auth_start_time, auth_end_time, fdid, face_img_loc, card_number, card_type, is_synced
         ) 
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
-
-	log.Printf("[WorkerRepo] Create: worker_id=%s user_id=%s name=%s role=%s", w.ID, w.UserID, w.Name, w.Role)
 
 	// DB constraint: fdid defaults to 1
 	fdidToInsert := w.FDID
@@ -237,12 +215,11 @@ func (r *WorkerRepository) ListByIsSynced(ctx context.Context, userID string, sy
 	for rows.Next() {
 		w, err := r.scanRow(rows)
 		if err != nil {
-			log.Printf("[WorkerRepo] ListByIsSynced scan error: %v", err)
-			continue
+			return nil, fmt.Errorf("failed to scan worker: %w", err)
 		}
 		workers = append(workers, *w)
 	}
-	return workers, nil
+	return workers, rows.Err()
 }
 
 func (r *WorkerRepository) scanRow(scanner Scanner) (*domain.Worker, error) {
@@ -261,11 +238,8 @@ func (r *WorkerRepository) scanRow(scanner Scanner) (*domain.Worker, error) {
 		&pName, &sName, &sLoc, &uName, &uID, &uLat, &uLng, &uAdd,
 		&siteID,
 	)
-	if err == sql.ErrNoRows {
-		return nil, apperrors.NewNotFound("worker", w.ID) // Assuming w.ID would be available if it was found, but for ErrNoRows, it's not. This might need adjustment if w.ID is not set yet.
-	}
 	if err != nil {
-		return nil, fmt.Errorf("failed to get worker: %w", err)
+		return nil, err
 	}
 
 	if userType.Valid {

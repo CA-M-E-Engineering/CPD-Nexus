@@ -6,7 +6,6 @@ import (
 	"sgbuildex/internal/api/middleware"
 	"sgbuildex/internal/core/domain"
 	"sgbuildex/internal/core/ports"
-	"sgbuildex/internal/pkg/apperrors"
 
 	"github.com/gorilla/mux"
 )
@@ -23,7 +22,7 @@ func (h *ProjectsHandler) GetProjects(w http.ResponseWriter, r *http.Request) {
 	userID := middleware.GetUserID(r.Context())
 	projects, err := h.service.ListProjects(r.Context(), userID)
 	if err != nil {
-		h.handleError(w, err)
+		writeError(w, err)
 		return
 	}
 
@@ -32,13 +31,12 @@ func (h *ProjectsHandler) GetProjects(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *ProjectsHandler) GetProjectById(w http.ResponseWriter, r *http.Request) {
-	vars := mux.Vars(r)
-	id := vars["id"]
-
+	id := mux.Vars(r)["id"]
 	userID := middleware.GetUserID(r.Context())
+
 	project, err := h.service.GetProject(r.Context(), userID, id)
 	if err != nil {
-		h.handleError(w, err)
+		writeError(w, err)
 		return
 	}
 
@@ -54,7 +52,7 @@ func (h *ProjectsHandler) CreateProject(w http.ResponseWriter, r *http.Request) 
 	}
 
 	if err := h.service.CreateProject(r.Context(), &project); err != nil {
-		h.handleError(w, err)
+		writeError(w, err)
 		return
 	}
 
@@ -64,8 +62,8 @@ func (h *ProjectsHandler) CreateProject(w http.ResponseWriter, r *http.Request) 
 }
 
 func (h *ProjectsHandler) UpdateProject(w http.ResponseWriter, r *http.Request) {
-	vars := mux.Vars(r)
-	id := vars["id"]
+	id := mux.Vars(r)["id"]
+	userID := middleware.GetUserID(r.Context())
 
 	var project domain.Project
 	if err := json.NewDecoder(r.Body).Decode(&project); err != nil {
@@ -73,32 +71,24 @@ func (h *ProjectsHandler) UpdateProject(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	userID := middleware.GetUserID(r.Context())
 	if err := h.service.UpdateProject(r.Context(), userID, id, &project); err != nil {
-		h.handleError(w, err)
+		writeError(w, err)
 		return
 	}
 
+	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]string{"status": "updated"})
 }
 
 func (h *ProjectsHandler) DeleteProject(w http.ResponseWriter, r *http.Request) {
-	vars := mux.Vars(r)
-	id := vars["id"]
-
+	id := mux.Vars(r)["id"]
 	userID := middleware.GetUserID(r.Context())
+
 	if err := h.service.DeleteProject(r.Context(), userID, id); err != nil {
-		h.handleError(w, err)
+		writeError(w, err)
 		return
 	}
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]string{"status": "deleted"})
-}
-func (h *ProjectsHandler) handleError(w http.ResponseWriter, err error) {
-	if appErr, ok := err.(*apperrors.AppError); ok {
-		http.Error(w, appErr.Message, appErr.Code)
-		return
-	}
-	http.Error(w, err.Error(), http.StatusInternalServerError)
 }

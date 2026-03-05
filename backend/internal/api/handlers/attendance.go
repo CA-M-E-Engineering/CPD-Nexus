@@ -3,6 +3,7 @@ package handlers
 import (
 	"encoding/json"
 	"net/http"
+	"sgbuildex/internal/api/middleware"
 	"sgbuildex/internal/core/ports"
 )
 
@@ -15,15 +16,15 @@ func NewAttendanceHandler(service ports.AttendanceService) *AttendanceHandler {
 }
 
 func (h *AttendanceHandler) GetAttendance(w http.ResponseWriter, r *http.Request) {
-	// Query params
+	// userID comes from the middleware context, not a query param, for tenant isolation.
+	userID := middleware.GetUserID(r.Context())
 	siteID := r.URL.Query().Get("site_id")
 	workerID := r.URL.Query().Get("worker_id")
-	userID := r.URL.Query().Get("user_id")
 	date := r.URL.Query().Get("date")
 
 	records, err := h.service.ListAttendance(r.Context(), userID, siteID, workerID, date)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		writeError(w, err)
 		return
 	}
 

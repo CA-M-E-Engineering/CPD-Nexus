@@ -2,12 +2,10 @@ package handlers
 
 import (
 	"encoding/json"
-	"log"
 	"net/http"
 	"sgbuildex/internal/api/middleware"
 	"sgbuildex/internal/core/domain"
 	"sgbuildex/internal/core/ports"
-	"sgbuildex/internal/pkg/apperrors"
 
 	"github.com/gorilla/mux"
 )
@@ -21,13 +19,14 @@ func NewWorkersHandler(service ports.WorkerService) *WorkersHandler {
 }
 
 func (h *WorkersHandler) GetWorkers(w http.ResponseWriter, r *http.Request) {
-	userID := r.URL.Query().Get("user_id")
+	// userID MUST come from the middleware context, not the query string,
+	// to enforce multi-tenant isolation.
+	userID := middleware.GetUserID(r.Context())
 	siteID := r.URL.Query().Get("site_id")
 
-	log.Printf("[WorkersHandler] GetWorkers request: user_id=%s, site_id=%s", userID, siteID)
 	workers, err := h.service.ListWorkers(r.Context(), userID, siteID)
 	if err != nil {
-		h.handleError(w, err)
+		writeError(w, err)
 		return
 	}
 
@@ -36,17 +35,16 @@ func (h *WorkersHandler) GetWorkers(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *WorkersHandler) GetWorkerById(w http.ResponseWriter, r *http.Request) {
-	vars := mux.Vars(r)
-	id := vars["id"]
-
+	id := mux.Vars(r)["id"]
 	userID := middleware.GetUserID(r.Context())
+
 	worker, err := h.service.GetWorker(r.Context(), userID, id)
 	if err != nil {
-		h.handleError(w, err)
+		writeError(w, err)
 		return
 	}
 	if worker == nil {
-		http.Error(w, "Worker not found", http.StatusNotFound)
+		http.Error(w, "worker not found", http.StatusNotFound)
 		return
 	}
 
@@ -62,7 +60,7 @@ func (h *WorkersHandler) CreateWorker(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := h.service.CreateWorker(r.Context(), &worker); err != nil {
-		h.handleError(w, err)
+		writeError(w, err)
 		return
 	}
 
@@ -72,8 +70,8 @@ func (h *WorkersHandler) CreateWorker(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *WorkersHandler) UpdateWorker(w http.ResponseWriter, r *http.Request) {
-	vars := mux.Vars(r)
-	id := vars["id"]
+	id := mux.Vars(r)["id"]
+	userID := middleware.GetUserID(r.Context())
 
 	var payload map[string]interface{}
 	if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
@@ -81,32 +79,24 @@ func (h *WorkersHandler) UpdateWorker(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	userID := middleware.GetUserID(r.Context())
 	if err := h.service.UpdateWorker(r.Context(), userID, id, payload); err != nil {
-		h.handleError(w, err)
+		writeError(w, err)
 		return
 	}
 
+	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]string{"status": "updated"})
 }
 
 func (h *WorkersHandler) DeleteWorker(w http.ResponseWriter, r *http.Request) {
-	vars := mux.Vars(r)
-	id := vars["id"]
-
+	id := mux.Vars(r)["id"]
 	userID := middleware.GetUserID(r.Context())
+
 	if err := h.service.DeleteWorker(r.Context(), userID, id); err != nil {
-		h.handleError(w, err)
+		writeError(w, err)
 		return
 	}
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]string{"status": "deleted"})
-}
-func (h *WorkersHandler) handleError(w http.ResponseWriter, err error) {
-	if appErr, ok := err.(*apperrors.AppError); ok {
-		http.Error(w, appErr.Message, appErr.Code)
-		return
-	}
-	http.Error(w, err.Error(), http.StatusInternalServerError)
 }

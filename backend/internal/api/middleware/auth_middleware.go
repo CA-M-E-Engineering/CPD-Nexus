@@ -10,6 +10,11 @@ type contextKey string
 const (
 	UserIDKey   contextKey = "userID"
 	IsVendorKey contextKey = "isVendor"
+
+	// vendorAdminID is the seeded system vendor account that has cross-tenant visibility.
+	// It corresponds to the users row: user_id = 'Owner_001'.
+	// Change this value if the seed account is recreated with a different ID.
+	vendorAdminID = "Owner_001"
 )
 
 // UserScopeMiddleware extracts the user ID and checks if it's the system vendor.
@@ -22,8 +27,7 @@ func UserScopeMiddleware(next http.Handler) http.Handler {
 
 		if userID != "" {
 			ctx := context.WithValue(r.Context(), UserIDKey, userID)
-			// Hardcoded God-Mode check for the primary vendor account
-			if userID == "Owner_001" {
+			if userID == vendorAdminID {
 				ctx = context.WithValue(ctx, IsVendorKey, true)
 			}
 			next.ServeHTTP(w, r.WithContext(ctx))
