@@ -1,18 +1,18 @@
-# IoT Bridge Communication Documentation
+# CPD-Nexus — IoT Bridge Communication Protocol
 
-This document outlines the communication protocol between the unified backend and the IoT Bridge via WebSocket.
+This document defines the WebSocket message protocol used between the CPD-Nexus backend and the IoT device bridge. All messages use a standardised JSON envelope.
 
-## Common Message Envelope
+---
 
-All communication across the bridge uses a standardized message envelope.
+## Message Envelope
 
-**Direction:** Both (Request and Response)
+Every message — in both directions — follows this structure:
 
 ```json
 {
   "meta": {
-    "request_id": "req-20260227115854|w20260225135067",
-    "sent_at": "2026-02-27T11:58:54Z",
+    "request_id": "req-20260301120530|w20260225135067",
+    "sent_at": "2026-03-01T12:05:30Z",
     "auth_token": "client-bridge-secret-token"
   },
   "action": "ACTION_NAME",
@@ -20,170 +20,221 @@ All communication across the bridge uses a standardized message envelope.
 }
 ```
 
-> **Note on `meta` field:**
-> - `request_id`: May optionally contain appended contextual data (e.g. `|worker_id`) to track asynchronous responses.
-> - `auth_token`: **Required** for all privileged write operations (like `REGISTER_USER` and `UPDATE_USER`). The bridge validates this token before processing the request to ensure the tenant has authorization to modify device states.
+| Field | Description |
+|---|---|
+| `meta.request_id` | Unique request identifier. May include contextual data after `\|` (e.g. worker ID) to correlate async responses. |
+| `meta.sent_at` | RFC3339 timestamp of when the message was sent. |
+| `meta.auth_token` | **Required** for all write operations (`REGISTER_USER`, `UPDATE_USER`). The bridge validates this token before modifying device state. |
+| `action` | The operation name (see actions below). |
+| `payload` | Action-specific data body. |
 
 ---
 
-## 1. Attendance Query (`GET_ATTENDANCE`)
+## Actions
 
-Used by the backend to fetch attendance records for a specific worker across a set of devices for a specific time range.
+### 1. `GET_ATTENDANCE` — Fetch Attendance Records
 
-### Request (Backend -> Bridge)
-- **Action:** `GET_ATTENDANCE`
-- **Payload:**
+Sent by the backend to request attendance logs for a specific worker across a set of devices.
+
+**Direction:** Backend → Bridge
+
 ```json
 {
-  "worker_id": "w20260225135067",
-  "devices": ["SN-DEV-001", "SN-DEV-002"],
-  "start_time": "2026-02-27T00:00:00Z",
-  "end_time": "2026-02-27T11:58:54Z"
-}
-```
-
-### Response (Bridge -> Backend)
-- **Action:** `GET_ATTENDANCE_RESPONSE`
-- **Payload:**
-```json
-{
-  "code": 200,
-  "msg": "Success",
-  "content": {
+  "meta": { ... },
+  "action": "GET_ATTENDANCE",
+  "payload": {
     "worker_id": "w20260225135067",
-    "records": [
-      {
-        "time_in": "2026-02-27T08:30:00Z",
-        "time_out": "2026-02-27T17:45:00Z"
-      }
-    ]
+    "devices": ["SN-DEV-001", "SN-DEV-002"],
+    "start_time": "2026-03-01T00:00:00Z",
+    "end_time": "2026-03-01T23:59:59Z"
   }
 }
 ```
 
----
+**Response Action:** `GET_ATTENDANCE_RESPONSE` (Bridge → Backend)
 
-## 2. User Registration (`REGISTER_USER`)
-
-Used to push a new worker's details (including biometrics or card data) to a list of devices.
-
-### Request (Backend -> Bridge)
-- **Action:** `REGISTER_USER`
-- **Payload:**
 ```json
 {
-  "devices": ["SN-DEV-001"],
-  "user": {
-    "employee_no": "w20260225135067",
-    "name": "John Doe",
-    "user_type": "normal",
-    "validity": {
-      "start_time": "2026-02-27T00:00:00Z",
-      "end_time": "2027-02-27T23:59:59Z"
-    },
-    "authentication": {
-      "card": {
-        "card_no": "987654321",
-        "card_type": "normal"
+  "meta": { "request_id": "req-20260301120530|w20260225135067", ... },
+  "action": "GET_ATTENDANCE_RESPONSE",
+  "payload": {
+    "code": 200,
+    "msg": "Success",
+    "content": {
+      "worker_id": "w20260225135067",
+      "records": [
+        {
+          "time_in": "2026-03-01T08:30:00Z",
+          "time_out": "2026-03-01T17:45:00Z"
+        }
+      ]
+    }
+  }
+}
+```
+
+**Backend behaviour on receipt:**
+- The `AttendanceHandler` parses each record and calls `AttendanceService.ProcessBridgeAttendance()`.
+- A new row is inserted into `attendance` with `status = 'pending'`.
+- The worker ID is extracted from the `request_id` field (after the `|` separator).
+
+---
+
+### 2. `REGISTER_USER` — Register New Worker on Devices
+
+Sent to push a new worker's biometric/card credentials to one or more devices.
+
+**Direction:** Backend → Bridge
+
+```json
+{
+  "meta": { "auth_token": "client-bridge-secret-token", ... },
+  "action": "REGISTER_USER",
+  "payload": {
+    "devices": ["SN-DEV-001"],
+    "user": {
+      "employee_no": "w20260225135067",
+      "name": "John Doe",
+      "user_type": "normal",
+      "validity": {
+        "start_time": "2026-03-01T00:00:00Z",
+        "end_time":   "2027-03-01T23:59:59Z"
       },
-      "face": {
-        "face_id": "101",
-        "face_url": "https://storage.nxs.com/faces/w20260225135067.jpg"
+      "authentication": {
+        "card": {
+          "card_no":   "987654321",
+          "card_type": "normal"
+        },
+        "face": {
+          "face_id":  "101",
+          "face_url": "https://storage.example.com/faces/w20260225135067.jpg"
+        }
       }
     }
   }
 }
 ```
 
-### Expected Response (Bridge -> Backend)
-- **Action:** `REGISTER_USER_RESPONSE`
-- **Payload:**
+**Response Action:** `REGISTER_USER_RESPONSE` (Bridge → Backend)
+
 ```json
 {
-  "code": 200,
-  "msg": "User successfully registered on 1/1 devices",
-  "content": null
+  "action": "REGISTER_USER_RESPONSE",
+  "payload": {
+    "code": 200,
+    "msg": "User successfully registered on 1/1 devices",
+    "content": null
+  }
 }
 ```
 
+**Backend behaviour on receipt:**
+- The `UserSyncResponseHandler` processes the response.
+- **Only on HTTP 200**: the worker's `is_synced` flag is set to `1` (Synced).
+- On any non-200 response, `is_synced` is left unchanged so the worker remains in the retry queue.
+
 ---
 
-## 3. User Update (`UPDATE_USER`)
+### 3. `UPDATE_USER` — Update Existing Worker on Devices
 
-Used to update an existing worker's details or credentials on their assigned devices.
+Sent when a registered worker's name, credentials, or validity period has changed.
 
-### Request (Backend -> Bridge)
-- **Action:** `UPDATE_USER`
-- **Payload:** (Identical structure to `REGISTER_USER`)
+**Direction:** Backend → Bridge
+
 ```json
 {
-  "devices": ["SN-DEV-001"],
-  "user": {
-    "employee_no": "w20260225135067",
-    "name": "John Doe Updated",
-    "user_type": "normal",
-    "validity": {
-      "start_time": "2026-02-27T00:00:00Z",
-      "end_time": "2028-02-27T23:59:59Z"
-    },
-    "authentication": {
-      "card": { "card_no": "11223344", "card_type": "normal" },
-      "face": { "face_id": "101", "face_url": "..." }
+  "meta": { "auth_token": "client-bridge-secret-token", ... },
+  "action": "UPDATE_USER",
+  "payload": {
+    "devices": ["SN-DEV-001"],
+    "user": {
+      "employee_no": "w20260225135067",
+      "name": "John Doe (Updated)",
+      "user_type": "normal",
+      "validity": {
+        "start_time": "2026-03-01T00:00:00Z",
+        "end_time":   "2028-03-01T23:59:59Z"
+      },
+      "authentication": {
+        "card": { "card_no": "11223344", "card_type": "normal" },
+        "face": { "face_id": "101", "face_url": "..." }
+      }
     }
   }
 }
 ```
 
-### Expected Response (Bridge -> Backend)
-- **Action:** `UPDATE_USER_RESPONSE`
-- **Payload:**
+**Response Action:** `UPDATE_USER_RESPONSE` (Bridge → Backend)
+
 ```json
 {
-  "code": 200,
-  "msg": "User successfully updated",
-  "content": null
+  "action": "UPDATE_USER_RESPONSE",
+  "payload": {
+    "code": 200,
+    "msg": "User successfully updated",
+    "content": null
+  }
 }
 ```
+
+**Backend behaviour on receipt:** Same as `REGISTER_USER_RESPONSE` — sets `is_synced = 1` only on HTTP 200.
 
 ---
 
-## Unhappy Paths / Error Responses
+## Error Responses
 
-In case of errors, the Bridge returns a non-200 code and a descriptive message.
+The bridge returns a non-200 `code` for known error conditions.
 
-### 1. Worker Not Found (404)
-Occurs when the `worker_id` requested in `GET_ATTENDANCE` is not recognized by the bridge or has no history on the specified devices.
-
-**Response Payload:**
+### Worker Not Found (404)
 ```json
 {
-  "code": 404,
-  "msg": "Worker w20260225135067 not found in bridge registry",
-  "content": null
+  "payload": {
+    "code": 404,
+    "msg": "Worker w20260225135067 not found in bridge registry",
+    "content": null
+  }
 }
 ```
 
-### 2. Device Sync Failure (500)
-Occurs during `REGISTER_USER` or `UPDATE_USER` if the bridge fails to communicate with the physical hardware (e.g., device offline).
-
-**Response Payload:**
+### Device Unreachable (500)
 ```json
 {
-  "code": 500,
-  "msg": "Failed to sync user to 1/1 devices. Device SN-DEV-001 is offline.",
-  "content": null
+  "payload": {
+    "code": 500,
+    "msg": "Failed to sync user to 1/1 devices. Device SN-DEV-001 is offline.",
+    "content": null
+  }
 }
 ```
+
+### Unauthorized (401)
+Returned when the `auth_token` in `meta` is missing or invalid. The backend does **not** update `is_synced` when this occurs — the sync is retried on the next scheduled cycle.
 
 ---
 
-## Summary of Communication
+## Sync Trigger Rules
 
-| Action | Description | Response Action |
-| :--- | :--- | :--- |
-| `GET_ATTENDANCE` | Fetches attendance logs for a worker | `GET_ATTENDANCE_RESPONSE` |
-| `REGISTER_USER` | Syncs new worker to devices | `REGISTER_USER_RESPONSE` |
-| `UPDATE_USER` | Updates existing worker on devices | `UPDATE_USER_RESPONSE` |
+| Worker Condition | `is_synced` value | Backend Action |
+|---|---|---|
+| New worker with biometrics | `2` (Pending Registration) | Send `REGISTER_USER` |
+| Existing worker — biometrics/name/project changed | `0` (Pending Update) | Send `UPDATE_USER` |
+| Worker without biometrics/card | Any | **Not synced** — skip |
+| Worker with `status = 'inactive'` | Any | **Not synced** — skip |
+| Attendance status is `'submitted'` | N/A | **Not re-submitted** to SGTradeX |
+
+---
+
+## Summary
+
+| Action | Direction | Response Action |
+|---|---|---|
+| `GET_ATTENDANCE` | Backend → Bridge | `GET_ATTENDANCE_RESPONSE` |
+| `REGISTER_USER` | Backend → Bridge | `REGISTER_USER_RESPONSE` |
+| `UPDATE_USER` | Backend → Bridge | `UPDATE_USER_RESPONSE` |
 
 > [!NOTE]
-> All timestamps follow the **RFC3339** format (e.g., `2006-01-02T15:04:05Z`). The `devices` array expects Unique Serial Numbers (SN) as identified in the `devices` table.
+> All timestamps must be **RFC3339** format (e.g. `2026-03-01T08:30:00Z`).
+> The `devices` array expects device **Serial Numbers** (`sn`) as stored in the `devices` table — not internal device IDs.
+
+> [!IMPORTANT]
+> `is_synced` is only updated to `1` (Synced) when the bridge returns a `200` response code. Any other code leaves the flag unchanged so the worker is automatically retried on the next sync cycle.

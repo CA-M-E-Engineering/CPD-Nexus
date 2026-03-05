@@ -1,95 +1,126 @@
 # CPD-Nexus 🚀
 
-**CPD-Nexus** (Construction Project & Data Nexus) is a unified, high-performance platform designed for the construction industry. It streamlines project management, automates worker attendance tracking through IoT device integration using a WebSocket bridge, and ensures seamless compliance with BCA (Building and Construction Authority) reporting requirements.
+**CPD-Nexus** (Construction Project & Data Nexus) is a unified, enterprise-grade platform for the construction industry. It handles project and workforce management, automates biometric attendance collection from IoT gateways via a WebSocket bridge, and submits Manpower Utilization records to BCA (Building and Construction Authority) through the SGTradeX Pitstop API.
 
 ---
 
-## 🏗️ Core Architecture
+## 🏗️ System Overview
 
-The project is built with a decoupled architecture for maximum scalability and performance:
-
-### Frontend
-A premium, glassmorphism-inspired dashboard built with **Vue.js 3** and **Vite**.
-* **Role-Based Access**: Specialized interfaces and routing for `Manager` (administrative control) and `Client` (operational overview).
-* **Responsive UI Design**: High-end UX with modern typography, smooth animations, and data grids.
-* **Key Modules**: Device Registry, Project Management, Site Allocation, Worker Directory, and Attendance tracking.
-
-### Backend
-A robust, high-currency unified server written in **Go (Golang)** featuring:
-* **REST API**: Serving the vue.js management dashboard via standard CRUD endpoints.
-* **Bridge Connector (WebSocket)**: A dedicated `RequestManager` that manages real-time bi-directional communication with biometric IoT hardware. It actively issues `FETCH_ATTENDANCE` commands and processes the inbound attendance event streams securely.
-* **Submission Worker**: Automated background processor scheduled to run daily to submit Manpower Utilization (MU) and Distribution (MD) records to BCA.
-* **Database**: MySQL schema optimized for rapid project-site-worker-device mapping and lookups.
+```
+┌──────────────┐      WebSocket       ┌───────────────────────┐
+│  IoT Devices │ ──────────────────▶  │  Bridge Manager (Go)  │
+│ (Biometrics) │ ◀────────────────── │  RequestManager.go    │
+└──────────────┘                       └───────────┬───────────┘
+                                                    │
+                                          Attendance Events
+                                                    │
+                                        ┌───────────▼───────────┐
+  ┌────────────────┐   HTTP REST        │   Go Unified Backend   │
+  │  Vue 3 Admin   │ ◀────────────────▶ │   (REST API + Logic)   │
+  │   Dashboard    │                    └───────────┬────────────┘
+  └────────────────┘                                │
+                                                    │
+                                         ┌──────────▼──────────┐
+                                         │   MySQL Database    │
+                                         └──────────┬──────────┘
+                                                    │
+                                    ┌───────────────▼──────────────┐
+                                    │  SGTradeX Pitstop API (BCA)  │
+                                    │  (Scheduled Daily Submission) │
+                                    └──────────────────────────────┘
+```
 
 ---
 
 ## ✨ Key Features
 
-* **Unified Project Registry**: Manage construction sites, projects, and workforce profiles in one place.
-* **Biometric IoT Integration**: Automated attendance fetching from remote device gateways via the Bridge module.
-* **Real-Time Device Allocation**: Map, unassign, and redeploy IoT devices seamlessly across multiple construction sites.
-* **BCA Compliance (CPD)**: Automated daily submission of worker attendance data tailored to government API standards.
-* **Dynamic Trade Categorization**: Supports detailed BCA-compliant designated trade mapping for both local and foreign workers.
-* **User-Scoped Manual Sync**: Strict bi-directional data flow ensuring users only synchronize workforce data belonging to their own organization.
-* **Granular Sync Intelligence**: Real-time validation layer that identifies and reports missing biometrics or unassigned site hardware before attempting IoT deployment.
-
----
-
-## ⚙️ Core Workflows
-
-### 🔄 Manual Synchronization Protocol
-Synchronization is triggered manually via the UI to ensure administrative control. The backend implements a granular validation pipeline:
-1. **Validation**: Checks for biometric availability (Face/Card) and active site hardware.
-2. **Categorization**: Reports workers missing biometrics or devices without blocking the entire sync batch.
-3. **Deployment**: Issues `REGISTER_USER` or `UPDATE_USER` commands to all online devices at the worker's assigned site.
-4. **Security**: All sync requests require a valid `X-User-ID` header to maintain multi-tenant isolation.
-
-### 👥 Worker Lifecycle Management
-The system enforces strict data integrity rules for personnel:
-- **Deactivation**: Setting a worker to `inactive` automatically wipes their `current_project_id`.
-- **Global Visibility**: Inactive workers are automatically omitted from the Worker Management list, site personnel Overviews, and all Analytics dashboards.
-- **Project Assignment**: Only workers with an `active` status can be redeployed to construction projects.
+| Feature | Description |
+|---|---|
+| **Project Registry** | Manage construction sites, projects, and contractor metadata in one place |
+| **Worker Directory** | Full lifecycle management of personnel with BCA-compliant field validation |
+| **Biometric IoT Bridge** | Real-time bi-directional WebSocket connection to IoT device gateways |
+| **Automated BCA Submission** | Scheduled daily submission of Manpower Utilization data to SGTradeX Pitstop |
+| **CPD Submission Testing** | Manual per-project submission trigger for vendor testing and validation |
+| **Analytics Dashboard** | Live operational metrics: attendance rates, sync status, device health |
+| **Multi-Tenant Isolation** | All API operations are scoped to the requesting `X-User-ID` |
+| **Input Validation** | BCA field rules enforced on both frontend and backend for all submissions |
 
 ---
 
 ## 🛠️ Project Structure
 
-```bash
+```
 SGBuildex/
-├── backend/            # Go Backend (API, Bridge, Workers)
-│   ├── cmd/            # Entry points and tools
-│   │   └── server/     # Main Application Entrypoint
-│   │       └── main.go
-│   ├── internal/       # Core business logic (Adapters, Domain, Ports, Services)
-│   │   ├── bridge/     # WebSocket connection logic and Attendance Handlers
-│   │   ├── api/        # REST API Routes and Controllers
-│   │   └── core/       # Business Domains and Services
-│   ├── migrate/        # SQL Migration scripts
-│   └── .env            # Backend environment configuration
-├── frontend-vue/       # Vue.js 3 Frontend application
-│   ├── src/            # Core source files
-│   │   ├── api/        # Axios API configurations
-│   │   ├── components/ # Reusable UI components (Modals, Badges, Tables)
-│   │   └── views/      # Page-level components (Dashboards, Resource Lists)
-│   └── package.json    # Node dependencies and build scripts
+├── README.md                    # This file
+├── ARCHITECTURE.md              # Layered architecture details
+├── BRIDGE_COMMUNICATION.md      # IoT WebSocket protocol reference
+│
+├── backend/                     # Go Backend
+│   ├── cmd/
+│   │   └── server/main.go       # Application entry point & dependency wiring
+│   ├── internal/
+│   │   ├── api/
+│   │   │   ├── handlers/        # HTTP request handlers (one per domain)
+│   │   │   ├── middleware/      # Auth & scope middleware
+│   │   │   └── router.go        # Route registration
+│   │   ├── bridge/              # WebSocket bridge manager & message handlers
+│   │   ├── core/
+│   │   │   ├── domain/          # Pure domain models (no infrastructure deps)
+│   │   │   ├── ports/           # Interface definitions (Repository & Service)
+│   │   │   └── services/        # Business logic layer
+│   │   ├── adapters/
+│   │   │   ├── external/
+│   │   │   │   └── sgbuildex/   # SGTradeX Pitstop API client & mapper
+│   │   │   └── repository/
+│   │   │       └── mysql/       # MySQL repository implementations
+│   │   └── pkg/
+│   │       ├── apperrors/       # Typed error helpers
+│   │       ├── config/          # .env loader
+│   │       ├── logger/          # Structured logging
+│   │       ├── timeutil/        # Time formatting utilities
+│   │       └── validation/      # BCA field validation rules
+│   ├── migrate/                 # Ordered SQL migration scripts
+│   ├── db.md                    # Database schema reference
+│   └── .env                     # Backend environment config
+│
+└── frontend-vue/                # Vue.js 3 Frontend
+    ├── src/
+    │   ├── api/                 # Axios API bindings (one per domain)
+    │   ├── components/          # Reusable UI components
+    │   ├── stores/              # Pinia state stores
+    │   ├── utils/
+    │   │   ├── constants.js     # Shared enums (TRADES, PASS_TYPES)
+    │   │   └── validation.js    # Frontend validation mirrors backend rules
+    │   └── views/
+    │       ├── client/          # Client-role pages (Workers, Projects, etc.)
+    │       └── vendor/          # Vendor-role pages (Pitstop, Submissions)
+    └── package.json
 ```
 
 ---
 
 ## 🚀 Getting Started
 
-### 1. Prerequisites
-* [Go](https://golang.org/dl/) (1.21+)
-* [Node.js](https://nodejs.org/) (18+)
-* [MySQL](https://www.mysql.com/) (For production-ready storage)
+### Prerequisites
+- [Go](https://golang.org/dl/) 1.21+
+- [Node.js](https://nodejs.org/) 18+
+- [MySQL](https://www.mysql.com/) 8.0+
+
+### 1. Database Setup
+Apply migration scripts in order:
+```bash
+mysql -u root -p your_db_name < backend/migrate/001_initial_schema.sql
+# Apply subsequent scripts in sequence
+```
 
 ### 2. Backend Setup
 ```bash
 cd backend
+cp .env.example .env        # Edit with your values
 go mod download
 go run cmd/server/main.go
 ```
-*The server will start on `http://localhost:3000`*
+Server starts on `http://localhost:3000`
 
 ### 3. Frontend Setup
 ```bash
@@ -97,29 +128,67 @@ cd frontend-vue
 npm install
 npm run dev
 ```
-*The dashboard will be available at `http://localhost:5173`*
+Dashboard available at `http://localhost:5173`
 
 ---
 
-## ⚙️ Configuration
-Configure your `.env` file in the `backend/` directory:
+## ⚙️ Environment Configuration
+
+Create `backend/.env`:
 
 ```env
+# Server
 API_PORT=3000
-FRONTEND_PORT=5173
-DB_USER=your_db_username
+
+# Database
+DB_USER=your_db_user
 DB_PASS=your_db_password
 DB_HOST=127.0.0.1:3306
-DB_NAME=your_db_name
+DB_NAME=cpd_nexus
 
-# SGTRADEX / Pitstop Configuration
-SGTRADEX_API_KEY=your_sgtradex_api_key_here
+# SGTradeX / Pitstop (BCA Submission)
+SGTRADEX_API_KEY=your_api_key_here
+INGRESS_URL=https://ingress.pitstop.uat.dextech.ai
+PITSTOP_URL=https://ca-me-sgbuildex.pitstop.uat.dextech.ai
+
+# Scheduler (HH:MM:SS format, 24-hour)
+ATTENDANCE_SYNC_TIME=01:00:00
+CPD_SUBMISSION_TIME=02:00:00
 ```
 
 ---
 
+## 📋 Core Workflows
+
+### Attendance Collection (Bridge → Nexus)
+1. The **DailyScheduler** triggers `RequestAttendance` at the configured time.
+2. The **Bridge RequestManager** sends `GET_ATTENDANCE` commands via WebSocket to connected devices.
+3. Device responses come back as `GET_ATTENDANCE_RESPONSE` events.
+4. The **AttendanceHandler** parses the response and writes records to the `attendance` table with `status = 'pending'`.
+
+### BCA Submission (Nexus → SGTradeX)
+1. The **DailyScheduler** triggers `PitstopService.SubmitPendingAttendance()` at the configured time.
+2. The service fetches all `attendance` rows where `status != 'submitted'`.
+3. Rows are mapped to `ManpowerUtilization` payloads via `MapAttendanceToManpower()`.
+4. Payloads are batched respecting `MaxWorkersPerRequest` and `MaxPayloadSizeKB` limits.
+5. Each batch POSTs to `POST /api/v1/data/push/manpower_utilization` with the `SGTRADEX-API-KEY` header.
+6. On success, `attendance.status` is updated to `'submitted'`.
+
+### Worker Sync (Nexus → IoT Bridge)
+1. Worker is created/updated with biometric data → `is_synced` set to `pending_registration` or `pending_update`.
+2. Admin triggers **Bridge Sync** via the UI.
+3. Backend issues `REGISTER_USER` or `UPDATE_USER` commands to all active devices at the worker's site.
+4. On `REGISTER_USER_RESPONSE` with HTTP 200, `is_synced` is set to `synced`.
+
+---
+
 ## 🔒 Security & Compliance
-CPD-Nexus handles sensitive FIN/NRIC data securely and strictly follows the necessary compliance outlines for API transmission across the BCA and external IoT endpoints.
+
+- All scoped API routes require a valid `X-User-ID` header enforced by `RequireUserScope` middleware.
+- FIN/NRIC data is validated against Singapore government NRIC/FIN format before storage.
+- BCA field rules (UEN, trade codes, work pass types, submission months) are enforced on both frontend input and backend service layers.
+- The `SGTRADEX_API_KEY` is never exposed to the frontend — all external API calls are server-side.
+- Multi-tenant isolation: all database queries are scoped to the requesting user's `user_id`.
 
 ---
 

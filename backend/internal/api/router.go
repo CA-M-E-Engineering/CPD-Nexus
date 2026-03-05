@@ -2,7 +2,6 @@ package api
 
 import (
 	"encoding/json"
-	"log"
 	"net/http"
 	"sgbuildex/internal/api/handlers"
 	"sgbuildex/internal/api/middleware"
@@ -27,12 +26,7 @@ type RouterConfig struct {
 
 // RegisterRoutes sets up all API endpoints
 func RegisterRoutes(r *mux.Router, cfg RouterConfig) {
-	r.Use(func(next http.Handler) http.Handler {
-		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			log.Printf("ROUTER DEBUG: %s %s", r.Method, r.URL.Path)
-			next.ServeHTTP(w, r)
-		})
-	})
+
 	// Health Check
 	r.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
 		json.NewEncoder(w).Encode(map[string]string{"status": "ok"})
