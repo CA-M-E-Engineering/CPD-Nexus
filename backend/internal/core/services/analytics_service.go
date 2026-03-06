@@ -2,7 +2,7 @@ package services
 
 import (
 	"context"
-	"sgbuildex/internal/core/ports"
+	"cpd-nexus/internal/core/ports"
 )
 
 type AnalyticsService struct {

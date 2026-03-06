@@ -3,11 +3,11 @@ package handlers
 import (
 	"context"
 	"fmt"
-	"sgbuildex/internal/bridge"
-	"sgbuildex/internal/core/domain"
-	"sgbuildex/internal/core/ports"
-	"sgbuildex/internal/pkg/logger"
-	"sgbuildex/internal/pkg/timeutil"
+	"cpd-nexus/internal/bridge"
+	"cpd-nexus/internal/core/domain"
+	"cpd-nexus/internal/core/ports"
+	"cpd-nexus/internal/pkg/logger"
+	"cpd-nexus/internal/pkg/timeutil"
 	"strconv"
 )
 

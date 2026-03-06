@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
-	"sgbuildex/internal/pkg/logger"
+	"cpd-nexus/internal/pkg/logger"
 
 	_ "github.com/go-sql-driver/mysql"
 	"github.com/joho/godotenv"

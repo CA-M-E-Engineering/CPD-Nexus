@@ -2,7 +2,7 @@ package ports
 
 import (
 	"context"
-	"sgbuildex/internal/core/domain"
+	"cpd-nexus/internal/core/domain"
 )
 
 // DeviceRepository defines how to store and retrieve devices

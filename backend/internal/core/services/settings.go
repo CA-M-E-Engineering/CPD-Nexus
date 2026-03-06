@@ -2,9 +2,9 @@ package services
 
 import (
 	"context"
-	"sgbuildex/internal/core/domain"
-	"sgbuildex/internal/core/ports"
-	"sgbuildex/internal/pkg/logger"
+	"cpd-nexus/internal/core/domain"
+	"cpd-nexus/internal/core/ports"
+	"cpd-nexus/internal/pkg/logger"
 )
 
 type SettingsService struct {

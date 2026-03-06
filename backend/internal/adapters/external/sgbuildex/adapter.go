@@ -2,8 +2,8 @@ package sgbuildex
 
 import (
 	"context"
-	"sgbuildex/internal/core/domain"
-	"sgbuildex/internal/core/ports"
+	"cpd-nexus/internal/core/domain"
+	"cpd-nexus/internal/core/ports"
 )
 
 // Ensure *Client implements ports.ExternalSubmitter at compile time.

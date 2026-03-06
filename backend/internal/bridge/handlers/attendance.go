@@ -5,9 +5,9 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"sgbuildex/internal/bridge"
-	"sgbuildex/internal/core/ports"
-	"sgbuildex/internal/pkg/logger"
+	"cpd-nexus/internal/bridge"
+	"cpd-nexus/internal/core/ports"
+	"cpd-nexus/internal/pkg/logger"
 )
 
 // AttendanceResult matches the top-level payload from the bridge

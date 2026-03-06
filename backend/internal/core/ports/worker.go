@@ -2,7 +2,7 @@ package ports
 
 import (
 	"context"
-	"sgbuildex/internal/core/domain"
+	"cpd-nexus/internal/core/domain"
 )
 
 // IsVendorContextKey is used by the service layer to pass vendor/admin status

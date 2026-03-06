@@ -3,8 +3,8 @@ package services
 import (
 	"context"
 	"errors"
-	"sgbuildex/internal/core/domain"
-	"sgbuildex/internal/core/ports"
+	"cpd-nexus/internal/core/domain"
+	"cpd-nexus/internal/core/ports"
 	"testing"
 
 	"github.com/stretchr/testify/assert"

@@ -4,9 +4,9 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"sgbuildex/internal/bridge"
-	"sgbuildex/internal/core/ports"
-	"sgbuildex/internal/pkg/logger"
+	"cpd-nexus/internal/bridge"
+	"cpd-nexus/internal/core/ports"
+	"cpd-nexus/internal/pkg/logger"
 	"strings"
 )
 

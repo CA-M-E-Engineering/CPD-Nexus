@@ -1,7 +1,7 @@
 package sgbuildex
 
 import (
-	"sgbuildex/internal/core/domain"
+	"cpd-nexus/internal/core/domain"
 	"testing"
 	"time"
 

@@ -3,8 +3,8 @@ package handlers
 import (
 	"encoding/json"
 	"net/http"
-	"sgbuildex/internal/core/domain"
-	"sgbuildex/internal/core/ports"
+	"cpd-nexus/internal/core/domain"
+	"cpd-nexus/internal/core/ports"
 )
 
 type SettingsHandler struct {

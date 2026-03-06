@@ -2,7 +2,7 @@ package handlers
 
 import (
 	"net/http"
-	"sgbuildex/internal/pkg/apperrors"
+	"cpd-nexus/internal/pkg/apperrors"
 )
 
 // writeError writes a typed HTTP error response.

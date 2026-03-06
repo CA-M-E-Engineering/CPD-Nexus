@@ -3,7 +3,7 @@ package config
 import (
 	"fmt"
 	"os"
-	"sgbuildex/internal/pkg/logger"
+	"cpd-nexus/internal/pkg/logger"
 	"strconv"
 
 	"github.com/joho/godotenv"

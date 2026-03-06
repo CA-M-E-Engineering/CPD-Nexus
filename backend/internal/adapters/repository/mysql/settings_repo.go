@@ -3,7 +3,7 @@ package mysql
 import (
 	"context"
 	"database/sql"
-	"sgbuildex/internal/core/domain"
+	"cpd-nexus/internal/core/domain"
 )
 
 type MySQLSettingsRepository struct {

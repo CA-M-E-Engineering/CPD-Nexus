@@ -3,9 +3,9 @@ package mysql
 import (
 	"context"
 	"database/sql"
-	"sgbuildex/internal/core/domain"
-	"sgbuildex/internal/core/ports"
-	"sgbuildex/internal/pkg/idgen"
+	"cpd-nexus/internal/core/domain"
+	"cpd-nexus/internal/core/ports"
+	"cpd-nexus/internal/pkg/idgen"
 )
 
 type UserRepository struct {

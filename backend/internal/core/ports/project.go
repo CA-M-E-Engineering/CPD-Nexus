@@ -2,7 +2,7 @@ package ports
 
 import (
 	"context"
-	"sgbuildex/internal/core/domain"
+	"cpd-nexus/internal/core/domain"
 )
 
 type ProjectRepository interface {

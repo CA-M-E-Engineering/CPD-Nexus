@@ -3,7 +3,7 @@ package bridge
 import (
 	"fmt"
 	"net/url"
-	"sgbuildex/internal/pkg/logger"
+	"cpd-nexus/internal/pkg/logger"
 	"sync"
 
 	"github.com/gorilla/websocket"

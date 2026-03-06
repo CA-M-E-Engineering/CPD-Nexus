@@ -4,8 +4,8 @@ import (
 	"encoding/json"
 	"net/http"
 
-	"sgbuildex/internal/core/ports"
-	"sgbuildex/internal/pkg/apperrors"
+	"cpd-nexus/internal/core/ports"
+	"cpd-nexus/internal/pkg/apperrors"
 
 	"github.com/gorilla/mux"
 )

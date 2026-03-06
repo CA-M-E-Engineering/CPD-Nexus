@@ -3,9 +3,9 @@ package services
 import (
 	"context"
 	"fmt"
-	"sgbuildex/internal/core/domain"
-	"sgbuildex/internal/core/ports"
-	"sgbuildex/internal/pkg/logger"
+	"cpd-nexus/internal/core/domain"
+	"cpd-nexus/internal/core/ports"
+	"cpd-nexus/internal/pkg/logger"
 	"time"
 )
 

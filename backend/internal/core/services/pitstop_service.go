@@ -4,8 +4,8 @@ import (
 	"context"
 	"fmt"
 
-	"sgbuildex/internal/core/domain"
-	"sgbuildex/internal/core/ports"
+	"cpd-nexus/internal/core/domain"
+	"cpd-nexus/internal/core/ports"
 	"time"
 )
 

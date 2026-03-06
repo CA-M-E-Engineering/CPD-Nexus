@@ -3,11 +3,11 @@ package handlers
 import (
 	"encoding/json"
 	"net/http"
-	"sgbuildex/internal/core/ports"
+	"cpd-nexus/internal/core/ports"
 
-	"sgbuildex/internal/bridge"
-	bridgeHandlers "sgbuildex/internal/bridge/handlers"
-	"sgbuildex/internal/pkg/logger"
+	"cpd-nexus/internal/bridge"
+	bridgeHandlers "cpd-nexus/internal/bridge/handlers"
+	"cpd-nexus/internal/pkg/logger"
 )
 
 // BridgeSyncHandler handles manual sync trigger from the frontend

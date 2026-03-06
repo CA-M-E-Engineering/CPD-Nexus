@@ -4,9 +4,9 @@ import (
 	"context"
 	"time"
 
-	"sgbuildex/internal/core/domain"
-	"sgbuildex/internal/core/ports"
-	"sgbuildex/internal/pkg/apperrors"
+	"cpd-nexus/internal/core/domain"
+	"cpd-nexus/internal/core/ports"
+	"cpd-nexus/internal/pkg/apperrors"
 )
 
 type SiteService struct {

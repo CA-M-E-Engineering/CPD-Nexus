@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"net/http"
 
-	"sgbuildex/internal/core/ports"
+	"cpd-nexus/internal/core/ports"
 
 	"github.com/gorilla/mux"
 )
@@ -35,9 +35,10 @@ func (h *PitstopHandler) GetAuthorisations(w http.ResponseWriter, r *http.Reques
 
 // SyncConfig triggers an immediate sync with the external Pitstop configuration endpoint
 func (h *PitstopHandler) SyncConfig(w http.ResponseWriter, r *http.Request) {
-	userID := r.Header.Get("X-User-ID")
+	userID := ports.GetUserID(r.Context())
 	if userID == "" {
-		userID = "Owner_001"
+		http.Error(w, "Unauthorized: valid user context required", http.StatusUnauthorized)
+		return
 	}
 
 	if err := h.pitstopService.SyncConfig(r.Context(), userID); err != nil {

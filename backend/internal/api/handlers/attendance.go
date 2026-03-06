@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"net/http"
 
-	"sgbuildex/internal/core/ports"
+	"cpd-nexus/internal/core/ports"
 )
 
 type AttendanceHandler struct {

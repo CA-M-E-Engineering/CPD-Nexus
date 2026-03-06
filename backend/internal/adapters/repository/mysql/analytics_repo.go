@@ -3,8 +3,8 @@ package mysql
 import (
 	"context"
 	"database/sql"
-	"sgbuildex/internal/core/domain"
-	"sgbuildex/internal/core/ports"
+	"cpd-nexus/internal/core/domain"
+	"cpd-nexus/internal/core/ports"
 )
 
 type AnalyticsRepository struct {

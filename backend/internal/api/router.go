@@ -3,8 +3,8 @@ package api
 import (
 	"encoding/json"
 	"net/http"
-	"sgbuildex/internal/api/handlers"
-	"sgbuildex/internal/api/middleware"
+	"cpd-nexus/internal/api/handlers"
+	"cpd-nexus/internal/api/middleware"
 
 	"github.com/gorilla/mux"
 )
@@ -37,20 +37,28 @@ func RegisterRoutes(r *mux.Router, cfg RouterConfig) {
 
 	api := r.PathPrefix("/api").Subrouter()
 	api.Use(middleware.UserScopeMiddleware)
+
 	// --- Auth Routes (Protected) ---
 	api.HandleFunc("/auth/me", cfg.AuthHandler.Me).Methods("GET")
 
-	// --- Users Routes (Global Admin) ---
-	// These routes are outside the strict RequireUserScope to allow vendor management
-	api.HandleFunc("/users", cfg.UsersHandler.GetUsers).Methods("GET")
-	api.HandleFunc("/users", cfg.UsersHandler.CreateUser).Methods("POST")
-	api.HandleFunc("/users/{id}", cfg.UsersHandler.GetUserById).Methods("GET")
-	api.HandleFunc("/users/{id}", cfg.UsersHandler.UpdateUser).Methods("PUT")
-	api.HandleFunc("/users/{id}", cfg.UsersHandler.DeleteUser).Methods("DELETE")
-	api.HandleFunc("/users/{id}/bridge", cfg.UsersHandler.UpdateBridgeConfig).Methods("PUT")
+	// --- Administrative Routes (Global Admin / Vendor Only) ---
+	admin := api.PathPrefix("").Subrouter()
+	admin.Use(middleware.RequireAdminScope)
 
-	// --- Devices Routes (Global Admin) ---
-	api.HandleFunc("/devices", cfg.DevicesHandler.CreateDevice).Methods("POST")
+	admin.HandleFunc("/users", cfg.UsersHandler.GetUsers).Methods("GET")
+	admin.HandleFunc("/users", cfg.UsersHandler.CreateUser).Methods("POST")
+	admin.HandleFunc("/users/{id}", cfg.UsersHandler.GetUserById).Methods("GET")
+	admin.HandleFunc("/users/{id}", cfg.UsersHandler.UpdateUser).Methods("PUT")
+	admin.HandleFunc("/users/{id}", cfg.UsersHandler.DeleteUser).Methods("DELETE")
+	admin.HandleFunc("/users/{id}/bridge", cfg.UsersHandler.UpdateBridgeConfig).Methods("PUT")
+
+	admin.HandleFunc("/devices", cfg.DevicesHandler.CreateDevice).Methods("POST")
+
+	if cfg.PitstopHandler != nil {
+		admin.HandleFunc("/pitstop/authorisations", cfg.PitstopHandler.GetAuthorisations).Methods("GET")
+		admin.HandleFunc("/pitstop/authorisations/sync", cfg.PitstopHandler.SyncConfig).Methods("POST")
+		admin.HandleFunc("/users/{id}/pitstop-on-behalf-of", cfg.PitstopHandler.AssignOnBehalfOf).Methods("POST")
+	}
 
 	// --- Scoped Routes (Project Isolation) ---
 	scoped := api.PathPrefix("").Subrouter()
@@ -92,9 +100,7 @@ func RegisterRoutes(r *mux.Router, cfg RouterConfig) {
 	// --- Assignments Routes ---
 	scoped.HandleFunc("/projects/{projectId}/assign-workers", cfg.AssignmentsHandler.AssignWorkers).Methods("POST")
 	scoped.HandleFunc("/sites/{siteId}/assign-devices", cfg.AssignmentsHandler.AssignDevices).Methods("POST")
-
 	scoped.HandleFunc("/sites/{siteId}/assign-projects", cfg.AssignmentsHandler.AssignProjects).Methods("POST")
-
 	scoped.HandleFunc("/users/{userId}/devices/bulk", cfg.AssignmentsHandler.AssignDevicesToUser).Methods("POST")
 
 	// --- Analytics Routes ---
@@ -111,13 +117,10 @@ func RegisterRoutes(r *mux.Router, cfg RouterConfig) {
 		scoped.HandleFunc("/bridge/sync-users", cfg.BridgeSyncHandler.SyncUsers).Methods("POST")
 	}
 
-	// --- Pitstop Config Routes (Global Admin / Vendor) ---
+	// --- Pitstop Test Endpoints (Scoped/Admin) ---
 	if cfg.PitstopHandler != nil {
-		api.HandleFunc("/pitstop/authorisations", cfg.PitstopHandler.GetAuthorisations).Methods("GET")
-		api.HandleFunc("/pitstop/authorisations/sync", cfg.PitstopHandler.SyncConfig).Methods("POST")
-		api.HandleFunc("/users/{id}/pitstop-on-behalf-of", cfg.PitstopHandler.AssignOnBehalfOf).Methods("POST")
-		api.HandleFunc("/pitstop/authorisations/testing-projects", cfg.PitstopHandler.GetTestingProjects).Methods("GET")
-		api.HandleFunc("/pitstop/authorisations/test-submission/{project_id}", cfg.PitstopHandler.TestSubmission).Methods("POST")
+		scoped.HandleFunc("/pitstop/authorisations/testing-projects", cfg.PitstopHandler.GetTestingProjects).Methods("GET")
+		scoped.HandleFunc("/pitstop/authorisations/test-submission/{project_id}", cfg.PitstopHandler.TestSubmission).Methods("POST")
 	}
 
 	// Serve Static Files

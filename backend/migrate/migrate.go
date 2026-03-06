@@ -8,7 +8,7 @@ import (
 	"path/filepath"
 	"sort"
 
-	"sgbuildex/internal/pkg/config"
+	"cpd-nexus/internal/pkg/config"
 
 	_ "github.com/go-sql-driver/mysql"
 )
