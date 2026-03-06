@@ -214,7 +214,7 @@ func (r *AttendanceRepository) ExtractPendingAttendanceByProject(ctx context.Con
 // ExtractProjectsWithPendingAttendance returns distinct projects that have attendance records not yet submitted.
 func (r *AttendanceRepository) ExtractProjectsWithPendingAttendance(ctx context.Context) ([]domain.Project, error) {
 	query := `
-		SELECT DISTINCT
+		SELECT
 			p.project_id, p.site_id, p.user_id, p.project_title, p.status,
 			p.project_reference_number, p.project_contract_number, p.project_contract_name,
 			p.project_location_description, p.hdb_precinct_name,
@@ -225,12 +225,11 @@ func (r *AttendanceRepository) ExtractProjectsWithPendingAttendance(ctx context.
 			p.worker_company_client_name, p.worker_company_client_uen,
 			p.worker_company_trade,
 			s.site_name
-		FROM attendance a
-		JOIN workers w ON a.worker_id = w.worker_id
-		JOIN projects p ON w.current_project_id = p.project_id
+		FROM projects p
 		JOIN sites s ON p.site_id = s.site_id
 		LEFT JOIN pitstop_authorisations pa ON p.pitstop_auth_id = pa.pitstop_auth_id
-		WHERE a.status != 'submitted'
+		WHERE p.pitstop_auth_id IS NOT NULL AND p.pitstop_auth_id != ''
+		AND p.status = 'active'
 	`
 
 	rows, err := r.db.QueryContext(ctx, query)
