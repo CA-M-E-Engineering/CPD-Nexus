@@ -11,13 +11,22 @@ var _ ports.ExternalSubmitter = (*Client)(nil)
 
 // SubmitManpowerUtilization implements ports.ExternalSubmitter.
 // It maps the domain AttendanceRows to ManpowerUtilization payloads and submits them.
-func (c *Client) SubmitManpowerUtilization(ctx context.Context, repo ports.SubmissionRepository, settings *domain.SystemSettings, rows []domain.AttendanceRow) (int, error) {
+func (c *Client) SubmitManpowerUtilization(ctx context.Context, repo ports.SubmissionRepository, settings *domain.SystemSettings, rows []domain.AttendanceRow) (int, int, error) {
 	muResult := MapAttendanceToManpower(rows)
+
+	failedCount := 0
+	for id, errMsg := range muResult.Failures {
+		repo.UpdateAttendanceStatus(ctx, id, "failed", "", errMsg)
+		repo.LogSubmission(ctx, "manpower_utilization", id, "failed", "", errMsg)
+		failedCount++
+	}
+
 	wrappers := make([]ManpowerUtilizationWrapper, len(muResult.Payloads))
 	for i, p := range muResult.Payloads {
 		wrappers[i] = ManpowerUtilizationWrapper{ManpowerUtilization: p}
 	}
-	return SubmitPayloads(ctx, repo, c, settings, wrappers)
+	submittedCount, err := SubmitPayloads(ctx, repo, c, settings, wrappers)
+	return submittedCount, failedCount, err
 }
 
 // FetchPitstopConfig implements ports.ExternalSubmitter — wraps the concrete FetchConfig method

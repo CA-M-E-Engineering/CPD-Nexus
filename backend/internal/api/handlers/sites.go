@@ -3,7 +3,7 @@ package handlers
 import (
 	"encoding/json"
 	"net/http"
-	"sgbuildex/internal/api/middleware"
+
 	"sgbuildex/internal/core/domain"
 	"sgbuildex/internal/core/ports"
 
@@ -19,7 +19,7 @@ func NewSitesHandler(service ports.SiteService) *SitesHandler {
 }
 
 func (h *SitesHandler) GetSites(w http.ResponseWriter, r *http.Request) {
-	userID := middleware.GetUserID(r.Context())
+	userID := ports.GetUserID(r.Context())
 	sites, err := h.service.ListSites(r.Context(), userID)
 	if err != nil {
 		writeError(w, err)
@@ -32,7 +32,7 @@ func (h *SitesHandler) GetSites(w http.ResponseWriter, r *http.Request) {
 
 func (h *SitesHandler) GetSiteById(w http.ResponseWriter, r *http.Request) {
 	id := mux.Vars(r)["id"]
-	userID := middleware.GetUserID(r.Context())
+	userID := ports.GetUserID(r.Context())
 
 	site, err := h.service.GetSite(r.Context(), userID, id)
 	if err != nil {
@@ -63,7 +63,7 @@ func (h *SitesHandler) CreateSite(w http.ResponseWriter, r *http.Request) {
 
 func (h *SitesHandler) UpdateSite(w http.ResponseWriter, r *http.Request) {
 	id := mux.Vars(r)["id"]
-	userID := middleware.GetUserID(r.Context())
+	userID := ports.GetUserID(r.Context())
 
 	var site domain.Site
 	if err := json.NewDecoder(r.Body).Decode(&site); err != nil {
@@ -82,7 +82,7 @@ func (h *SitesHandler) UpdateSite(w http.ResponseWriter, r *http.Request) {
 
 func (h *SitesHandler) DeleteSite(w http.ResponseWriter, r *http.Request) {
 	id := mux.Vars(r)["id"]
-	userID := middleware.GetUserID(r.Context())
+	userID := ports.GetUserID(r.Context())
 
 	if err := h.service.DeleteSite(r.Context(), userID, id); err != nil {
 		writeError(w, err)

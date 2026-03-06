@@ -4,7 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
-	"sgbuildex/internal/api/middleware"
+
 	"sgbuildex/internal/core/domain"
 	"sgbuildex/internal/core/ports"
 	"sgbuildex/internal/pkg/apperrors"
@@ -31,7 +31,7 @@ func (r *DeviceRepository) Get(ctx context.Context, userID, id string) (*domain.
 		LEFT JOIN sites s ON d.site_id = s.site_id
 		LEFT JOIN users u ON d.user_id = u.user_id
 		WHERE d.device_id = ?`
-	if !middleware.IsVendor(ctx) {
+	if !ports.IsVendor(ctx) {
 		query += " AND d.user_id = ?"
 	}
 
@@ -41,7 +41,7 @@ func (r *DeviceRepository) Get(ctx context.Context, userID, id string) (*domain.
 	var status sql.NullString
 
 	var err error
-	if middleware.IsVendor(ctx) {
+	if ports.IsVendor(ctx) {
 		err = r.db.QueryRowContext(ctx, query, id).Scan(
 			&d.ID, &d.SN, &d.Model, &status,
 			&siteName, &siteID, &userName, &scanUserID,
@@ -160,7 +160,7 @@ func (r *DeviceRepository) List(ctx context.Context, userID string) ([]domain.De
 	}
 
 	args := []interface{}{}
-	if userID != "" && !middleware.IsVendor(ctx) {
+	if userID != "" && !ports.IsVendor(ctx) {
 		query += " AND d.user_id = ?"
 		args = append(args, userID)
 	}
@@ -262,7 +262,7 @@ func (r *DeviceRepository) Update(ctx context.Context, d *domain.Device) error {
 func (r *DeviceRepository) Delete(ctx context.Context, userID, id string) error {
 	query := "UPDATE devices SET status = ?, site_id = NULL WHERE device_id = ?"
 	args := []interface{}{domain.StatusInactive, id}
-	if !middleware.IsVendor(ctx) {
+	if !ports.IsVendor(ctx) {
 		query += " AND user_id = ?"
 		args = append(args, userID)
 	}

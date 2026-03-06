@@ -29,7 +29,7 @@ type WorkerService interface {
 	ListWorkers(ctx context.Context, userID, siteID string) ([]domain.Worker, error)
 	ListPendingSyncWorkers(ctx context.Context, userID string) ([]domain.Worker, error)
 	CreateWorker(ctx context.Context, w *domain.Worker) error
-	UpdateWorker(ctx context.Context, userID, id string, payload map[string]interface{}) error
+	UpdateWorker(ctx context.Context, userID, id string, req *domain.UpdateWorkerRequest) error
 	DeleteWorker(ctx context.Context, userID, id string) error
 	AssignWorkersToProject(ctx context.Context, projectID string, workerIDs []string) error
 }

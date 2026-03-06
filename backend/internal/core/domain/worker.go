@@ -38,3 +38,23 @@ type Worker struct {
 	UserLocation string `json:"user_location,omitempty"`
 	UserAddress  string `json:"user_address,omitempty"`
 }
+
+type UpdateWorkerRequest struct {
+	Name                    *string `json:"name"`
+	UserType                *string `json:"user_type"`
+	Status                  *string `json:"status"`
+	UserID                  *string `json:"user_id"`
+	PersonIDNo              *string `json:"person_id_no"`
+	PersonIDAndWorkPassType *string `json:"person_id_and_work_pass_type"`
+	PersonNationality       *string `json:"person_nationality"`
+	PersonTrade             *string `json:"person_trade"`
+	AuthStartTime           *string `json:"auth_start_time"`
+	AuthEndTime             *string `json:"auth_end_time"`
+	FaceImgLoc              *string `json:"face_img_loc"`
+	CardNumber              *string `json:"card_number"`
+	CardType                *string `json:"card_type"`
+	FDID                    *int    `json:"fdid"`
+	CurrentProjectID        *string `json:"current_project_id"`
+	ProjectID               *string `json:"project_id"`
+	IsSynced                *int    `json:"is_synced"`
+}

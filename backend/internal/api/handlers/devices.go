@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"net/http"
 
-	"sgbuildex/internal/api/middleware"
 	"sgbuildex/internal/core/ports"
 	"sgbuildex/internal/pkg/apperrors"
 
@@ -20,7 +19,7 @@ func NewDevicesHandler(service ports.DeviceService) *DevicesHandler {
 }
 
 func (h *DevicesHandler) GetDevices(w http.ResponseWriter, r *http.Request) {
-	userID := middleware.GetUserID(r.Context())
+	userID := ports.GetUserID(r.Context())
 	devices, err := h.Service.ListDevices(r.Context(), userID)
 	if err != nil {
 		h.handleError(w, err)
@@ -35,7 +34,7 @@ func (h *DevicesHandler) GetDeviceById(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	id := vars["id"]
 
-	userID := middleware.GetUserID(r.Context())
+	userID := ports.GetUserID(r.Context())
 	d, err := h.Service.GetDevice(r.Context(), userID, id)
 	if err != nil {
 		h.handleError(w, err)
@@ -78,7 +77,7 @@ func (h *DevicesHandler) UpdateDevice(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	userID := middleware.GetUserID(r.Context())
+	userID := ports.GetUserID(r.Context())
 	if err := h.Service.UpdateDevice(r.Context(), userID, id, params); err != nil {
 		h.handleError(w, err)
 		return
@@ -92,7 +91,7 @@ func (h *DevicesHandler) DeleteDevice(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	id := vars["id"]
 
-	userID := middleware.GetUserID(r.Context())
+	userID := ports.GetUserID(r.Context())
 	if err := h.Service.DecommissionDevice(r.Context(), userID, id); err != nil {
 		h.handleError(w, err)
 		return

@@ -3,7 +3,7 @@ package handlers
 import (
 	"encoding/json"
 	"net/http"
-	"sgbuildex/internal/api/middleware"
+
 	"sgbuildex/internal/core/ports"
 )
 
@@ -56,8 +56,18 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 		userMap["role"] = "client"
 	}
 
+	http.SetCookie(w, &http.Cookie{
+		Name:     "auth_token",
+		Value:    token,
+		Path:     "/",
+		MaxAge:   86400, // 24 hours
+		HttpOnly: true,
+		Secure:   false, // Set to true in production with HTTPS
+		SameSite: http.SameSiteLaxMode,
+	})
+
 	response := LoginResponse{
-		Token: token,
+		Token: token, // keep for backward compatibility temporarily
 		User:  userMap,
 	}
 
@@ -66,7 +76,7 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *AuthHandler) Me(w http.ResponseWriter, r *http.Request) {
-	userID := middleware.GetUserID(r.Context())
+	userID := ports.GetUserID(r.Context())
 	if userID == "" {
 		http.Error(w, "Unauthorized", http.StatusUnauthorized)
 		return

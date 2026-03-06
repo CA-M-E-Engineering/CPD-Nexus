@@ -3,7 +3,7 @@ package services
 import (
 	"context"
 	"fmt"
-	"sgbuildex/internal/adapters/external/sgbuildex"
+
 	"sgbuildex/internal/core/domain"
 	"sgbuildex/internal/core/ports"
 	"time"
@@ -159,24 +159,8 @@ func (s *PitstopService) TestSubmission(ctx context.Context, userID, projectID s
 		return 0, 0, nil
 	}
 
-	// 1. Manually Map and handle Failures
-	muResult := sgbuildex.MapAttendanceToManpower(rows)
-
-	failedCount = 0
-	// 2. Mark validation failures as 'failed' in DB
-	for id, errMsg := range muResult.Failures {
-		s.submissionRepo.UpdateAttendanceStatus(ctx, id, "failed", "", errMsg)
-		s.submissionRepo.LogSubmission(ctx, "manpower_utilization", id, "failed", "", errMsg)
-		failedCount++
-	}
-
-	// 3. Submit valid payloads
-	if len(muResult.Payloads) == 0 {
-		return 0, failedCount, nil
-	}
-
 	// Submit via the port interface — no concrete adapter type referenced
-	submittedCount, err = s.externalClient.SubmitManpowerUtilization(ctx, s.submissionRepo, settings, rows)
+	submittedCount, failedCount, err = s.externalClient.SubmitManpowerUtilization(ctx, s.submissionRepo, settings, rows)
 	if err != nil {
 		return submittedCount, failedCount, fmt.Errorf("failed to submit payloads: %w", err)
 	}
@@ -202,7 +186,7 @@ func (s *PitstopService) SubmitPendingAttendance(ctx context.Context) error {
 	}
 
 	// Submit via the port interface — no concrete adapter type referenced
-	_, err = s.externalClient.SubmitManpowerUtilization(ctx, s.submissionRepo, settings, rows)
+	_, _, err = s.externalClient.SubmitManpowerUtilization(ctx, s.submissionRepo, settings, rows)
 	return err
 }
 

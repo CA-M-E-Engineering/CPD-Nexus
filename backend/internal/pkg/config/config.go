@@ -39,14 +39,15 @@ func LoadConfig() *Config {
 		APIPort:        getEnv("API_PORT", "3000"),
 		IngressURL:     getEnv("INGRESS_URL", "https://specs-api.uat.dextech.ai/sgbuildex"),
 		PitstopURL:     getEnv("PITSTOP_URL", "https://ca-me-sgbuildex.pitstop.uat.dextech.ai"),
-		JWTSecret:      getEnv("JWT_SECRET", "change-me-in-production-to-a-long-random-secret"),
-		AllowedOrigins: getEnv("ALLOWED_ORIGINS", "http://localhost:5173,http://127.0.0.1:5173,http://localhost:5174,http://127.0.0.1:5174,http://localhost:5175,http://127.0.0.1:5175,http://localhost:5176,http://127.0.0.1:5176"),
+		JWTSecret:      getEnvRequired("JWT_SECRET"),
+		AllowedOrigins: getEnv("ALLOWED_ORIGINS", ""),
 
 		WorkerIntervalMinutes: getEnvInt("WORKER_INTERVAL_MINUTES", 5),
 	}
 
-	if cfg.JWTSecret == "change-me-in-production-to-a-long-random-secret" {
-		logger.Infof("[CONFIG] WARNING: JWT_SECRET is using the default insecure value. Set JWT_SECRET in your .env file for production.")
+	// Enforce strong JWT secret (#11)
+	if len(cfg.JWTSecret) < 32 {
+		logger.Fatalf("[CONFIG] FATAL: JWT_SECRET must be at least 32 characters for production security.")
 	}
 
 	cfg.DBDSN = fmt.Sprintf("%s:%s@tcp(%s)/%s?parseTime=true&multiStatements=true",

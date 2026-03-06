@@ -119,38 +119,40 @@ func SubmitPayloads[T Submittable](ctx context.Context, repo ports.SubmissionRep
 		logger.Infof("[SGBuildex] Submitting batch of %d items for %s (Size: %d bytes)", len(batchIDs), dataElementID, len(fullJSON))
 		logger.Infof("[SGBuildex] JSON Payload:\n%s", string(fullJSON))
 
-		// Execute submission
-		resp, err := client.PostJSON(fmt.Sprintf("api/v1/data/push/%s", dataElementID), finalReq)
+		// Execute submission in a closure to ensure `defer resp.Body.Close()` runs per iteration
+		func() {
+			resp, err := client.PostJSON(fmt.Sprintf("api/v1/data/push/%s", dataElementID), finalReq)
 
-		status := "submitted"
-		errorMessage := ""
-		if err != nil {
-			status = "failed"
-			errorMessage = err.Error()
-			logger.Infof("[SGBuildex] Batch submission failed: %v", err)
-		} else {
-			// Ensure body is closed after reading
-			defer resp.Body.Close()
-			if resp.StatusCode >= 400 {
+			status := "submitted"
+			errorMessage := ""
+			if err != nil {
 				status = "failed"
-				bodyBytes, _ := io.ReadAll(resp.Body)
-				errorMessage = fmt.Sprintf("HTTP %d: %s", resp.StatusCode, string(bodyBytes))
-				logger.Infof("[SGBuildex] Batch submission returned error: %s", errorMessage)
+				errorMessage = err.Error()
+				logger.Infof("[SGBuildex] Batch submission failed: %v", err)
 			} else {
-				totalSubmitted += len(batchIDs)
+				// Ensure body is closed after reading
+				defer resp.Body.Close()
+				if resp.StatusCode >= 400 {
+					status = "failed"
+					bodyBytes, _ := io.ReadAll(resp.Body)
+					errorMessage = fmt.Sprintf("HTTP %d: %s", resp.StatusCode, string(bodyBytes))
+					logger.Infof("[SGBuildex] Batch submission returned error: %s", errorMessage)
+				} else {
+					totalSubmitted += len(batchIDs)
+				}
 			}
-		}
 
-		// Update database for each individual item in the batch
-		for _, id := range batchIDs {
-			// Log to central logs
-			repo.LogSubmission(ctx, dataElementID, id, status, string(fullJSON), errorMessage)
+			// Update database for each individual item in the batch
+			for _, id := range batchIDs {
+				// Log to central logs
+				repo.LogSubmission(ctx, dataElementID, id, status, string(fullJSON), errorMessage)
 
-			// Update specific source table if needed
-			if dataElementID == "manpower_utilization" {
-				repo.UpdateAttendanceStatus(ctx, id, status, string(fullJSON), errorMessage)
+				// Update specific source table if needed
+				if dataElementID == "manpower_utilization" {
+					repo.UpdateAttendanceStatus(ctx, id, status, string(fullJSON), errorMessage)
+				}
 			}
-		}
+		}()
 
 		// Rate limiting safety: if we have more batches, wait a bit
 		if i < totalItems && settings.MaxRequestsPerMinute > 0 {

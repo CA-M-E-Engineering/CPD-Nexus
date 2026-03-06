@@ -3,7 +3,8 @@ package handlers
 import (
 	"encoding/json"
 	"net/http"
-	"sgbuildex/internal/api/middleware"
+	"sgbuildex/internal/core/ports"
+
 	"sgbuildex/internal/bridge"
 	bridgeHandlers "sgbuildex/internal/bridge/handlers"
 	"sgbuildex/internal/pkg/logger"
@@ -28,7 +29,7 @@ func (h *BridgeSyncHandler) SyncUsers(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 
 	// Use middleware to get UserID
-	userID := middleware.GetUserID(ctx)
+	userID := ports.GetUserID(ctx)
 	if userID == "" {
 		w.WriteHeader(http.StatusBadRequest)
 		json.NewEncoder(w).Encode(map[string]interface{}{

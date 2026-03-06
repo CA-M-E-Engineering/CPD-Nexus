@@ -70,34 +70,29 @@ const handleLoginSuccess = (data) => {
 const handleLogout = () => {
   isAuthenticated.value = false;
   user.value = null;
-  localStorage.removeItem('auth_token'); // Clear token
   localStorage.removeItem('auth_user'); // Clear user data
   setRole(ROLES.MANAGER);
 };
 
 // Check for existing session
 const checkAuth = async () => {
-  const token = localStorage.getItem('auth_token');
   const savedUser = localStorage.getItem('auth_user');
   
-  if (token && savedUser) {
+  if (savedUser) {
     try {
       const userData = JSON.parse(savedUser);
-      // For MVP, we trust the local user data since backend Me is a stub
-      // const userData = await api.getUserProfile(); 
       handleLoginSuccess({ user: userData, role: userData.role || ROLES.MANAGER });
     } catch (e) {
       console.error("Session restore failed", e);
-      localStorage.removeItem('auth_token');
       localStorage.removeItem('auth_user');
     }
-  } else if (token) {
-    // Fallback if no user data but token exists (legacy/edge case)
+  } else {
+    // Attempt to restore session using HTTPOnly cookie
     try {
         const userData = await api.getUserProfile();
         handleLoginSuccess({ user: userData, role: userData.role });
     } catch (e) {
-        localStorage.removeItem('auth_token');
+        // No active session
     }
   }
 };

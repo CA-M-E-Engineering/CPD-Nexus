@@ -3,7 +3,7 @@ package handlers
 import (
 	"encoding/json"
 	"net/http"
-	"sgbuildex/internal/api/middleware"
+
 	"sgbuildex/internal/core/domain"
 	"sgbuildex/internal/core/ports"
 
@@ -19,7 +19,7 @@ func NewProjectsHandler(service ports.ProjectService) *ProjectsHandler {
 }
 
 func (h *ProjectsHandler) GetProjects(w http.ResponseWriter, r *http.Request) {
-	userID := middleware.GetUserID(r.Context())
+	userID := ports.GetUserID(r.Context())
 	projects, err := h.service.ListProjects(r.Context(), userID)
 	if err != nil {
 		writeError(w, err)
@@ -32,7 +32,7 @@ func (h *ProjectsHandler) GetProjects(w http.ResponseWriter, r *http.Request) {
 
 func (h *ProjectsHandler) GetProjectById(w http.ResponseWriter, r *http.Request) {
 	id := mux.Vars(r)["id"]
-	userID := middleware.GetUserID(r.Context())
+	userID := ports.GetUserID(r.Context())
 
 	project, err := h.service.GetProject(r.Context(), userID, id)
 	if err != nil {
@@ -63,7 +63,7 @@ func (h *ProjectsHandler) CreateProject(w http.ResponseWriter, r *http.Request) 
 
 func (h *ProjectsHandler) UpdateProject(w http.ResponseWriter, r *http.Request) {
 	id := mux.Vars(r)["id"]
-	userID := middleware.GetUserID(r.Context())
+	userID := ports.GetUserID(r.Context())
 
 	var project domain.Project
 	if err := json.NewDecoder(r.Body).Decode(&project); err != nil {
@@ -82,7 +82,7 @@ func (h *ProjectsHandler) UpdateProject(w http.ResponseWriter, r *http.Request) 
 
 func (h *ProjectsHandler) DeleteProject(w http.ResponseWriter, r *http.Request) {
 	id := mux.Vars(r)["id"]
-	userID := middleware.GetUserID(r.Context())
+	userID := ports.GetUserID(r.Context())
 
 	if err := h.service.DeleteProject(r.Context(), userID, id); err != nil {
 		writeError(w, err)

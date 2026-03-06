@@ -34,19 +34,6 @@ async function request(endpoint, options = {}) {
             });
         }
 
-        // Add user_id fallback if not present in params
-        if (!queryParams.has('user_id')) {
-            const authUser = localStorage.getItem('auth_user');
-            if (authUser) {
-                try {
-                    const user = JSON.parse(authUser);
-                    const userID = user.user_id || user.id;
-                    if (userID) {
-                        queryParams.append('user_id', userID);
-                    }
-                } catch (e) { }
-            }
-        }
 
         const queryString = queryParams.toString();
         if (queryString) {
@@ -63,6 +50,7 @@ async function request(endpoint, options = {}) {
 
     const config = {
         ...options,
+        credentials: 'include', // Ensure HttpOnly cookies are sent
         signal: controller.signal,
         headers: {
             ...defaultHeaders,
@@ -70,23 +58,6 @@ async function request(endpoint, options = {}) {
         },
     };
 
-    const token = localStorage.getItem('auth_token');
-    if (token) {
-        config.headers['Authorization'] = `Bearer ${token}`;
-    }
-
-    const authUser = localStorage.getItem('auth_user');
-    if (authUser) {
-        try {
-            const user = JSON.parse(authUser);
-            const userID = user.user_id || user.id;
-            if (userID) {
-                config.headers['X-User-ID'] = userID;
-            }
-        } catch (e) {
-            console.error('[HTTP] Failed to parse auth_user for scope header', e);
-        }
-    }
 
     if (config.body && typeof config.body === 'object') {
         config.body = JSON.stringify(config.body);

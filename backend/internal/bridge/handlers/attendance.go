@@ -4,7 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"sgbuildex/internal/api/middleware"
+
 	"sgbuildex/internal/bridge"
 	"sgbuildex/internal/core/ports"
 	"sgbuildex/internal/pkg/logger"
@@ -53,7 +53,7 @@ func (h *AttendanceHandler) Handle(ctx context.Context, msg bridge.Message) (*br
 	ownerID := ""
 	if v, ok := ctx.Value("bridge_userID").(string); ok && v != "" {
 		ownerID = v
-	} else if v, ok := ctx.Value(middleware.UserIDKey).(string); ok && v != "" {
+	} else if v, ok := ctx.Value(ports.UserIDKey).(string); ok && v != "" {
 		ownerID = v
 	}
 
@@ -63,8 +63,8 @@ func (h *AttendanceHandler) Handle(ctx context.Context, msg bridge.Message) (*br
 	}
 
 	// Elevate context to Vendor status for background database operations
-	ctx = context.WithValue(ctx, middleware.UserIDKey, ownerID)
-	ctx = context.WithValue(ctx, middleware.IsVendorKey, true)
+	ctx = context.WithValue(ctx, ports.UserIDKey, ownerID)
+	ctx = context.WithValue(ctx, ports.IsVendorKey, true)
 
 	result := envelope.Content
 	for _, rec := range result.Records {

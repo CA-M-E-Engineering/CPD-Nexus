@@ -24,10 +24,7 @@ const handleLogin = async () => {
   try {
     const response = await api.login(username.value, password.value);
 
-    // Store token
-    if (response.token) {
-      localStorage.setItem('auth_token', response.token);
-    }
+
     
     if (!response.user) {
         throw new Error('User data missing from response');

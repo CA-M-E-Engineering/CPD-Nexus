@@ -112,24 +112,13 @@ func (r *WorkerRepository) Create(ctx context.Context, w *domain.Worker) error {
         ) 
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
 
-	// DB constraint: fdid defaults to 1
-	fdidToInsert := w.FDID
-	if fdidToInsert == 0 {
-		fdidToInsert = 1
-	}
-
-	userType := w.UserType
-	if userType == "" {
-		userType = domain.UserTypeUser
-	}
-
 	_, err = r.db.ExecContext(ctx, query,
-		w.ID, w.UserID, w.Name, userType, w.Status,
+		w.ID, w.UserID, w.Name, w.UserType, w.Status,
 		sql.NullString{String: w.CurrentProjectID, Valid: w.CurrentProjectID != ""},
 		w.PersonIDNo, w.PersonIDAndWorkPassType, w.PersonNationality, w.PersonTrade,
 		sql.NullString{String: timeutil.CleanDateTime(w.AuthStartTime), Valid: w.AuthStartTime != ""},
 		sql.NullString{String: timeutil.CleanDateTime(w.AuthEndTime), Valid: w.AuthEndTime != ""},
-		fdidToInsert,
+		w.FDID,
 		sql.NullString{String: w.FaceImgLoc, Valid: w.FaceImgLoc != ""},
 		sql.NullString{String: w.CardNumber, Valid: w.CardNumber != ""},
 		sql.NullString{String: w.CardType, Valid: w.CardType != ""},
@@ -149,24 +138,14 @@ func (r *WorkerRepository) Update(ctx context.Context, w *domain.Worker) error {
             auth_start_time=?, auth_end_time=?, fdid=?, face_img_loc=?, card_number=?, card_type=?, is_synced=?
         WHERE worker_id=?`
 
-	fdidToInsert := w.FDID
-	if fdidToInsert == 0 {
-		fdidToInsert = 1
-	}
-
-	userType := w.UserType
-	if userType == "" {
-		userType = "user"
-	}
-
 	_, err := r.db.ExecContext(ctx, query,
-		w.Name, w.Status, userType,
+		w.Name, w.Status, w.UserType,
 		sql.NullString{String: w.CurrentProjectID, Valid: w.CurrentProjectID != ""},
 		w.UserID,
 		w.PersonIDNo, w.PersonIDAndWorkPassType, w.PersonNationality, w.PersonTrade,
 		sql.NullString{String: timeutil.CleanDateTime(w.AuthStartTime), Valid: w.AuthStartTime != ""},
 		sql.NullString{String: timeutil.CleanDateTime(w.AuthEndTime), Valid: w.AuthEndTime != ""},
-		fdidToInsert,
+		w.FDID,
 		sql.NullString{String: w.FaceImgLoc, Valid: w.FaceImgLoc != ""},
 		sql.NullString{String: w.CardNumber, Valid: w.CardNumber != ""},
 		sql.NullString{String: w.CardType, Valid: w.CardType != ""},

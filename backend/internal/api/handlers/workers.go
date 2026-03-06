@@ -3,7 +3,7 @@ package handlers
 import (
 	"encoding/json"
 	"net/http"
-	"sgbuildex/internal/api/middleware"
+
 	"sgbuildex/internal/core/domain"
 	"sgbuildex/internal/core/ports"
 
@@ -21,7 +21,7 @@ func NewWorkersHandler(service ports.WorkerService) *WorkersHandler {
 func (h *WorkersHandler) GetWorkers(w http.ResponseWriter, r *http.Request) {
 	// userID MUST come from the middleware context, not the query string,
 	// to enforce multi-tenant isolation.
-	userID := middleware.GetUserID(r.Context())
+	userID := ports.GetUserID(r.Context())
 	siteID := r.URL.Query().Get("site_id")
 
 	workers, err := h.service.ListWorkers(r.Context(), userID, siteID)
@@ -36,7 +36,7 @@ func (h *WorkersHandler) GetWorkers(w http.ResponseWriter, r *http.Request) {
 
 func (h *WorkersHandler) GetWorkerById(w http.ResponseWriter, r *http.Request) {
 	id := mux.Vars(r)["id"]
-	userID := middleware.GetUserID(r.Context())
+	userID := ports.GetUserID(r.Context())
 
 	worker, err := h.service.GetWorker(r.Context(), userID, id)
 	if err != nil {
@@ -71,15 +71,15 @@ func (h *WorkersHandler) CreateWorker(w http.ResponseWriter, r *http.Request) {
 
 func (h *WorkersHandler) UpdateWorker(w http.ResponseWriter, r *http.Request) {
 	id := mux.Vars(r)["id"]
-	userID := middleware.GetUserID(r.Context())
+	userID := ports.GetUserID(r.Context())
 
-	var payload map[string]interface{}
-	if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
+	var req domain.UpdateWorkerRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 
-	if err := h.service.UpdateWorker(r.Context(), userID, id, payload); err != nil {
+	if err := h.service.UpdateWorker(r.Context(), userID, id, &req); err != nil {
 		writeError(w, err)
 		return
 	}
@@ -90,7 +90,7 @@ func (h *WorkersHandler) UpdateWorker(w http.ResponseWriter, r *http.Request) {
 
 func (h *WorkersHandler) DeleteWorker(w http.ResponseWriter, r *http.Request) {
 	id := mux.Vars(r)["id"]
-	userID := middleware.GetUserID(r.Context())
+	userID := ports.GetUserID(r.Context())
 
 	if err := h.service.DeleteWorker(r.Context(), userID, id); err != nil {
 		writeError(w, err)

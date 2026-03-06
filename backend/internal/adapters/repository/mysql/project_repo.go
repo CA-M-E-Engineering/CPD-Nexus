@@ -4,7 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
-	"sgbuildex/internal/api/middleware"
+
 	"sgbuildex/internal/core/domain"
 	"sgbuildex/internal/core/ports"
 	"sgbuildex/internal/pkg/apperrors"
@@ -38,7 +38,7 @@ func (r *ProjectRepository) Get(ctx context.Context, userID, id string) (*domain
 		LEFT JOIN pitstop_authorisations pa ON p.pitstop_auth_id = pa.pitstop_auth_id`
 
 	args := []interface{}{id}
-	if middleware.IsVendor(ctx) {
+	if ports.IsVendor(ctx) {
 		query += " WHERE p.project_id = ?"
 	} else {
 		query += " WHERE p.project_id = ? AND p.user_id = ?"
@@ -147,11 +147,11 @@ func (r *ProjectRepository) List(ctx context.Context, userID string) ([]domain.P
 		LEFT JOIN pitstop_authorisations pa ON p.pitstop_auth_id = pa.pitstop_auth_id
         WHERE (p.status != ? OR p.status IS NULL)`
 
-	if userID == "" && !middleware.IsVendor(ctx) {
+	if userID == "" && !ports.IsVendor(ctx) {
 		return nil, apperrors.NewPermissionDenied("user_id is required for multi-tenant isolation")
 	}
 	args := []interface{}{}
-	if !middleware.IsVendor(ctx) {
+	if !ports.IsVendor(ctx) {
 		query += " AND p.user_id = ?"
 		args = append(args, userID)
 	}

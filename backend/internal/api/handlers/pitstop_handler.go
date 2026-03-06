@@ -3,7 +3,7 @@ package handlers
 import (
 	"encoding/json"
 	"net/http"
-	"sgbuildex/internal/api/middleware"
+
 	"sgbuildex/internal/core/ports"
 
 	"github.com/gorilla/mux"
@@ -82,14 +82,14 @@ func (h *PitstopHandler) TestSubmission(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	userID := middleware.GetUserID(r.Context())
+	userID := ports.GetUserID(r.Context())
 	if userID == "" {
 		http.Error(w, "user_id is required", http.StatusUnauthorized)
 		return
 	}
 
 	// Admin/Vendor bypass: if they are an admin, they can test any project
-	if middleware.IsVendor(r.Context()) {
+	if ports.IsVendor(r.Context()) {
 		userID = ""
 	}
 
@@ -111,14 +111,14 @@ func (h *PitstopHandler) TestSubmission(w http.ResponseWriter, r *http.Request) 
 
 // GetTestingProjects handles retrieving a list of unique projects that currently have pending attendance records
 func (h *PitstopHandler) GetTestingProjects(w http.ResponseWriter, r *http.Request) {
-	userID := middleware.GetUserID(r.Context())
+	userID := ports.GetUserID(r.Context())
 	if userID == "" {
 		http.Error(w, "user_id is required", http.StatusUnauthorized)
 		return
 	}
 
 	// Admin/Vendor bypass: if they are an admin, they can see all projects
-	if middleware.IsVendor(r.Context()) {
+	if ports.IsVendor(r.Context()) {
 		userID = ""
 	}
 

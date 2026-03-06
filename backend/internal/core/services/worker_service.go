@@ -3,7 +3,7 @@ package services
 import (
 	"context"
 	"fmt"
-	"sgbuildex/internal/api/middleware"
+
 	"sgbuildex/internal/core/domain"
 	"sgbuildex/internal/core/ports"
 	"sgbuildex/internal/pkg/apperrors"
@@ -20,11 +20,11 @@ func NewWorkerService(repo ports.WorkerRepository) ports.WorkerService {
 }
 
 func (s *WorkerService) GetWorker(ctx context.Context, userID, id string) (*domain.Worker, error) {
-	if userID == "" && !middleware.IsVendor(ctx) {
+	if userID == "" && !ports.IsVendor(ctx) {
 		return nil, apperrors.NewPermissionDenied("user_id scope required")
 	}
 	// Inject isVendor into context so repo can check it without importing middleware
-	ctx = context.WithValue(ctx, ports.IsVendorContextKey, middleware.IsVendor(ctx))
+	ctx = context.WithValue(ctx, ports.IsVendorKey, ports.IsVendor(ctx))
 	worker, err := s.repo.Get(ctx, userID, id)
 	if err != nil {
 		return nil, err
@@ -34,7 +34,7 @@ func (s *WorkerService) GetWorker(ctx context.Context, userID, id string) (*doma
 
 func (s *WorkerService) ListWorkers(ctx context.Context, userID, siteID string) ([]domain.Worker, error) {
 	// Inject isVendor into context so repo can check it without importing middleware
-	ctx = context.WithValue(ctx, ports.IsVendorContextKey, middleware.IsVendor(ctx))
+	ctx = context.WithValue(ctx, ports.IsVendorKey, ports.IsVendor(ctx))
 	return s.repo.List(ctx, userID, siteID)
 }
 
@@ -51,6 +51,11 @@ func (s *WorkerService) CreateWorker(ctx context.Context, w *domain.Worker) erro
 	// Default user_type if not set
 	if w.UserType == "" {
 		w.UserType = "user"
+	}
+
+	// Default FDID if not set
+	if w.FDID == 0 {
+		w.FDID = 1
 	}
 
 	if w.CurrentProjectID != "" {
@@ -88,31 +93,31 @@ func (s *WorkerService) validateWorker(w *domain.Worker) error {
 	return nil
 }
 
-func (s *WorkerService) applyPayloadToWorker(existing *domain.Worker, payload map[string]interface{}) {
-	if v, ok := payload["name"].(string); ok {
-		existing.Name = v
+func (s *WorkerService) applyPayloadToWorker(existing *domain.Worker, req *domain.UpdateWorkerRequest) {
+	if req.Name != nil {
+		existing.Name = *req.Name
 	}
-	if v, ok := payload["user_type"].(string); ok {
-		existing.UserType = v
+	if req.UserType != nil {
+		existing.UserType = *req.UserType
 	}
-	if v, ok := payload["status"].(string); ok {
-		existing.Status = v
+	if req.Status != nil {
+		existing.Status = *req.Status
 	}
-	if v, ok := payload["person_id_no"].(string); ok {
-		existing.PersonIDNo = v
+	if req.PersonIDNo != nil {
+		existing.PersonIDNo = *req.PersonIDNo
 	}
-	if v, ok := payload["person_id_and_work_pass_type"].(string); ok {
-		existing.PersonIDAndWorkPassType = v
+	if req.PersonIDAndWorkPassType != nil {
+		existing.PersonIDAndWorkPassType = *req.PersonIDAndWorkPassType
 	}
-	if v, ok := payload["person_nationality"].(string); ok {
-		existing.PersonNationality = v
+	if req.PersonNationality != nil {
+		existing.PersonNationality = *req.PersonNationality
 	}
-	if v, ok := payload["person_trade"].(string); ok {
-		existing.PersonTrade = v
+	if req.PersonTrade != nil {
+		existing.PersonTrade = *req.PersonTrade
 	}
 }
 
-func (s *WorkerService) UpdateWorker(ctx context.Context, userID, id string, payload map[string]interface{}) error {
+func (s *WorkerService) UpdateWorker(ctx context.Context, userID, id string, req *domain.UpdateWorkerRequest) error {
 	if userID == "" {
 		return apperrors.NewPermissionDenied("user_id scope required")
 	}
@@ -125,7 +130,7 @@ func (s *WorkerService) UpdateWorker(ctx context.Context, userID, id string, pay
 	// Dynamic overlay logic
 	// Temporarily apply modifications for validation
 	temp := *existing
-	s.applyPayloadToWorker(&temp, payload)
+	s.applyPayloadToWorker(&temp, req)
 	if err := s.validateWorker(&temp); err != nil {
 		return err
 	}
@@ -134,90 +139,82 @@ func (s *WorkerService) UpdateWorker(ctx context.Context, userID, id string, pay
 	wasRegistered := existing.FaceImgLoc != "" || existing.CardNumber != ""
 
 	// Dynamic overlay logic
-	if v, ok := payload["name"].(string); ok {
-		if existing.Name != v {
+	if req.Name != nil {
+		if existing.Name != *req.Name {
 			requiresSync = true
 		}
-		existing.Name = v
+		existing.Name = *req.Name
 	}
-	if v, ok := payload["user_type"].(string); ok {
-		existing.UserType = v
+	if req.UserType != nil {
+		existing.UserType = *req.UserType
 	}
-	if v, ok := payload["status"].(string); ok {
-		existing.Status = v
-		if v == "inactive" {
+	if req.Status != nil {
+		existing.Status = *req.Status
+		if *req.Status == "inactive" {
 			existing.CurrentProjectID = ""
 		}
 	}
-	if v, ok := payload["person_id_no"].(string); ok {
-		existing.PersonIDNo = v
+	if req.PersonIDNo != nil {
+		existing.PersonIDNo = *req.PersonIDNo
 	}
-	if v, ok := payload["user_id"].(string); ok {
-		existing.UserID = v
+	if req.UserID != nil {
+		existing.UserID = *req.UserID
 	}
-	if v, ok := payload["person_id_and_work_pass_type"].(string); ok {
-		existing.PersonIDAndWorkPassType = v
+	if req.PersonIDAndWorkPassType != nil {
+		existing.PersonIDAndWorkPassType = *req.PersonIDAndWorkPassType
 	}
-	if v, ok := payload["person_nationality"].(string); ok {
-		existing.PersonNationality = v
+	if req.PersonNationality != nil {
+		existing.PersonNationality = *req.PersonNationality
 	}
-	if v, ok := payload["person_trade"].(string); ok {
-		existing.PersonTrade = v
+	if req.PersonTrade != nil {
+		existing.PersonTrade = *req.PersonTrade
 	}
 
-	if v, ok := payload["auth_start_time"].(string); ok {
-		if timeutil.CleanDateTime(existing.AuthStartTime) != timeutil.CleanDateTime(v) {
+	if req.AuthStartTime != nil {
+		if timeutil.CleanDateTime(existing.AuthStartTime) != timeutil.CleanDateTime(*req.AuthStartTime) {
 			requiresSync = true
 		}
-		existing.AuthStartTime = v
+		existing.AuthStartTime = *req.AuthStartTime
 	}
-	if v, ok := payload["auth_end_time"].(string); ok {
-		if timeutil.CleanDateTime(existing.AuthEndTime) != timeutil.CleanDateTime(v) {
+	if req.AuthEndTime != nil {
+		if timeutil.CleanDateTime(existing.AuthEndTime) != timeutil.CleanDateTime(*req.AuthEndTime) {
 			requiresSync = true
 		}
-		existing.AuthEndTime = v
+		existing.AuthEndTime = *req.AuthEndTime
 	}
-	if v, ok := payload["face_img_loc"].(string); ok {
-		if existing.FaceImgLoc != v {
+	if req.FaceImgLoc != nil {
+		if existing.FaceImgLoc != *req.FaceImgLoc {
 			requiresSync = true
 		}
-		existing.FaceImgLoc = v
+		existing.FaceImgLoc = *req.FaceImgLoc
 	}
-	if v, ok := payload["card_number"].(string); ok {
-		if existing.CardNumber != v {
+	if req.CardNumber != nil {
+		if existing.CardNumber != *req.CardNumber {
 			requiresSync = true
 		}
-		existing.CardNumber = v
+		existing.CardNumber = *req.CardNumber
 	}
-	if v, ok := payload["card_type"].(string); ok {
-		if existing.CardType != v {
+	if req.CardType != nil {
+		if existing.CardType != *req.CardType {
 			requiresSync = true
 		}
-		existing.CardType = v
+		existing.CardType = *req.CardType
 	}
-	if v, ok := payload["fdid"].(float64); ok {
-		if existing.FDID != int(v) {
+	if req.FDID != nil {
+		if existing.FDID != *req.FDID {
 			requiresSync = true
 		}
-		existing.FDID = int(v)
-	}
-	if v, ok := payload["fdid"].(int); ok {
-		if existing.FDID != v {
-			requiresSync = true
-		}
-		existing.FDID = v
+		existing.FDID = *req.FDID
 	}
 
 	isRegistered := existing.FaceImgLoc != "" || existing.CardNumber != ""
 
 	// Project ID flexibility
 	var newProjectID string
-	if v, ok := payload["current_project_id"].(string); ok {
-		newProjectID = v
-	} else if v, ok := payload["project_id"].(string); ok {
-		newProjectID = v
-	} else if v, ok := payload["current_project_id"].(float64); ok {
-		newProjectID = fmt.Sprintf("%.0f", v)
+	if req.CurrentProjectID != nil {
+		newProjectID = *req.CurrentProjectID
+	} else if req.ProjectID != nil {
+		newProjectID = *req.ProjectID
 	} else {
 		newProjectID = existing.CurrentProjectID
 	}
@@ -234,7 +231,7 @@ func (s *WorkerService) UpdateWorker(ctx context.Context, userID, id string, pay
 		}
 		existing.CurrentProjectID = newProjectID
 		requiresSync = true
-	} else if v, ok := payload["current_project_id"]; ok && v == nil {
+	} else if req.CurrentProjectID != nil && *req.CurrentProjectID == "" {
 		if existing.CurrentProjectID != "" {
 			requiresSync = true
 		}
@@ -247,10 +244,8 @@ func (s *WorkerService) UpdateWorker(ctx context.Context, userID, id string, pay
 			existing.IsSynced = domain.SyncStatusPendingUpdate
 		}
 	} else {
-		if v, ok := payload["is_synced"].(float64); ok {
-			existing.IsSynced = int(v)
-		} else if v, ok := payload["is_synced"].(int); ok {
-			existing.IsSynced = v
+		if req.IsSynced != nil {
+			existing.IsSynced = *req.IsSynced
 		}
 	}
 

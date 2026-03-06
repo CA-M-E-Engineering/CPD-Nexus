@@ -79,8 +79,9 @@ func (s *DailyScheduler) Start(ctx context.Context) {
 		durationUntilNext := time.Until(nextRun)
 		logger.Infof("[%s] Scheduler: Next run scheduled for %v (in %v)", s.name, nextRun.Format(time.RFC3339), durationUntilNext.Truncate(time.Second))
 
+		timer := time.NewTimer(durationUntilNext)
 		select {
-		case <-time.After(durationUntilNext):
+		case <-timer.C:
 			logger.Infof("[%s] Scheduler: [TRIGGER] Starting scheduled task...", s.name)
 			s.task(ctx)
 			logger.Infof("[%s] Scheduler: [COMPLETED] task finished. Scheduling next run...", s.name)
@@ -94,10 +95,12 @@ func (s *DailyScheduler) Start(ctx context.Context) {
 			}
 
 		case <-s.reset:
+			timer.Stop()
 			logger.Infof("[%s] Scheduler: [RESET] Schedule updated, re-evaluating...", s.name)
 			continue
 
 		case <-ctx.Done():
+			timer.Stop()
 			logger.Infof("[%s] Scheduler: Shutting down...", s.name)
 			return
 		}
