@@ -3,7 +3,7 @@ package mysql
 import (
 	"context"
 	"database/sql"
-	"sgbuildex/internal/core/ports"
+	"cpd-nexus/internal/core/ports"
 	"time"
 )
 

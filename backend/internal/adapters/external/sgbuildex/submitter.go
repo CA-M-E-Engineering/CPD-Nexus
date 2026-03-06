@@ -2,13 +2,13 @@ package sgbuildex
 
 import (
 	"context"
+	"cpd-nexus/internal/adapters/external/sgbuildex/payloads"
+	"cpd-nexus/internal/core/domain"
+	"cpd-nexus/internal/core/ports"
+	"cpd-nexus/internal/pkg/logger"
 	"encoding/json"
 	"fmt"
 	"io"
-	"sgbuildex/internal/adapters/external/sgbuildex/payloads"
-	"sgbuildex/internal/core/domain"
-	"sgbuildex/internal/core/ports"
-	"sgbuildex/internal/pkg/logger"
 	"time"
 )
 
@@ -117,7 +117,7 @@ func SubmitPayloads[T Submittable](ctx context.Context, repo ports.SubmissionRep
 		fullJSON, _ := json.MarshalIndent(finalReq, "", "  ")
 
 		logger.Infof("[SGBuildex] Submitting batch of %d items for %s (Size: %d bytes)", len(batchIDs), dataElementID, len(fullJSON))
-		logger.Infof("[SGBuildex] JSON Payload:\n%s", string(fullJSON))
+		// Log of full JSON payload removed to prevent PII leakage in application logs (#4)
 
 		// Execute submission in a closure to ensure `defer resp.Body.Close()` runs per iteration
 		func() {
@@ -144,12 +144,12 @@ func SubmitPayloads[T Submittable](ctx context.Context, repo ports.SubmissionRep
 
 			// Update database for each individual item in the batch
 			for _, id := range batchIDs {
-				// Log to central logs
-				repo.LogSubmission(ctx, dataElementID, id, status, string(fullJSON), errorMessage)
+				// Log to central logs — payload removed for PII safety (#4)
+				repo.LogSubmission(ctx, dataElementID, id, status, "", errorMessage)
 
 				// Update specific source table if needed
 				if dataElementID == "manpower_utilization" {
-					repo.UpdateAttendanceStatus(ctx, id, status, string(fullJSON), errorMessage)
+					repo.UpdateAttendanceStatus(ctx, id, status, "", errorMessage)
 				}
 			}
 		}()

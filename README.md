@@ -42,7 +42,7 @@
 | **Automated BCA Submission** | Scheduled daily submission of Manpower Utilization data to SGTradeX Pitstop |
 | **CPD Submission Testing** | Manual per-project submission trigger for vendor testing and validation |
 | **Analytics Dashboard** | Live operational metrics: attendance rates, sync status, device health |
-| **Multi-Tenant Isolation** | All API operations are scoped to the requesting `X-User-ID` |
+| **Multi-Tenant Isolation** | All API operations are scoped to the authenticated user via secure JWT |
 | **Input Validation** | BCA field rules enforced on both frontend and backend for all submissions |
 
 ---
@@ -184,7 +184,7 @@ CPD_SUBMISSION_TIME=02:00:00
 
 ## 🔒 Security & Compliance
 
-- All scoped API routes require a valid `X-User-ID` header enforced by `RequireUserScope` middleware.
+- All scoped API routes require a valid JWT (passed via HttpOnly cookie or Authorization header) enforced by `RequireUserScope` middleware.
 - FIN/NRIC data is validated against Singapore government NRIC/FIN format before storage.
 - BCA field rules (UEN, trade codes, work pass types, submission months) are enforced on both frontend input and backend service layers.
 - The `SGTRADEX_API_KEY` is never exposed to the frontend — all external API calls are server-side.

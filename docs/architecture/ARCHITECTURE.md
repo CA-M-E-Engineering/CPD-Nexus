@@ -119,8 +119,8 @@ Manages persistent WebSocket connections to IoT device gateways.
 ### REST API Request (e.g. GET /api/workers)
 ```
 HTTP Request
-    → UserScopeMiddleware (extracts X-User-ID)
-    → RequireUserScope (validates user ID is present)
+    → UserScopeMiddleware (extracts user_id from JWT cookie/header)
+    → RequireUserScope (validates user identity is present)
     → WorkersHandler.GetWorkers()
     → ports.WorkerService.ListWorkers()     ← interface call
     → services.WorkerService.ListWorkers()  ← implementation
@@ -156,7 +156,7 @@ DailyScheduler fires at configured CPD_SUBMISSION_TIME
 ## 5. Multi-Tenant Isolation
 
 All user-owned data (workers, projects, sites, devices, attendance) is scoped by `user_id`:
-- HTTP layer: `X-User-ID` header extracted by `UserScopeMiddleware`, enforced by `RequireUserScope`.
+- HTTP layer: User context extracted from secure JWT by `UserScopeMiddleware`, enforced by `RequireUserScope`.
 - Service layer: `userID` parameter passed through every operation and validated.
 - Repository layer: every query includes `WHERE ... AND user_id = ?`.
 

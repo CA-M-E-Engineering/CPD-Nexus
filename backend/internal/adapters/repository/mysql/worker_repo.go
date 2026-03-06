@@ -4,11 +4,11 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
-	"sgbuildex/internal/core/domain"
-	"sgbuildex/internal/core/ports"
-	"sgbuildex/internal/pkg/apperrors"
-	"sgbuildex/internal/pkg/idgen"
-	"sgbuildex/internal/pkg/timeutil"
+	"cpd-nexus/internal/core/domain"
+	"cpd-nexus/internal/core/ports"
+	"cpd-nexus/internal/pkg/apperrors"
+	"cpd-nexus/internal/pkg/idgen"
+	"cpd-nexus/internal/pkg/timeutil"
 )
 
 type Scanner interface {

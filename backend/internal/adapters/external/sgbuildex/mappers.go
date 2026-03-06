@@ -2,13 +2,13 @@ package sgbuildex
 
 import (
 	"fmt"
-	"sgbuildex/internal/core/domain"
-	"sgbuildex/internal/pkg/logger"
-	"sgbuildex/internal/pkg/validation"
+	"cpd-nexus/internal/core/domain"
+	"cpd-nexus/internal/pkg/logger"
+	"cpd-nexus/internal/pkg/validation"
 	"strings"
 	"time"
 
-	"sgbuildex/internal/adapters/external/sgbuildex/payloads"
+	"cpd-nexus/internal/adapters/external/sgbuildex/payloads"
 )
 
 // validateMandatoryFields enforces all API-mandatory fields before a row is submitted.

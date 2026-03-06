@@ -2,11 +2,11 @@ package bridge
 
 import (
 	"context"
+	"cpd-nexus/internal/core/domain"
+	"cpd-nexus/internal/core/ports"
+	"cpd-nexus/internal/pkg/logger"
 	"encoding/json"
 	"fmt"
-	"sgbuildex/internal/core/domain"
-	"sgbuildex/internal/core/ports"
-	"sgbuildex/internal/pkg/logger"
 	"sync"
 	"time"
 )
@@ -146,7 +146,6 @@ func (rm *RequestManager) RequestAttendance(ctx context.Context) error {
 // RequestUserSync sends REGISTER_USER and UPDATE_USER commands for pending workers
 func (rm *RequestManager) RequestUserSync(ctx context.Context, builder interface {
 	BuildSyncRequests(ctx context.Context, userID string) ([]Message, []string, []domain.Worker, []domain.Worker, error)
-	MarkWorkersSynced(ctx context.Context, workerIDs []string)
 }) error {
 	logger.Infof("RequestManager: Starting user sync check")
 
@@ -170,6 +169,7 @@ func (rm *RequestManager) RequestUserSync(ctx context.Context, builder interface
 	// we will need to lookup the user_id for the worker before sending, or handle it via Transport mapping.
 	// We'll write a quick query to group messages by worker's user_id.
 
+	// tracking successIDs for logging purpose in this outbound sweep
 	var successIDs []string
 
 	for i, msg := range messages {

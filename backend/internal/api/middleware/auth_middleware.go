@@ -5,7 +5,7 @@ import (
 	"net/http"
 	"strings"
 
-	"sgbuildex/internal/core/ports"
+	"cpd-nexus/internal/core/ports"
 
 	"github.com/golang-jwt/jwt/v5"
 )
@@ -90,6 +90,17 @@ func RequireUserScope(next http.Handler) http.Handler {
 		userID := ports.GetUserID(r.Context())
 		if userID == "" {
 			http.Error(w, "Unauthorized: valid JWT token required", http.StatusUnauthorized)
+			return
+		}
+		next.ServeHTTP(w, r)
+	})
+}
+
+// RequireAdminScope checks if the user has admin/vendor privileges.
+func RequireAdminScope(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if !ports.IsVendor(r.Context()) {
+			http.Error(w, "Forbidden: administrative privileges required", http.StatusForbidden)
 			return
 		}
 		next.ServeHTTP(w, r)

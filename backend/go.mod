@@ -1,4 +1,4 @@
-module sgbuildex
+module cpd-nexus
 
 go 1.25.6
 

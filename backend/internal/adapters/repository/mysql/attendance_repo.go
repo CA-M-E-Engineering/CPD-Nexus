@@ -3,9 +3,9 @@ package mysql
 import (
 	"context"
 	"database/sql"
-	"sgbuildex/internal/core/domain"
-	"sgbuildex/internal/core/ports"
-	"sgbuildex/internal/pkg/apperrors"
+	"cpd-nexus/internal/core/domain"
+	"cpd-nexus/internal/core/ports"
+	"cpd-nexus/internal/pkg/apperrors"
 )
 
 // SQL fragments shared across extraction queries to avoid repetition.

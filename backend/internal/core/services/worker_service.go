@@ -4,11 +4,11 @@ import (
 	"context"
 	"fmt"
 
-	"sgbuildex/internal/core/domain"
-	"sgbuildex/internal/core/ports"
-	"sgbuildex/internal/pkg/apperrors"
-	"sgbuildex/internal/pkg/timeutil"
-	"sgbuildex/internal/pkg/validation"
+	"cpd-nexus/internal/core/domain"
+	"cpd-nexus/internal/core/ports"
+	"cpd-nexus/internal/pkg/apperrors"
+	"cpd-nexus/internal/pkg/timeutil"
+	"cpd-nexus/internal/pkg/validation"
 )
 
 type WorkerService struct {

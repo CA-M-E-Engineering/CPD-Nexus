@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"net/http"
 	"os"
-	"sgbuildex/internal/pkg/logger"
+	"cpd-nexus/internal/pkg/logger"
 	"strings"
 	"time"
 )
