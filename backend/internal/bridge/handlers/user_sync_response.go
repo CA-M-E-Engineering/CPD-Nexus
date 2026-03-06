@@ -4,9 +4,9 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"log"
 	"sgbuildex/internal/bridge"
 	"sgbuildex/internal/core/ports"
+	"sgbuildex/internal/pkg/logger"
 	"strings"
 )
 
@@ -37,23 +37,23 @@ func (h *UserSyncResponseHandler) Handle(ctx context.Context, msg bridge.Message
 	// RequestID is injected as "req-xxx|workerID" from BuildSyncRequests
 	parts := strings.Split(msg.Meta.RequestID, "|")
 	if len(parts) < 2 {
-		log.Printf("[UserSyncResponse] Warning: Cannot extract worker ID from request_id: %s", msg.Meta.RequestID)
+		logger.Infof("[UserSyncResponse] Warning: Cannot extract worker ID from request_id: %s", msg.Meta.RequestID)
 		return nil, nil // Cannot determine which worker to update
 	}
 
 	workerID := parts[len(parts)-1] // Target worker ID
 
 	if payload.Code == 200 {
-		log.Printf("[UserSyncResponse] Bridge returned success (200) for worker %s. Marking as synced.", workerID)
+		logger.Infof("[UserSyncResponse] Bridge returned success (200) for worker %s. Marking as synced.", workerID)
 
 		// Hard update to mark worker as synced in DB
 		if err := h.workerRepo.MarkSynced(ctx, workerID); err != nil {
-			log.Printf("[UserSyncResponse] Failed to update sync status for worker %s: %v", workerID, err)
+			logger.Infof("[UserSyncResponse] Failed to update sync status for worker %s: %v", workerID, err)
 			return nil, err
 		}
 	} else {
 		// Do not update is_synced if bridge explicitly rejected or failed the user operation
-		log.Printf("[UserSyncResponse] Bridge rejected sync for worker %s (Code: %d, Msg: %s). Sync status unchanged.", workerID, payload.Code, payload.Msg)
+		logger.Infof("[UserSyncResponse] Bridge rejected sync for worker %s (Code: %d, Msg: %s). Sync status unchanged.", workerID, payload.Code, payload.Msg)
 	}
 
 	return nil, nil

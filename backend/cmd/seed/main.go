@@ -4,21 +4,21 @@ import (
 	"database/sql"
 	"fmt"
 	"io/ioutil"
-	"log"
 	"os"
+	"sgbuildex/internal/pkg/logger"
 
 	_ "github.com/go-sql-driver/mysql"
 	"github.com/joho/godotenv"
 )
 
 func main() {
-	log.Println("--- SGBuildex Seeder Starting ---")
+	logger.Infof("--- SGBuildex Seeder Starting ---")
 
 	err := godotenv.Load("../../.env")
 	if err != nil {
 		err = godotenv.Load(".env")
 		if err != nil {
-			log.Println("Note: No .env file found, using system environment variables")
+			logger.Infof("Note: No .env file found, using system environment variables")
 		}
 	}
 
@@ -43,7 +43,7 @@ func main() {
 
 	db, err := sql.Open("mysql", dsn)
 	if err != nil {
-		log.Fatalf("Failed to open DB: %v", err)
+		logger.Fatalf("Failed to open DB: %v", err)
 	}
 	defer db.Close()
 
@@ -54,14 +54,14 @@ func main() {
 	}
 	content, err := ioutil.ReadFile(seedFile)
 	if err != nil {
-		log.Fatalf("Failed to read seed file %s: %v", seedFile, err)
+		logger.Fatalf("Failed to read seed file %s: %v", seedFile, err)
 	}
 
-	log.Printf("Executing seed script: %s", seedFile)
+	logger.Infof("Executing seed script: %s", seedFile)
 	_, err = db.Exec(string(content))
 	if err != nil {
-		log.Fatalf("Execution failed: %v", err)
+		logger.Fatalf("Execution failed: %v", err)
 	}
 
-	log.Println("--- Seeding Completed Successfully! ---")
+	logger.Infof("--- Seeding Completed Successfully! ---")
 }

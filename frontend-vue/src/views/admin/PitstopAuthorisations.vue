@@ -56,7 +56,8 @@ const handleSync = async () => {
 const fetchProjects = async () => {
     try {
         const response = await pitstopApi.getTestingProjects();
-        projects.value = response.data.data || response.data || [];
+        // Backend returns { "data": [...] }
+        projects.value = response?.data || [];
     } catch (error) {
         console.error('Failed to load testing projects:', error);
         notification.error('Failed to load projects for testing.');
@@ -67,8 +68,17 @@ const handleTestSubmission = async (projectId) => {
     isSubmitting.value[projectId] = true;
     try {
         const result = await pitstopApi.testSubmission(projectId);
-        const count = result.data?.metrics?.payloads_submitted || 0;
-        notification.success(`Test complete. Submitted ${count} payloads.`);
+        // Backend returns { "metrics": { "payloads_submitted": N, "validation_failed": M } }
+        const submitted = result?.metrics?.payloads_submitted || 0;
+        const failed = result?.metrics?.validation_failed || 0;
+
+        if (failed > 0) {
+            notification.warning(`Test complete. Submitted ${submitted}, but ${failed} failed validation.`);
+        } else {
+            notification.success(`Test complete. Submitted ${submitted} payloads.`);
+        }
+        // Refresh the list to reflect updated statuses in DB
+        await fetchProjects();
     } catch (error) {
         console.error('Test submission failed:', error);
         notification.error('Test submission failed. Check console for details.');

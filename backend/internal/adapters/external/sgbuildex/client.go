@@ -4,9 +4,9 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"log"
 	"net/http"
 	"os"
+	"sgbuildex/internal/pkg/logger"
 	"strings"
 	"time"
 )
@@ -23,7 +23,7 @@ type Client struct {
 func NewClient(baseURL, pitstopURL string) *Client {
 	apiKey := strings.TrimSpace(os.Getenv("SGTRADEX_API_KEY"))
 	if apiKey == "" {
-		log.Printf("[SGBuildex] WARNING: SGTRADEX_API_KEY is not set — requests may be rejected.")
+		logger.Infof("[SGBuildex] WARNING: SGTRADEX_API_KEY is not set — requests may be rejected.")
 	}
 	return &Client{
 		BaseURL:    baseURL,
@@ -55,7 +55,7 @@ func (c *Client) PostJSON(endpoint string, payload any) (*http.Response, error) 
 		req.Header.Set("x-api-key", c.APIKey)
 	}
 
-	log.Printf("[SGBuildex] POST %s", url)
+	logger.Infof("[SGBuildex] POST %s", url)
 
 	resp, err := c.HTTPClient.Do(req)
 	if err != nil {

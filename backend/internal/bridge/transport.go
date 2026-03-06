@@ -2,8 +2,8 @@ package bridge
 
 import (
 	"fmt"
-	"log"
 	"net/url"
+	"sgbuildex/internal/pkg/logger"
 	"sync"
 
 	"github.com/gorilla/websocket"
@@ -40,7 +40,7 @@ func (t *Transport) Connect() error {
 	t.conn = conn
 	t.mu.Unlock()
 
-	log.Printf("Transport: Connected to Bridge at %s", t.url)
+	logger.Infof("Transport: Connected to Bridge at %s", t.url)
 	return nil
 }
 

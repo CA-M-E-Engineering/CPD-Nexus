@@ -4,7 +4,6 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
-	"sgbuildex/internal/api/middleware"
 	"sgbuildex/internal/core/domain"
 	"sgbuildex/internal/core/ports"
 	"sgbuildex/internal/pkg/apperrors"
@@ -27,7 +26,9 @@ func NewWorkerRepository(db *sql.DB) ports.WorkerRepository {
 func (r *WorkerRepository) Get(ctx context.Context, userID, id string) (*domain.Worker, error) {
 	var worker *domain.Worker
 	var err error
-	if middleware.IsVendor(ctx) {
+	// isVendor is set in context by WorkerService, which reads it from middleware — repo does not import middleware
+	isVendor, _ := ctx.Value(ports.IsVendorContextKey).(bool)
+	if isVendor {
 		worker, err = r.scanRow(r.db.QueryRowContext(ctx, workerBaseSelect+" WHERE w.worker_id = ?", id))
 	} else {
 		worker, err = r.scanRow(r.db.QueryRowContext(ctx, workerBaseSelect+" WHERE w.worker_id = ? AND w.user_id = ?", id, userID))
@@ -63,10 +64,12 @@ const workerBaseSelect = `
     LEFT JOIN users u ON w.user_id = u.user_id`
 
 func (r *WorkerRepository) List(ctx context.Context, userID, siteID string) ([]domain.Worker, error) {
-	query := workerBaseSelect + " WHERE w.status = '" + domain.StatusActive + "'"
-	args := []interface{}{}
+	// Use parameterized placeholder for status — never concatenate domain constants into SQL (#3)
+	query := workerBaseSelect + " WHERE w.status = ?"
+	args := []interface{}{domain.StatusActive}
 
-	if userID != "" && !middleware.IsVendor(ctx) {
+	isVendor, _ := ctx.Value(ports.IsVendorContextKey).(bool)
+	if userID != "" && !isVendor {
 		query += " AND w.user_id = ?"
 		args = append(args, userID)
 	}
@@ -197,9 +200,10 @@ func (r *WorkerRepository) Delete(ctx context.Context, userID, id string) error 
 }
 
 func (r *WorkerRepository) ListByIsSynced(ctx context.Context, userID string, syncStatus int) ([]domain.Worker, error) {
-	query := workerBaseSelect + " WHERE w.is_synced = ? AND w.status = '" + domain.StatusActive + "'"
+	// Use parameterized placeholder for status — never concatenate domain constants (#3)
+	query := workerBaseSelect + " WHERE w.is_synced = ? AND w.status = ?"
 
-	args := []interface{}{syncStatus}
+	args := []interface{}{syncStatus, domain.StatusActive}
 	if userID != "" {
 		query += " AND w.user_id = ?"
 		args = append(args, userID)

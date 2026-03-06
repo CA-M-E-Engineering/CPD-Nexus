@@ -3,9 +3,9 @@ package services
 import (
 	"context"
 	"fmt"
-	"log"
 	"sgbuildex/internal/core/domain"
 	"sgbuildex/internal/core/ports"
+	"sgbuildex/internal/pkg/logger"
 	"time"
 )
 
@@ -43,7 +43,7 @@ func (s *DailyScheduler) Start(ctx context.Context) {
 		// 1. Get the settings from database
 		settings, err := s.settingsRepo.GetSettings(ctx)
 		if err != nil {
-			log.Printf("[%s] Scheduler: Failed to get settings: %v. Retrying in 1 minute...", s.name, err)
+			logger.Infof("[%s] Scheduler: Failed to get settings: %v. Retrying in 1 minute...", s.name, err)
 			select {
 			case <-time.After(1 * time.Minute):
 				continue
@@ -59,7 +59,7 @@ func (s *DailyScheduler) Start(ctx context.Context) {
 		var hour, min, sec int
 		_, err = fmt.Sscanf(scheduledTimeStr, "%d:%d:%d", &hour, &min, &sec)
 		if err != nil {
-			log.Printf("[%s] Scheduler: Invalid time format '%s': %v. Retrying in 1 minute...", s.name, scheduledTimeStr, err)
+			logger.Infof("[%s] Scheduler: Invalid time format '%s': %v. Retrying in 1 minute...", s.name, scheduledTimeStr, err)
 			select {
 			case <-time.After(1 * time.Minute):
 				continue
@@ -77,13 +77,13 @@ func (s *DailyScheduler) Start(ctx context.Context) {
 		}
 
 		durationUntilNext := time.Until(nextRun)
-		log.Printf("[%s] Scheduler: Next run scheduled for %v (in %v)", s.name, nextRun.Format(time.RFC3339), durationUntilNext.Truncate(time.Second))
+		logger.Infof("[%s] Scheduler: Next run scheduled for %v (in %v)", s.name, nextRun.Format(time.RFC3339), durationUntilNext.Truncate(time.Second))
 
 		select {
 		case <-time.After(durationUntilNext):
-			log.Printf("[%s] Scheduler: [TRIGGER] Starting scheduled task...", s.name)
+			logger.Infof("[%s] Scheduler: [TRIGGER] Starting scheduled task...", s.name)
 			s.task(ctx)
-			log.Printf("[%s] Scheduler: [COMPLETED] task finished. Scheduling next run...", s.name)
+			logger.Infof("[%s] Scheduler: [COMPLETED] task finished. Scheduling next run...", s.name)
 
 			// Wait a few seconds to avoid double trigger
 			select {
@@ -94,11 +94,11 @@ func (s *DailyScheduler) Start(ctx context.Context) {
 			}
 
 		case <-s.reset:
-			log.Printf("[%s] Scheduler: [RESET] Schedule updated, re-evaluating...", s.name)
+			logger.Infof("[%s] Scheduler: [RESET] Schedule updated, re-evaluating...", s.name)
 			continue
 
 		case <-ctx.Done():
-			log.Printf("[%s] Scheduler: Shutting down...", s.name)
+			logger.Infof("[%s] Scheduler: Shutting down...", s.name)
 			return
 		}
 	}

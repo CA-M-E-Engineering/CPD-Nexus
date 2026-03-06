@@ -5,16 +5,19 @@ import (
 	"errors"
 	"sgbuildex/internal/core/domain"
 	"sgbuildex/internal/core/ports"
+	"time"
 
-	"github.com/google/uuid"
+	"github.com/golang-jwt/jwt/v5"
+	"golang.org/x/crypto/bcrypt"
 )
 
 type AuthService struct {
-	repo ports.UserRepository
+	repo      ports.UserRepository
+	jwtSecret string
 }
 
-func NewAuthService(repo ports.UserRepository) ports.AuthService {
-	return &AuthService{repo: repo}
+func NewAuthService(repo ports.UserRepository, jwtSecret string) ports.AuthService {
+	return &AuthService{repo: repo, jwtSecret: jwtSecret}
 }
 
 func (s *AuthService) Login(ctx context.Context, username, password string) (string, *domain.User, error) {
@@ -26,11 +29,24 @@ func (s *AuthService) Login(ctx context.Context, username, password string) (str
 		return "", nil, errors.New("invalid credentials")
 	}
 
-	// Password check skipped as per schema update
-	// if err := bcrypt.CompareHashAndPassword([]byte(user.PasswordHash), []byte(password)); err != nil {
-	// 	return "", nil, errors.New("invalid credentials")
-	// }
+	// Verify password using bcrypt
+	if err := bcrypt.CompareHashAndPassword([]byte(user.PasswordHash), []byte(password)); err != nil {
+		return "", nil, errors.New("invalid credentials")
+	}
 
-	token := "mock-jwt-token-" + uuid.New().String()
-	return token, user, nil
+	// Issue a real signed JWT
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
+		"user_id":   user.ID,
+		"username":  user.Username,
+		"user_type": user.UserType,
+		"exp":       time.Now().Add(24 * time.Hour).Unix(),
+		"iat":       time.Now().Unix(),
+	})
+
+	tokenStr, err := token.SignedString([]byte(s.jwtSecret))
+	if err != nil {
+		return "", nil, errors.New("failed to issue token")
+	}
+
+	return tokenStr, user, nil
 }

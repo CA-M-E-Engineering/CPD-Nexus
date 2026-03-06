@@ -3,6 +3,7 @@ package mysql
 import (
 	"context"
 	"database/sql"
+	"sgbuildex/internal/core/domain"
 	"sgbuildex/internal/core/ports"
 )
 
@@ -19,9 +20,9 @@ func (r *BridgeRepository) GetActiveBridgeWorkers(ctx context.Context) ([]ports.
 		SELECT w.worker_id, w.user_id, p.site_id 
 		FROM workers w
 		JOIN projects p ON w.current_project_id = p.project_id
-		WHERE w.status = 'active' AND w.current_project_id IS NOT NULL`
+		WHERE w.status = ? AND w.current_project_id IS NOT NULL`
 
-	rows, err := r.db.QueryContext(ctx, query)
+	rows, err := r.db.QueryContext(ctx, query, domain.StatusActive)
 	if err != nil {
 		return nil, err
 	}
@@ -39,8 +40,8 @@ func (r *BridgeRepository) GetActiveBridgeWorkers(ctx context.Context) ([]ports.
 }
 
 func (r *BridgeRepository) GetActiveDeviceSNsBySite(ctx context.Context, siteID string) ([]string, error) {
-	query := "SELECT sn FROM devices WHERE site_id = ? AND status != 'inactive'"
-	rows, err := r.db.QueryContext(ctx, query, siteID)
+	query := "SELECT sn FROM devices WHERE site_id = ? AND status != ?"
+	rows, err := r.db.QueryContext(ctx, query, siteID, domain.StatusInactive)
 	if err != nil {
 		return nil, err
 	}
@@ -63,8 +64,8 @@ func (r *BridgeRepository) GetWorkerOwnerID(ctx context.Context, workerID string
 }
 
 func (r *BridgeRepository) GetActiveBridges(ctx context.Context) ([]ports.BridgeConfig, error) {
-	query := "SELECT user_id, bridge_ws_url, bridge_auth_token FROM users WHERE bridge_status = 'active' AND bridge_ws_url IS NOT NULL"
-	rows, err := r.db.QueryContext(ctx, query)
+	query := "SELECT user_id, bridge_ws_url, bridge_auth_token FROM users WHERE bridge_status = ? AND bridge_ws_url IS NOT NULL"
+	rows, err := r.db.QueryContext(ctx, query, domain.StatusActive)
 	if err != nil {
 		return nil, err
 	}

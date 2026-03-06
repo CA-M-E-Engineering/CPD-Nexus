@@ -11,8 +11,8 @@ type AttendanceRepository interface {
 	Create(ctx context.Context, a *domain.Attendance) error
 	GetMaxID(ctx context.Context, pattern string) (string, error)
 	ExtractPendingAttendance(ctx context.Context) ([]domain.AttendanceRow, error)
-	ExtractPendingAttendanceByProject(ctx context.Context, projectID string) ([]domain.AttendanceRow, error)
-	ExtractProjectsWithPendingAttendance(ctx context.Context) ([]domain.Project, error)
+	ExtractPendingAttendanceByProject(ctx context.Context, userID, projectID string) ([]domain.AttendanceRow, error)
+	ExtractProjectsWithPendingAttendance(ctx context.Context, userID string) ([]domain.Project, error)
 }
 
 type AttendanceService interface {

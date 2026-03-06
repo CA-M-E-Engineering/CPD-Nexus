@@ -17,8 +17,8 @@ type PitstopRepository interface {
 type PitstopService interface {
 	GetAuthorisations(ctx context.Context) ([]*domain.PitstopAuthorisation, error)
 	SyncConfig(ctx context.Context, userID string) error
-	TestSubmission(ctx context.Context, projectID string) (int, error)
-	GetProjectsWithPendingAttendance(ctx context.Context) ([]domain.Project, error)
+	TestSubmission(ctx context.Context, userID, projectID string) (int, int, error)
+	GetProjectsWithPendingAttendance(ctx context.Context, userID string) ([]domain.Project, error)
 	SubmitPendingAttendance(ctx context.Context) error
 	AssignOnBehalfOfToUser(ctx context.Context, userID string, onBehalfOfNames []string) error
 }

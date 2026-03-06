@@ -4,13 +4,14 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"time"
+
+	"github.com/google/uuid"
 )
 
 // Meta contains common request/response metadata
 type Meta struct {
 	RequestID string `json:"request_id"`
-	SentAt    string `json:"sent_at"`
+	SentAt    string `json:"sent_at,omitempty"`
 	AuthToken string `json:"auth_token,omitempty"`
 }
 
@@ -35,8 +36,8 @@ func NewRequest(action string, payload interface{}) (Message, error) {
 
 	return Message{
 		Meta: Meta{
-			RequestID: fmt.Sprintf("req-%s", time.Now().Format("20060102150405")),
-			SentAt:    time.Now().Format(time.RFC3339),
+			// Use UUID for uniqueness — timestamp would collide within the same second (#18)
+			RequestID: fmt.Sprintf("req-%s", uuid.New().String()),
 		},
 		Action:  action,
 		Payload: rawPayload,

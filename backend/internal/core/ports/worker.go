@@ -5,6 +5,12 @@ import (
 	"sgbuildex/internal/core/domain"
 )
 
+// IsVendorContextKey is used by the service layer to pass vendor/admin status
+// into the repository layer via context — avoiding a dependency on the HTTP middleware package.
+type workerContextKey string
+
+const IsVendorContextKey workerContextKey = "workerIsVendor"
+
 type WorkerRepository interface {
 	Get(ctx context.Context, userID, id string) (*domain.Worker, error)
 	GetByFIN(ctx context.Context, fin string) (*domain.Worker, error)

@@ -3,6 +3,7 @@ package mysql
 import (
 	"context"
 	"database/sql"
+	"sgbuildex/internal/core/domain"
 	"sgbuildex/internal/core/ports"
 )
 
@@ -27,7 +28,7 @@ func (r *AnalyticsRepository) GetDashboardStats(ctx context.Context, userID stri
 	var err error
 
 	if userID == "tenant-vendor-1" {
-		err = r.db.QueryRowContext(ctx, "SELECT COUNT(*) FROM workers WHERE status = 'active'").Scan(&totalWorkers)
+		err = r.db.QueryRowContext(ctx, "SELECT COUNT(*) FROM workers WHERE status = ?", domain.StatusActive).Scan(&totalWorkers)
 		if err != nil {
 			return nil, err
 		}
@@ -35,7 +36,7 @@ func (r *AnalyticsRepository) GetDashboardStats(ctx context.Context, userID stri
 		if err != nil {
 			return nil, err
 		}
-		err = r.db.QueryRowContext(ctx, "SELECT COUNT(*) FROM projects WHERE status='active'").Scan(&activeProjects)
+		err = r.db.QueryRowContext(ctx, "SELECT COUNT(*) FROM projects WHERE status= ?", domain.StatusActive).Scan(&activeProjects)
 		if err != nil {
 			return nil, err
 		}
@@ -44,7 +45,7 @@ func (r *AnalyticsRepository) GetDashboardStats(ctx context.Context, userID stri
 			return nil, err
 		}
 	} else {
-		err = r.db.QueryRowContext(ctx, "SELECT COUNT(*) FROM workers WHERE status = 'active' AND user_id = ?", userID).Scan(&totalWorkers)
+		err = r.db.QueryRowContext(ctx, "SELECT COUNT(*) FROM workers WHERE status = ? AND user_id = ?", domain.StatusActive, userID).Scan(&totalWorkers)
 		if err != nil {
 			return nil, err
 		}
@@ -52,7 +53,7 @@ func (r *AnalyticsRepository) GetDashboardStats(ctx context.Context, userID stri
 		if err != nil {
 			return nil, err
 		}
-		err = r.db.QueryRowContext(ctx, "SELECT COUNT(*) FROM projects WHERE status='active' AND user_id = ?", userID).Scan(&activeProjects)
+		err = r.db.QueryRowContext(ctx, "SELECT COUNT(*) FROM projects WHERE status= ? AND user_id = ?", domain.StatusActive, userID).Scan(&activeProjects)
 		if err != nil {
 			return nil, err
 		}
@@ -77,9 +78,9 @@ func (r *AnalyticsRepository) GetDetailedAnalytics(ctx context.Context, userID s
 	var tradeRows *sql.Rows
 	var err error
 	if userID == "tenant-vendor-1" {
-		tradeRows, err = r.db.QueryContext(ctx, "SELECT person_trade, COUNT(*) FROM workers WHERE status = 'active' GROUP BY person_trade")
+		tradeRows, err = r.db.QueryContext(ctx, "SELECT person_trade, COUNT(*) FROM workers WHERE status = ? GROUP BY person_trade", domain.StatusActive)
 	} else {
-		tradeRows, err = r.db.QueryContext(ctx, "SELECT person_trade, COUNT(*) FROM workers WHERE status = 'active' AND user_id = ? GROUP BY person_trade", userID)
+		tradeRows, err = r.db.QueryContext(ctx, "SELECT person_trade, COUNT(*) FROM workers WHERE status = ? AND user_id = ? GROUP BY person_trade", domain.StatusActive, userID)
 	}
 	if err == nil {
 		defer tradeRows.Close()
@@ -101,9 +102,9 @@ func (r *AnalyticsRepository) GetDetailedAnalytics(ctx context.Context, userID s
 	// 2. Worker Status Distribution
 	var statusRows *sql.Rows
 	if userID == "tenant-vendor-1" {
-		statusRows, err = r.db.QueryContext(ctx, "SELECT status, COUNT(*) FROM workers WHERE status = 'active' GROUP BY status")
+		statusRows, err = r.db.QueryContext(ctx, "SELECT status, COUNT(*) FROM workers WHERE status = ? GROUP BY status", domain.StatusActive)
 	} else {
-		statusRows, err = r.db.QueryContext(ctx, "SELECT status, COUNT(*) FROM workers WHERE status = 'active' AND user_id = ? GROUP BY status", userID)
+		statusRows, err = r.db.QueryContext(ctx, "SELECT status, COUNT(*) FROM workers WHERE status = ? AND user_id = ? GROUP BY status", domain.StatusActive, userID)
 	}
 	if err == nil {
 		defer statusRows.Close()

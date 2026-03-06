@@ -5,10 +5,7 @@ const (
 	StatusActive   = "active"
 	StatusInactive = "inactive"
 
-	// Sync Status
-	SyncStatusReady   = 1
-	SyncStatusPending = 2
-	SyncStatusUpdate  = 0
+	// Sync status values are defined in worker.go as SyncStatusPendingUpdate, SyncStatusSynced, SyncStatusPendingRegistration
 
 	// User Types
 	UserTypeUser  = "user"

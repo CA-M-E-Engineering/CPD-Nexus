@@ -6,10 +6,15 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"strings"
+	"syscall"
+	"time"
+
 	"sgbuildex/internal/adapters/external/sgbuildex"
 	"sgbuildex/internal/adapters/repository/mysql"
 	"sgbuildex/internal/api"
 	apiHandlers "sgbuildex/internal/api/handlers"
+	"sgbuildex/internal/api/middleware"
 	"sgbuildex/internal/bridge"
 	bridgeHandlers "sgbuildex/internal/bridge/handlers"
 	"sgbuildex/internal/core/domain"
@@ -17,8 +22,6 @@ import (
 	"sgbuildex/internal/core/services"
 	"sgbuildex/internal/pkg/config"
 	"sgbuildex/internal/pkg/logger"
-	"syscall"
-	"time"
 
 	_ "github.com/go-sql-driver/mysql"
 	"github.com/gorilla/mux"
@@ -29,6 +32,9 @@ func main() {
 	cfg := config.LoadConfig()
 	logger.Infof("--- CPD Nexus Unified Backend Starting ---")
 
+	// --- 0. Configure JWT middleware ---
+	middleware.SetJWTSecret(cfg.JWTSecret)
+
 	// --- 1. DB Connection ---
 	db, err := sql.Open("mysql", cfg.DBDSN)
 	if err != nil {
@@ -36,6 +42,11 @@ func main() {
 		os.Exit(1)
 	}
 	defer db.Close()
+
+	// Configure connection pool (#23)
+	db.SetMaxOpenConns(25)
+	db.SetMaxIdleConns(10)
+	db.SetConnMaxLifetime(5 * time.Minute)
 
 	if err := db.Ping(); err != nil {
 		logger.Errorf("Failed to ping DB: %v", err)
@@ -58,7 +69,7 @@ func main() {
 	// Services
 	workerService := services.NewWorkerService(workerRepo)
 	attendanceService := services.NewAttendanceService(attendanceRepo, workerRepo, deviceRepo)
-	authService := services.NewAuthService(userRepo)
+	authService := services.NewAuthService(userRepo, cfg.JWTSecret)
 	userService := services.NewUserService(userRepo)
 	siteService := services.NewSiteService(siteRepo)
 	projectService := services.NewProjectService(projectRepo)
@@ -105,7 +116,7 @@ func main() {
 	// Task 1: Attendance Sync (Bridge -> Nexus)
 	syncTask := func(taskCtx context.Context) {
 		logger.Infof("[AttendanceSync] Starting scheduled bridge fetch...")
-		if err := requestMgr.RequestAttendance(); err != nil {
+		if err := requestMgr.RequestAttendance(taskCtx); err != nil {
 			logger.Errorf("[AttendanceSync] Bridge fetch failed: %v", err)
 		} else {
 			logger.Infof("[AttendanceSync] Fetch requests sent to bridge.")
@@ -174,14 +185,9 @@ func startAPI(cfg *config.Config, routerCfg api.RouterConfig) *http.Server {
 	api.RegisterRoutes(router, routerCfg)
 
 	c := cors.New(cors.Options{
-		AllowedOrigins: []string{
-			"http://localhost:5173", "http://127.0.0.1:5173",
-			"http://localhost:5174", "http://127.0.0.1:5174",
-			"http://localhost:5175", "http://127.0.0.1:5175",
-			"http://localhost:5176", "http://127.0.0.1:5176",
-		},
+		AllowedOrigins:   strings.Split(cfg.AllowedOrigins, ","),
 		AllowedMethods:   []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
-		AllowedHeaders:   []string{"Authorization", "Content-Type", "X-User-ID"},
+		AllowedHeaders:   []string{"Authorization", "Content-Type"},
 		AllowCredentials: true,
 	})
 

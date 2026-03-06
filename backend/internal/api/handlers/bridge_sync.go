@@ -2,11 +2,11 @@ package handlers
 
 import (
 	"encoding/json"
-	"log"
 	"net/http"
 	"sgbuildex/internal/api/middleware"
 	"sgbuildex/internal/bridge"
 	bridgeHandlers "sgbuildex/internal/bridge/handlers"
+	"sgbuildex/internal/pkg/logger"
 )
 
 // BridgeSyncHandler handles manual sync trigger from the frontend
@@ -52,7 +52,7 @@ func (h *BridgeSyncHandler) SyncUsers(w http.ResponseWriter, r *http.Request) {
 	// Build sync requests with userID filter
 	messages, workerIDs, invalidWorkers, unauthWorkers, err := h.builder.BuildSyncRequests(ctx, userID)
 	if err != nil {
-		log.Printf("[BridgeSync API] Failed to build sync requests: %v", err)
+		logger.Infof("[BridgeSync API] Failed to build sync requests: %v", err)
 		w.WriteHeader(http.StatusInternalServerError)
 		json.NewEncoder(w).Encode(map[string]interface{}{
 			"success": false,
@@ -63,7 +63,7 @@ func (h *BridgeSyncHandler) SyncUsers(w http.ResponseWriter, r *http.Request) {
 
 	// Logging issues but NOT aborting
 	if len(invalidWorkers) > 0 || len(unauthWorkers) > 0 {
-		log.Printf("[BridgeSync API] Found issues: %d missing devices, %d missing auth", len(invalidWorkers), len(unauthWorkers))
+		logger.Infof("[BridgeSync API] Found issues: %d missing devices, %d missing auth", len(invalidWorkers), len(unauthWorkers))
 	}
 
 	if len(messages) == 0 && len(invalidWorkers) == 0 && len(unauthWorkers) == 0 {
@@ -85,11 +85,11 @@ func (h *BridgeSyncHandler) SyncUsers(w http.ResponseWriter, r *http.Request) {
 
 	for i, msg := range messages {
 		if err := transport.Write(msg); err != nil {
-			log.Printf("[BridgeSync API] Failed to send message %d: %v", i, err)
+			logger.Infof("[BridgeSync API] Failed to send message %d: %v", i, err)
 			failCount++
 		} else {
 			respMsg, _ := json.MarshalIndent(msg, "", "  ")
-			log.Printf("\n--- [BRIDGE SYNC API OUTBOUND] ---\n%s\n----------------------------------", string(respMsg))
+			logger.Infof("\n--- [BRIDGE SYNC API OUTBOUND] ---\n%s\n----------------------------------", string(respMsg))
 
 			if i < len(workerIDs) {
 				successIDs = append(successIDs, workerIDs[i])

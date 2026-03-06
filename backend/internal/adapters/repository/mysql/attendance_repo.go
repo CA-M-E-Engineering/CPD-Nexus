@@ -203,18 +203,28 @@ func (r *AttendanceRepository) ExtractPendingAttendance(ctx context.Context) ([]
 }
 
 // ExtractPendingAttendanceByProject returns non-submitted attendance rows for a specific project.
-func (r *AttendanceRepository) ExtractPendingAttendanceByProject(ctx context.Context, projectID string) ([]domain.AttendanceRow, error) {
+// If userID is empty, it bypasses the user filter (for Admins).
+func (r *AttendanceRepository) ExtractPendingAttendanceByProject(ctx context.Context, userID, projectID string) ([]domain.AttendanceRow, error) {
 	query := `SELECT ` + attendanceSelectFields + attendanceJoinBlock + `
-		WHERE a.status != 'submitted' AND w.current_project_id = ?
-		ORDER BY a.submission_date, a.attendance_id
-	`
-	return r.queryAttendanceRows(ctx, query, projectID)
+		WHERE a.status != 'submitted' AND w.current_project_id = ?`
+
+	args := []interface{}{projectID}
+
+	if userID != "" {
+		query += ` AND a.user_id = ?`
+		args = append(args, userID)
+	}
+
+	query += ` ORDER BY a.submission_date, a.attendance_id`
+
+	return r.queryAttendanceRows(ctx, query, args...)
 }
 
 // ExtractProjectsWithPendingAttendance returns distinct projects that have attendance records not yet submitted.
-func (r *AttendanceRepository) ExtractProjectsWithPendingAttendance(ctx context.Context) ([]domain.Project, error) {
+// If userID is empty, it bypasses the user filter (for Admins).
+func (r *AttendanceRepository) ExtractProjectsWithPendingAttendance(ctx context.Context, userID string) ([]domain.Project, error) {
 	query := `
-		SELECT
+		SELECT DISTINCT
 			p.project_id, p.site_id, p.user_id, p.project_title, p.status,
 			p.project_reference_number, p.project_contract_number, p.project_contract_name,
 			p.project_location_description, p.hdb_precinct_name,
@@ -228,11 +238,20 @@ func (r *AttendanceRepository) ExtractProjectsWithPendingAttendance(ctx context.
 		FROM projects p
 		JOIN sites s ON p.site_id = s.site_id
 		LEFT JOIN pitstop_authorisations pa ON p.pitstop_auth_id = pa.pitstop_auth_id
+		JOIN workers w ON p.project_id = w.current_project_id
+		JOIN attendance a ON w.worker_id = a.worker_id
 		WHERE p.pitstop_auth_id IS NOT NULL AND p.pitstop_auth_id != ''
-		AND p.status = 'active'
+		AND p.status = ? AND a.status IN ('pending', 'failed')
 	`
 
-	rows, err := r.db.QueryContext(ctx, query)
+	args := []interface{}{domain.StatusActive}
+
+	if userID != "" {
+		query += ` AND p.user_id = ?`
+		args = append(args, userID)
+	}
+
+	rows, err := r.db.QueryContext(ctx, query, args...)
 	if err != nil {
 		return nil, err
 	}

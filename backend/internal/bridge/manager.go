@@ -4,9 +4,9 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"log"
 	"sgbuildex/internal/core/domain"
 	"sgbuildex/internal/core/ports"
+	"sgbuildex/internal/pkg/logger"
 	"sync"
 	"time"
 )
@@ -16,7 +16,8 @@ type RequestManager struct {
 	Transports map[string]*Transport // Key: user_id
 	BridgeRepo ports.BridgeRepository
 	Handlers   map[string]Handler
-	mu         sync.RWMutex
+	mu         sync.RWMutex // protects Transports
+	handlersMu sync.RWMutex // protects Handlers
 }
 
 func NewRequestManager(bridgeRepo ports.BridgeRepository) *RequestManager {
@@ -27,8 +28,10 @@ func NewRequestManager(bridgeRepo ports.BridgeRepository) *RequestManager {
 	}
 }
 
-// RegisterHandler adds a handler for a specific message type
+// RegisterHandler adds a handler for a specific message type (thread-safe)
 func (rm *RequestManager) RegisterHandler(msgType string, h Handler) {
+	rm.handlersMu.Lock()
+	defer rm.handlersMu.Unlock()
 	rm.Handlers[msgType] = h
 }
 
@@ -75,17 +78,18 @@ func (rm *RequestManager) GetAllTransports() map[string]*Transport {
 	return copyMap
 }
 
-// RequestAttendance sends high-level commands to the appropriate bridge for each active worker
-func (rm *RequestManager) RequestAttendance() error {
-	log.Println("RequestManager: Starting attendance fetch for all workers across all bridges")
+// RequestAttendance sends high-level commands to the appropriate bridge for each active worker.
+// ctx should be derived from the main application context to support graceful shutdown.
+func (rm *RequestManager) RequestAttendance(ctx context.Context) error {
+	logger.Infof("RequestManager: Starting attendance fetch for all workers across all bridges")
 
-	tasks, err := rm.BridgeRepo.GetActiveBridgeWorkers(context.Background())
+	tasks, err := rm.BridgeRepo.GetActiveBridgeWorkers(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to query active workers: %w", err)
 	}
 
 	if len(tasks) == 0 {
-		log.Println("RequestManager: No active workers with assigned projects found")
+		logger.Infof("RequestManager: No active workers with assigned projects found")
 		return nil
 	}
 
@@ -102,12 +106,12 @@ func (rm *RequestManager) RequestAttendance() error {
 	for _, task := range tasks {
 		transport, exists := rm.GetTransport(task.UserID)
 		if !exists || !transport.IsConnected() {
-			log.Printf("RequestManager: Skipping worker %s, no active bridge connection for owner %s", task.WorkerID, task.UserID)
+			logger.Infof("RequestManager: Skipping worker %s, no active bridge connection for owner %s", task.WorkerID, task.UserID)
 			continue
 		}
 
 		// Get device SNs
-		sns, err := rm.BridgeRepo.GetActiveDeviceSNsBySite(context.Background(), task.SiteID)
+		sns, err := rm.BridgeRepo.GetActiveDeviceSNsBySite(ctx, task.SiteID)
 		if err != nil {
 			continue
 		}
@@ -129,10 +133,10 @@ func (rm *RequestManager) RequestAttendance() error {
 		}
 
 		if err := transport.Write(req); err != nil {
-			log.Printf("RequestManager: Failed to send request for worker %s via bridge %s: %v", task.WorkerID, task.UserID, err)
+			logger.Infof("RequestManager: Failed to send request for worker %s via bridge %s: %v", task.WorkerID, task.UserID, err)
 		} else {
 			reqJSON, _ := json.MarshalIndent(req, "", "  ")
-			log.Printf("\n--- [BRIDGE OUTBOUND REQUEST (%s)] ---\n%s\n---------------------------------", task.UserID, string(reqJSON))
+			logger.Infof("\n--- [BRIDGE OUTBOUND REQUEST (%s)] ---\n%s\n---------------------------------", task.UserID, string(reqJSON))
 		}
 	}
 
@@ -144,7 +148,7 @@ func (rm *RequestManager) RequestUserSync(ctx context.Context, builder interface
 	BuildSyncRequests(ctx context.Context, userID string) ([]Message, []string, []domain.Worker, []domain.Worker, error)
 	MarkWorkersSynced(ctx context.Context, workerIDs []string)
 }) error {
-	log.Println("RequestManager: Starting user sync check")
+	logger.Infof("RequestManager: Starting user sync check")
 
 	messages, workerIDs, invalidWorkers, _, err := builder.BuildSyncRequests(ctx, "")
 	if err != nil {
@@ -152,15 +156,15 @@ func (rm *RequestManager) RequestUserSync(ctx context.Context, builder interface
 	}
 
 	if len(invalidWorkers) > 0 {
-		log.Printf("RequestManager: %d workers are missing devices and cannot be synced", len(invalidWorkers))
+		logger.Infof("RequestManager: %d workers are missing devices and cannot be synced", len(invalidWorkers))
 	}
 
 	if len(messages) == 0 {
-		log.Println("RequestManager: No pending user sync requests")
+		logger.Infof("RequestManager: No pending user sync requests")
 		return nil
 	}
 
-	log.Printf("RequestManager: Sending %d user sync requests", len(messages))
+	logger.Infof("RequestManager: Sending %d user sync requests", len(messages))
 
 	// Because BuildSyncRequests currently doesn't return the UserID per worker easily,
 	// we will need to lookup the user_id for the worker before sending, or handle it via Transport mapping.
@@ -173,29 +177,26 @@ func (rm *RequestManager) RequestUserSync(ctx context.Context, builder interface
 
 		ownerID, err := rm.BridgeRepo.GetWorkerOwnerID(ctx, workerID)
 		if err != nil {
-			log.Printf("RequestManager: Cannot find owner for worker %s: %v", workerID, err)
+			logger.Infof("RequestManager: Cannot find owner for worker %s: %v", workerID, err)
 			continue
 		}
 
 		transport, exists := rm.GetTransport(ownerID)
 		if !exists || !transport.IsConnected() {
-			log.Printf("RequestManager: Skipping sync for worker %s, bridge %s is disconnected", workerID, ownerID)
+			logger.Infof("RequestManager: Skipping sync for worker %s, bridge %s is disconnected", workerID, ownerID)
 			continue
 		}
 
 		if err := transport.Write(msg); err != nil {
-			log.Printf("RequestManager: Failed to send user sync request for %s: %v", workerID, err)
+			logger.Infof("RequestManager: Failed to send user sync request for %s: %v", workerID, err)
 		} else {
 			respMsg, _ := json.MarshalIndent(msg, "", "  ")
-			log.Printf("\n--- [BRIDGE OUTBOUND USER SYNC (%s)] ---\n%s\n-----------------------------------", ownerID, string(respMsg))
+			logger.Infof("\n--- [BRIDGE OUTBOUND USER SYNC (%s)] ---\n%s\n-----------------------------------", ownerID, string(respMsg))
 			successIDs = append(successIDs, workerID)
 		}
 	}
 
-	// Note: We no longer mark workers as synced conditionally here.
-	// Asynchronous bridge response Handlers will manage the status flag directly
-	// after validating the device response code.
-
+	logger.Infof("RequestManager: Successfully queued %d worker sync requests across all bridges", len(successIDs))
 	return nil
 }
 
@@ -213,30 +214,35 @@ func (rm *RequestManager) HandleIncomingMessages(ctx context.Context, userID str
 
 			msg, err := transport.Read()
 			if err != nil {
-				log.Printf("RequestManager (%s): Read error: %v", userID, err)
+				logger.Infof("RequestManager (%s): Read error: %v", userID, err)
 				transport.Close()
 				continue
 			}
 
 			fullMsg, _ := json.MarshalIndent(msg, "", "  ")
-			log.Printf("\n--- [BRIDGE INBOUND (%s)] ---\n%s\n------------------------", userID, string(fullMsg))
+			logger.Infof("\n--- [BRIDGE INBOUND (%s)] ---\n%s\n------------------------", userID, string(fullMsg))
 
-			if handler, ok := rm.Handlers[msg.Action]; ok {
+			if handler, ok := func() (Handler, bool) {
+				rm.handlersMu.RLock()
+				defer rm.handlersMu.RUnlock()
+				h, ok := rm.Handlers[msg.Action]
+				return h, ok
+			}(); ok {
 				// Setting up an extended context to pass the owner ID to handlers if needed
 				reqCtx := context.WithValue(ctx, "bridge_userID", userID)
 				resp, err := handler.Handle(reqCtx, msg)
 				if err != nil {
-					log.Printf("RequestManager (%s): Handler for %s failed: %v", userID, msg.Action, err)
+					logger.Infof("RequestManager (%s): Handler for %s failed: %v", userID, msg.Action, err)
 				} else if resp != nil {
 					if err := transport.Write(*resp); err != nil {
-						log.Printf("RequestManager (%s): Failed to send response back to bridge: %v", userID, err)
+						logger.Infof("RequestManager (%s): Failed to send response back to bridge: %v", userID, err)
 					} else {
 						respMsg, _ := json.MarshalIndent(resp, "", "  ")
-						log.Printf("\n--- [BRIDGE OUTBOUND RESPONSE (%s)] ---\n%s\n----------------------------------", userID, string(respMsg))
+						logger.Infof("\n--- [BRIDGE OUTBOUND RESPONSE (%s)] ---\n%s\n----------------------------------", userID, string(respMsg))
 					}
 				}
 			} else {
-				log.Printf("RequestManager (%s): Received unknown action: %s", userID, msg.Action)
+				logger.Infof("RequestManager (%s): Received unknown action: %s", userID, msg.Action)
 			}
 		}
 	}

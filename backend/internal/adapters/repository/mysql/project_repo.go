@@ -4,12 +4,12 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
-	"log"
 	"sgbuildex/internal/api/middleware"
 	"sgbuildex/internal/core/domain"
 	"sgbuildex/internal/core/ports"
 	"sgbuildex/internal/pkg/apperrors"
 	"sgbuildex/internal/pkg/idgen"
+	"sgbuildex/internal/pkg/logger"
 )
 
 type ProjectRepository struct {
@@ -141,11 +141,11 @@ func (r *ProjectRepository) List(ctx context.Context, userID string) ([]domain.P
             p.pitstop_auth_id, pa.on_behalf_of_name as pitstop_auth_name,
             p.created_at, p.updated_at, s.site_name,
             (SELECT COUNT(*) FROM workers w WHERE w.current_project_id = p.project_id) as worker_count,
-            (SELECT COUNT(*) FROM devices d WHERE d.site_id = p.site_id AND d.status != 'inactive') as device_count
+            (SELECT COUNT(*) FROM devices d WHERE d.site_id = p.site_id AND d.status != ?) as device_count
         FROM projects p
         LEFT JOIN sites s ON p.site_id = s.site_id
 		LEFT JOIN pitstop_authorisations pa ON p.pitstop_auth_id = pa.pitstop_auth_id
-        WHERE (p.status != 'inactive' OR p.status IS NULL)`
+        WHERE (p.status != ? OR p.status IS NULL)`
 
 	if userID == "" && !middleware.IsVendor(ctx) {
 		return nil, apperrors.NewPermissionDenied("user_id is required for multi-tenant isolation")
@@ -156,8 +156,8 @@ func (r *ProjectRepository) List(ctx context.Context, userID string) ([]domain.P
 		args = append(args, userID)
 	}
 
-	log.Printf("[SECURITY] ProjectRepository.List: userID='%s'", userID)
-	rows, err := r.db.QueryContext(ctx, query, args...)
+	logger.Infof("[SECURITY] ProjectRepository.List: userID='%s'", userID)
+	rows, err := r.db.QueryContext(ctx, query, append([]interface{}{domain.StatusInactive, domain.StatusInactive}, args...)...)
 	if err != nil {
 		return nil, err
 	}
@@ -179,7 +179,7 @@ func (r *ProjectRepository) List(ctx context.Context, userID string) ([]domain.P
 			&pitstopAuthID, &pitstopAuthName,
 			&p.CreatedAt, &p.UpdatedAt, &p.SiteName, &p.WorkerCount, &p.DeviceCount,
 		); err != nil {
-			log.Printf("[ERROR] ProjectRepository.List Scan failed: %v", err)
+			logger.Infof("[ERROR] ProjectRepository.List Scan failed: %v", err)
 			return nil, err
 		}
 		if siteID.Valid {
@@ -245,7 +245,7 @@ func (r *ProjectRepository) List(ctx context.Context, userID string) ([]domain.P
 
 		projects = append(projects, p)
 	}
-	log.Printf("[DEBUG] ProjectRepository.List: found %d projects for userID='%s'", len(projects), userID)
+	logger.Infof("[DEBUG] ProjectRepository.List: found %d projects for userID='%s'", len(projects), userID)
 	return projects, nil
 }
 
@@ -328,7 +328,7 @@ func (r *ProjectRepository) Delete(ctx context.Context, userID, id string) error
 	defer tx.Rollback()
 
 	// 1. Deactivate project
-	res, err := tx.ExecContext(ctx, "UPDATE projects SET status = 'inactive' WHERE project_id = ? AND user_id = ?", id, userID)
+	res, err := tx.ExecContext(ctx, "UPDATE projects SET status = ? WHERE project_id = ? AND user_id = ?", domain.StatusInactive, id, userID)
 	if err != nil {
 		return err
 	}

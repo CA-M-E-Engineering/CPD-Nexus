@@ -4,12 +4,12 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
-	"log"
 	"sgbuildex/internal/api/middleware"
 	"sgbuildex/internal/core/domain"
 	"sgbuildex/internal/core/ports"
 	"sgbuildex/internal/pkg/apperrors"
 	"sgbuildex/internal/pkg/idgen"
+	"sgbuildex/internal/pkg/logger"
 )
 
 type SiteRepository struct {
@@ -25,7 +25,7 @@ func (r *SiteRepository) Get(ctx context.Context, userID, id string) (*domain.Si
 		SELECT 
             s.site_id, s.user_id, s.site_name, s.location, 
             s.latitude, s.longitude, s.created_at, s.updated_at, u.user_name,
-            (SELECT COUNT(*) FROM devices d WHERE d.site_id = s.site_id AND d.status != 'inactive') as device_count,
+            (SELECT COUNT(*) FROM devices d WHERE d.site_id = s.site_id AND d.status != ?) as device_count,
             (SELECT COUNT(*) FROM workers w WHERE w.current_project_id IN (SELECT project_id FROM projects p WHERE p.site_id = s.site_id)) as worker_count
 		FROM sites s
 		LEFT JOIN users u ON s.user_id = u.user_id`
@@ -42,7 +42,7 @@ func (r *SiteRepository) Get(ctx context.Context, userID, id string) (*domain.Si
 	var scanUserID, loc, userName sql.NullString
 	var lat, lng sql.NullFloat64
 
-	err := r.db.QueryRowContext(ctx, query, args...).Scan(
+	err := r.db.QueryRowContext(ctx, query, append([]interface{}{domain.StatusInactive}, args...)...).Scan(
 		&s.ID, &scanUserID, &s.Name, &loc,
 		&lat, &lng, &s.CreatedAt, &s.UpdatedAt, &userName,
 		&s.DeviceCount, &s.WorkerCount,
@@ -78,14 +78,14 @@ func (r *SiteRepository) List(ctx context.Context, userID string) ([]domain.Site
         SELECT 
             s.site_id, s.user_id, s.site_name, s.location,
             s.latitude, s.longitude, s.created_at, s.updated_at, u.user_name,
-            (SELECT COUNT(*) FROM devices d WHERE d.site_id = s.site_id AND d.status != 'inactive') as device_count,
+            (SELECT COUNT(*) FROM devices d WHERE d.site_id = s.site_id AND d.status != ?) as device_count,
             (SELECT COUNT(*) FROM workers w WHERE w.current_project_id IN (SELECT project_id FROM projects p WHERE p.site_id = s.site_id)) as worker_count
         FROM sites s
         LEFT JOIN users u ON s.user_id = u.user_id
         WHERE 1=1 `
 
 	args := []interface{}{}
-	log.Printf("[SECURITY] SiteRepository.List: userID='%s'", userID)
+	logger.Infof("[SECURITY] SiteRepository.List: userID='%s'", userID)
 
 	if userID == "" && !middleware.IsVendor(ctx) {
 		return nil, apperrors.NewPermissionDenied("user_id is required for multi-tenant isolation")
@@ -96,7 +96,7 @@ func (r *SiteRepository) List(ctx context.Context, userID string) ([]domain.Site
 		args = append(args, userID)
 	}
 
-	rows, err := r.db.QueryContext(ctx, query, args...)
+	rows, err := r.db.QueryContext(ctx, query, append([]interface{}{domain.StatusInactive}, args...)...)
 	if err != nil {
 		return nil, err
 	}

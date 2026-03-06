@@ -9,9 +9,11 @@ import (
 	"time"
 )
 
+// PitstopService orchestrates pitstop authorisation management and attendance submission.
+// It depends only on port interfaces — never on concrete adapter types.
 type PitstopService struct {
 	pitstopRepo    ports.PitstopRepository
-	pitstopClient  *sgbuildex.Client
+	externalClient ports.ExternalSubmitter // was *sgbuildex.Client — now decoupled via interface (#5)
 	attendanceRepo ports.AttendanceRepository
 	submissionRepo ports.SubmissionRepository
 	settingsRepo   ports.SettingsRepository
@@ -19,14 +21,14 @@ type PitstopService struct {
 
 func NewPitstopService(
 	repo ports.PitstopRepository,
-	client *sgbuildex.Client,
+	client ports.ExternalSubmitter,
 	attendanceRepo ports.AttendanceRepository,
 	submissionRepo ports.SubmissionRepository,
 	settingsRepo ports.SettingsRepository,
 ) *PitstopService {
 	return &PitstopService{
 		pitstopRepo:    repo,
-		pitstopClient:  client,
+		externalClient: client,
 		attendanceRepo: attendanceRepo,
 		submissionRepo: submissionRepo,
 		settingsRepo:   settingsRepo,
@@ -40,8 +42,8 @@ func (s *PitstopService) GetAuthorisations(ctx context.Context) ([]*domain.Pitst
 
 // SyncConfig fetches the newest configs from the Pitstop API and upserts them
 func (s *PitstopService) SyncConfig(ctx context.Context, userID string) error {
-	// 1. Fetch from Pitstop API
-	cfgResponse, err := s.pitstopClient.FetchConfig(ctx)
+	// 1. Fetch from Pitstop API via the port interface — no concrete adapter type referenced
+	cfgResponse, err := s.externalClient.FetchPitstopConfig(ctx)
 	if err != nil {
 		return fmt.Errorf("pitstop API fetch failed: %w", err)
 	}
@@ -62,8 +64,8 @@ func (s *PitstopService) SyncConfig(ctx context.Context, userID string) error {
 
 	seenKeys := make(map[string]bool)
 
-	// 3. Map JSON Response to Domain Entities
-	for _, produce := range cfgResponse.Data.Produces {
+	// 3. Map response to domain entities — using ports-level response types
+	for _, produce := range cfgResponse.Produces {
 		datasetID := produce.ID
 		datasetName := produce.Name
 
@@ -101,34 +103,21 @@ func (s *PitstopService) SyncConfig(ctx context.Context, userID string) error {
 						toUpdate = append(toUpdate, existing)
 					}
 				} else {
-					authID := fmt.Sprintf("pa%s%04d", idTimestamp, seq)
+					pitstopAuthID := fmt.Sprintf("pa%s%04d", idTimestamp, seq)
 					seq++
-
-					auth := &domain.PitstopAuthorisation{
-						PitstopAuthID:  authID,
+					toInsert = append(toInsert, &domain.PitstopAuthorisation{
+						PitstopAuthID:  pitstopAuthID,
 						DatasetID:      datasetID,
 						DatasetName:    datasetName,
-						UserID:         &userID,
 						RegulatorID:    regulatorID,
 						RegulatorName:  regulatorName,
 						OnBehalfOfID:   onBehalfOfID,
 						OnBehalfOfName: onBehalfOfName,
 						Status:         "ACTIVE",
 						LastSyncedAt:   &now,
-					}
-					toInsert = append(toInsert, auth)
+						UserID:         &userID,
+					})
 				}
-			}
-		}
-	}
-
-	// 3.5 Mark entries no longer in Pitstop config as INACTIVE
-	for key, existing := range existingMap {
-		if !seenKeys[key] {
-			if existing.Status != "INACTIVE" {
-				existing.Status = "INACTIVE"
-				existing.LastSyncedAt = &now
-				toUpdate = append(toUpdate, existing)
 			}
 		}
 	}
@@ -150,32 +139,49 @@ func (s *PitstopService) SyncConfig(ctx context.Context, userID string) error {
 }
 
 // GetProjectsWithPendingAttendance returns a list of unique projects that have pending attendance records
-func (s *PitstopService) GetProjectsWithPendingAttendance(ctx context.Context) ([]domain.Project, error) {
-	return s.attendanceRepo.ExtractProjectsWithPendingAttendance(ctx)
+func (s *PitstopService) GetProjectsWithPendingAttendance(ctx context.Context, userID string) ([]domain.Project, error) {
+	return s.attendanceRepo.ExtractProjectsWithPendingAttendance(ctx, userID)
 }
 
 // TestSubmission extracts pending attendance for a given project and immediately pushes it
-func (s *PitstopService) TestSubmission(ctx context.Context, projectID string) (int, error) {
+func (s *PitstopService) TestSubmission(ctx context.Context, userID, projectID string) (submittedCount int, failedCount int, err error) {
 	settings, err := s.loadSettings(ctx)
 	if err != nil {
-		return 0, err
+		return 0, 0, err
 	}
 
-	rows, err := s.attendanceRepo.ExtractPendingAttendanceByProject(ctx, projectID)
+	rows, err := s.attendanceRepo.ExtractPendingAttendanceByProject(ctx, userID, projectID)
 	if err != nil {
-		return 0, fmt.Errorf("failed to extract project attendance: %w", err)
+		return 0, 0, fmt.Errorf("failed to extract project attendance: %w", err)
 	}
 
 	if len(rows) == 0 {
-		return 0, nil
+		return 0, 0, nil
 	}
 
-	muSubmittables := s.mapRowsToSubmittables(rows)
-	if err := sgbuildex.SubmitPayloads(ctx, s.submissionRepo, s.pitstopClient, settings, muSubmittables); err != nil {
-		return 0, fmt.Errorf("failed to submit payloads: %w", err)
+	// 1. Manually Map and handle Failures
+	muResult := sgbuildex.MapAttendanceToManpower(rows)
+
+	failedCount = 0
+	// 2. Mark validation failures as 'failed' in DB
+	for id, errMsg := range muResult.Failures {
+		s.submissionRepo.UpdateAttendanceStatus(ctx, id, "failed", "", errMsg)
+		s.submissionRepo.LogSubmission(ctx, "manpower_utilization", id, "failed", "", errMsg)
+		failedCount++
 	}
 
-	return len(muSubmittables), nil
+	// 3. Submit valid payloads
+	if len(muResult.Payloads) == 0 {
+		return 0, failedCount, nil
+	}
+
+	// Submit via the port interface — no concrete adapter type referenced
+	submittedCount, err = s.externalClient.SubmitManpowerUtilization(ctx, s.submissionRepo, settings, rows)
+	if err != nil {
+		return submittedCount, failedCount, fmt.Errorf("failed to submit payloads: %w", err)
+	}
+
+	return submittedCount, failedCount, nil
 }
 
 // SubmitPendingAttendance extracts all non-submitted attendance and pushes it to SGBuildex.
@@ -195,8 +201,9 @@ func (s *PitstopService) SubmitPendingAttendance(ctx context.Context) error {
 		return nil
 	}
 
-	muSubmittables := s.mapRowsToSubmittables(rows)
-	return sgbuildex.SubmitPayloads(ctx, s.submissionRepo, s.pitstopClient, settings, muSubmittables)
+	// Submit via the port interface — no concrete adapter type referenced
+	_, err = s.externalClient.SubmitManpowerUtilization(ctx, s.submissionRepo, settings, rows)
+	return err
 }
 
 // AssignOnBehalfOfToUser assigns a set of contractor names to a specific UserID for pitstop authorisations
@@ -221,14 +228,4 @@ func (s *PitstopService) loadSettings(ctx context.Context) (*domain.SystemSettin
 		}, nil
 	}
 	return settings, nil
-}
-
-// mapRowsToSubmittables converts attendance rows to typed Submittable wrappers.
-func (s *PitstopService) mapRowsToSubmittables(rows []domain.AttendanceRow) []sgbuildex.ManpowerUtilizationWrapper {
-	muPayloads := sgbuildex.MapAttendanceToManpower(rows)
-	wrappers := make([]sgbuildex.ManpowerUtilizationWrapper, len(muPayloads))
-	for i, p := range muPayloads {
-		wrappers[i] = sgbuildex.ManpowerUtilizationWrapper{ManpowerUtilization: p}
-	}
-	return wrappers
 }

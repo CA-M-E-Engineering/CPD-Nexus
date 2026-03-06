@@ -1,8 +1,9 @@
 package sgbuildex
 
 import (
-	"log"
+	"fmt"
 	"sgbuildex/internal/core/domain"
+	"sgbuildex/internal/pkg/logger"
 	"sgbuildex/internal/pkg/validation"
 	"strings"
 	"time"
@@ -29,6 +30,14 @@ func validateMandatoryFields(r domain.AttendanceRow) string {
 		if strings.TrimSpace(f.val) == "" {
 			return f.name
 		}
+	}
+
+	// ── Infrastructure mandatory fields ──
+	if strings.TrimSpace(r.RegulatorID) == "" {
+		return "regulator_id (Pitstop Configuration sync missing valid ID)"
+	}
+	if strings.TrimSpace(r.OnBehalfOfID) == "" {
+		return "on_behalf_of_id (Pitstop Configuration sync missing valid UEN)"
 	}
 
 	// ── Regulator-specific mandatory fields ──
@@ -64,15 +73,25 @@ func validateMandatoryFields(r domain.AttendanceRow) string {
 	return "" // all checks passed
 }
 
+// MapResult holds the successful payloads and any validation failures encountered during mapping.
+type MapResult struct {
+	Payloads []payloads.ManpowerUtilization
+	Failures map[string]string // attendance_id -> error message
+}
+
 // MapAttendanceToManpower converts DB rows to ManpowerUtilization payloads.
-// Records that are missing API-mandatory fields are skipped and logged.
-func MapAttendanceToManpower(rows []domain.AttendanceRow) []payloads.ManpowerUtilization {
-	var results []payloads.ManpowerUtilization
+// Records that are missing API-mandatory fields are collected in the Failures map.
+func MapAttendanceToManpower(rows []domain.AttendanceRow) MapResult {
+	result := MapResult{
+		Payloads: make([]payloads.ManpowerUtilization, 0),
+		Failures: make(map[string]string),
+	}
 	for _, r := range rows {
 		// Guard: skip rows missing any mandatory fields (universal + regulator-specific)
 		if missing := validateMandatoryFields(r); missing != "" {
-			log.Printf("[SGBuildex] SKIP attendance %s (regulator=%s worker=%s): mandatory field '%s' is empty",
+			logger.Infof("[SGBuildex] SKIP attendance %s (regulator=%s worker=%s): mandatory field '%s' is empty",
 				r.AttendanceID, r.RegulatorName, r.WorkerFIN, missing)
+			result.Failures[r.AttendanceID] = fmt.Sprintf("Missing mandatory field: %s", missing)
 			continue
 		}
 
@@ -121,10 +140,10 @@ func MapAttendanceToManpower(rows []domain.AttendanceRow) []payloads.ManpowerUti
 			payload.MainContractorCompanyUEN = Ptr(validation.SanitizeUEN(r.SiteOwnerUEN))
 		}
 
-		results = append(results, payload)
+		result.Payloads = append(result.Payloads, payload)
 	}
 
-	return results
+	return result
 }
 
 func parseTrades(tradeStr string) []string {

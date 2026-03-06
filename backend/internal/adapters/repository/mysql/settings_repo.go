@@ -66,7 +66,7 @@ func (r *MySQLSettingsRepository) GetDeviceStats(ctx context.Context) (int, int,
 	var total, unassigned int
 
 	// Total active devices
-	err := r.DB.QueryRowContext(ctx, "SELECT COUNT(*) FROM devices WHERE status != 'inactive'").Scan(&total)
+	err := r.DB.QueryRowContext(ctx, "SELECT COUNT(*) FROM devices WHERE status != ?", domain.StatusInactive).Scan(&total)
 	if err != nil {
 		return 0, 0, err
 	}
@@ -76,9 +76,9 @@ func (r *MySQLSettingsRepository) GetDeviceStats(ctx context.Context) (int, int,
 		SELECT COUNT(*) 
 		FROM devices d
 		JOIN users u ON d.user_id = u.user_id
-		WHERE d.status != 'inactive' AND u.user_type = 'vendor'
+		WHERE d.status != ? AND u.user_type = ?
 	`
-	err = r.DB.QueryRowContext(ctx, query).Scan(&unassigned)
+	err = r.DB.QueryRowContext(ctx, query, domain.StatusInactive, domain.StatusActive).Scan(&unassigned)
 	if err != nil {
 		return 0, 0, err
 	}

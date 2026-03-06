@@ -21,22 +21,22 @@ const userBaseSelect = `
         u.user_id, u.user_name, u.username, u.user_type, u.status, 
         u.latitude, u.longitude, u.contact_email, u.contact_phone, u.address, u.password_hash,
         u.bridge_ws_url, u.bridge_auth_token, u.bridge_status,
-        (SELECT COUNT(*) FROM workers w WHERE w.user_id = u.user_id AND w.status = 'active') as worker_count,
-        (SELECT COUNT(*) FROM devices d WHERE d.user_id = u.user_id AND d.status != 'inactive') as device_count
+        (SELECT COUNT(*) FROM workers w WHERE w.user_id = u.user_id AND w.status = ?) as worker_count,
+        (SELECT COUNT(*) FROM devices d WHERE d.user_id = u.user_id AND d.status != ?) as device_count
     FROM users u`
 
 func (r *UserRepository) GetByUsername(ctx context.Context, username string) (*domain.User, error) {
 	query := userBaseSelect + " WHERE u.username = ? AND u.status = ?"
-	return r.scanRow(r.db.QueryRowContext(ctx, query, username, domain.StatusActive))
+	return r.scanRow(r.db.QueryRowContext(ctx, query, domain.StatusActive, domain.StatusInactive, username, domain.StatusActive))
 }
 
 func (r *UserRepository) Get(ctx context.Context, id string) (*domain.User, error) {
 	query := userBaseSelect + " WHERE u.user_id = ?"
-	return r.scanRow(r.db.QueryRowContext(ctx, query, id))
+	return r.scanRow(r.db.QueryRowContext(ctx, query, domain.StatusActive, domain.StatusInactive, id))
 }
 
 func (r *UserRepository) List(ctx context.Context) ([]domain.User, error) {
-	rows, err := r.db.QueryContext(ctx, userBaseSelect)
+	rows, err := r.db.QueryContext(ctx, userBaseSelect, domain.StatusActive, domain.StatusInactive)
 	if err != nil {
 		return nil, err
 	}
@@ -110,7 +110,7 @@ func (r *UserRepository) Delete(ctx context.Context, id string) error {
 	}
 
 	// 3. Deactivate all projects for this user
-	if _, err := tx.ExecContext(ctx, "UPDATE projects SET status = 'inactive' WHERE user_id = ?", id); err != nil {
+	if _, err := tx.ExecContext(ctx, "UPDATE projects SET status = ? WHERE user_id = ?", domain.StatusInactive, id); err != nil {
 		return err
 	}
 

@@ -2,9 +2,9 @@ package services
 
 import (
 	"context"
-	"log"
 	"sgbuildex/internal/core/domain"
 	"sgbuildex/internal/core/ports"
+	"sgbuildex/internal/pkg/logger"
 )
 
 type SettingsService struct {
@@ -40,20 +40,20 @@ func (s *SettingsService) GetSettings(ctx context.Context) (*domain.SystemSettin
 }
 
 func (s *SettingsService) UpdateSettings(ctx context.Context, settings domain.SystemSettings) error {
-	log.Printf("[SettingsService] Updating system settings in database...")
+	logger.Infof("[SettingsService] Updating system settings in database...")
 	if err := s.repo.UpdateSettings(ctx, settings); err != nil {
 		return err
 	}
 
-	log.Printf("[SettingsService] Database update successful. Notifying schedulers...")
+	logger.Infof("[SettingsService] Database update successful. Notifying schedulers...")
 
 	// Trigger schedulers to re-evaluate their time
 	if s.syncScheduler != nil {
-		log.Printf("[SettingsService] Resetting AttendanceSync scheduler")
+		logger.Infof("[SettingsService] Resetting AttendanceSync scheduler")
 		s.syncScheduler.Reset()
 	}
 	if s.submitScheduler != nil {
-		log.Printf("[SettingsService] Resetting CPDSubmission scheduler")
+		logger.Infof("[SettingsService] Resetting CPDSubmission scheduler")
 		s.submitScheduler.Reset()
 	}
 

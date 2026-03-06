@@ -3,6 +3,7 @@ package handlers
 import (
 	"encoding/json"
 	"net/http"
+	"sgbuildex/internal/api/middleware"
 	"sgbuildex/internal/core/ports"
 
 	"github.com/gorilla/mux"
@@ -81,25 +82,47 @@ func (h *PitstopHandler) TestSubmission(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	count, err := h.pitstopService.TestSubmission(r.Context(), projectID)
+	userID := middleware.GetUserID(r.Context())
+	if userID == "" {
+		http.Error(w, "user_id is required", http.StatusUnauthorized)
+		return
+	}
+
+	// Admin/Vendor bypass: if they are an admin, they can test any project
+	if middleware.IsVendor(r.Context()) {
+		userID = ""
+	}
+
+	submitted, failed, err := h.pitstopService.TestSubmission(r.Context(), userID, projectID)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	response := map[string]interface{}{
-		"message": "Test submission completed successfully.",
+	json.NewEncoder(w).Encode(map[string]interface{}{
+		"message": "Manual submission complete",
 		"metrics": map[string]int{
-			"payloads_submitted": count,
+			"payloads_submitted": submitted,
+			"validation_failed":  failed,
 		},
-	}
-	json.NewEncoder(w).Encode(response)
+	})
 }
 
 // GetTestingProjects handles retrieving a list of unique projects that currently have pending attendance records
 func (h *PitstopHandler) GetTestingProjects(w http.ResponseWriter, r *http.Request) {
-	projects, err := h.pitstopService.GetProjectsWithPendingAttendance(r.Context())
+	userID := middleware.GetUserID(r.Context())
+	if userID == "" {
+		http.Error(w, "user_id is required", http.StatusUnauthorized)
+		return
+	}
+
+	// Admin/Vendor bypass: if they are an admin, they can see all projects
+	if middleware.IsVendor(r.Context()) {
+		userID = ""
+	}
+
+	projects, err := h.pitstopService.GetProjectsWithPendingAttendance(r.Context(), userID)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return

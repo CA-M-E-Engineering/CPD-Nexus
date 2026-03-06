@@ -4,10 +4,10 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"log"
 	"sgbuildex/internal/api/middleware"
 	"sgbuildex/internal/bridge"
 	"sgbuildex/internal/core/ports"
+	"sgbuildex/internal/pkg/logger"
 )
 
 // AttendanceResult matches the top-level payload from the bridge
@@ -44,7 +44,7 @@ func (h *AttendanceHandler) Handle(ctx context.Context, msg bridge.Message) (*br
 	}
 
 	if envelope.Code != 200 {
-		log.Printf("AttendanceHandler: Bridge returned error %d: %s", envelope.Code, envelope.Msg)
+		logger.Infof("AttendanceHandler: Bridge returned error %d: %s", envelope.Code, envelope.Msg)
 		return nil, nil
 	}
 
@@ -58,7 +58,7 @@ func (h *AttendanceHandler) Handle(ctx context.Context, msg bridge.Message) (*br
 	}
 
 	if ownerID == "" {
-		log.Printf("AttendanceHandler: Cannot determine owner for attendance response, skipping")
+		logger.Infof("AttendanceHandler: Cannot determine owner for attendance response, skipping")
 		return nil, nil
 	}
 
@@ -79,10 +79,10 @@ func (h *AttendanceHandler) Handle(ctx context.Context, msg bridge.Message) (*br
 		)
 
 		if err != nil {
-			log.Printf("AttendanceHandler: Service error for worker %s (owner %s): %v", result.WorkerID, ownerID, err)
+			logger.Infof("AttendanceHandler: Service error for worker %s (owner %s): %v", result.WorkerID, ownerID, err)
 		}
 	}
-	log.Printf("AttendanceHandler: Finished processing %d records for worker %s (owner: %s)", len(result.Records), result.WorkerID, ownerID)
+	logger.Infof("AttendanceHandler: Finished processing %d records for worker %s (owner: %s)", len(result.Records), result.WorkerID, ownerID)
 
 	return nil, nil
 }

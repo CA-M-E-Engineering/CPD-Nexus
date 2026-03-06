@@ -1,6 +1,8 @@
 package sgbuildex
 
 import (
+	"context"
+	"fmt"
 	"strings"
 	"time"
 )
@@ -35,4 +37,11 @@ func FormatOptionalTime(t *time.Time) *string {
 	}
 	s := t.Format(time.RFC3339)
 	return &s
+}
+
+// Health checks the API health endpoint
+func (c *Client) Health(ctx context.Context) error {
+	url := fmt.Sprintf("%s/api/v1/health", c.BaseURL)
+	_, err := c.doRequest(ctx, "GET", url, nil, c.APIKey)
+	return err
 }

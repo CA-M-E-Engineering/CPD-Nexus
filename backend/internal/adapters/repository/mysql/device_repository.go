@@ -4,12 +4,12 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
-	"log"
 	"sgbuildex/internal/api/middleware"
 	"sgbuildex/internal/core/domain"
 	"sgbuildex/internal/core/ports"
 	"sgbuildex/internal/pkg/apperrors"
 	"sgbuildex/internal/pkg/idgen"
+	"sgbuildex/internal/pkg/logger"
 )
 
 type DeviceRepository struct {
@@ -154,7 +154,7 @@ func (r *DeviceRepository) List(ctx context.Context, userID string) ([]domain.De
 		FROM devices d
 		LEFT JOIN sites s ON d.site_id = s.site_id
 		LEFT JOIN users u ON d.user_id = u.user_id
-		WHERE d.status != 'inactive'`
+		WHERE d.status != ?`
 	if userID == "" {
 		return nil, apperrors.NewPermissionDenied("user_id is required for multi-tenant isolation")
 	}
@@ -165,7 +165,7 @@ func (r *DeviceRepository) List(ctx context.Context, userID string) ([]domain.De
 		args = append(args, userID)
 	}
 
-	rows, err := r.db.QueryContext(ctx, query, args...)
+	rows, err := r.db.QueryContext(ctx, query, append([]interface{}{domain.StatusInactive}, args...)...)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list devices: %w", err)
 	}
@@ -183,7 +183,7 @@ func (r *DeviceRepository) List(ctx context.Context, userID string) ([]domain.De
 			&siteName, &siteID, &uName, &uid,
 			&lastBeat, &lastCheck, &d.Battery,
 		); err != nil {
-			log.Printf("Scan error: %v", err)
+			logger.Infof("Scan error: %v", err)
 			continue
 		}
 
@@ -216,8 +216,8 @@ func (r *DeviceRepository) List(ctx context.Context, userID string) ([]domain.De
 }
 
 func (r *DeviceRepository) ListSNsBySiteID(ctx context.Context, userID, siteID string) ([]string, error) {
-	query := `SELECT sn FROM devices WHERE site_id = ? AND user_id = ? AND status != 'inactive'`
-	rows, err := r.db.QueryContext(ctx, query, siteID, userID)
+	query := `SELECT sn FROM devices WHERE site_id = ? AND user_id = ? AND status != ?`
+	rows, err := r.db.QueryContext(ctx, query, siteID, userID, domain.StatusInactive)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list device SNs by site: %w", err)
 	}
@@ -227,7 +227,7 @@ func (r *DeviceRepository) ListSNsBySiteID(ctx context.Context, userID, siteID s
 	for rows.Next() {
 		var sn string
 		if err := rows.Scan(&sn); err != nil {
-			log.Printf("[DeviceRepo] ListSNsBySiteID scan error: %v", err)
+			logger.Infof("[DeviceRepo] ListSNsBySiteID scan error: %v", err)
 			continue
 		}
 		sns = append(sns, sn)
@@ -260,8 +260,8 @@ func (r *DeviceRepository) Update(ctx context.Context, d *domain.Device) error {
 }
 
 func (r *DeviceRepository) Delete(ctx context.Context, userID, id string) error {
-	query := "UPDATE devices SET status = 'inactive', site_id = NULL WHERE device_id = ?"
-	args := []interface{}{id}
+	query := "UPDATE devices SET status = ?, site_id = NULL WHERE device_id = ?"
+	args := []interface{}{domain.StatusInactive, id}
 	if !middleware.IsVendor(ctx) {
 		query += " AND user_id = ?"
 		args = append(args, userID)

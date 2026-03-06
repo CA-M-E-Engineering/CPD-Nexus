@@ -3,6 +3,9 @@ package middleware
 import (
 	"context"
 	"net/http"
+	"strings"
+
+	"github.com/golang-jwt/jwt/v5"
 )
 
 type contextKey string
@@ -10,35 +13,75 @@ type contextKey string
 const (
 	UserIDKey   contextKey = "userID"
 	IsVendorKey contextKey = "isVendor"
-
-	// vendorAdminID is the seeded system vendor account that has cross-tenant visibility.
-	// It corresponds to the users row: user_id = 'Owner_001'.
-	// Change this value if the seed account is recreated with a different ID.
-	vendorAdminID = "Owner_001"
+	UsernameKey contextKey = "username"
 )
 
-// UserScopeMiddleware extracts the user ID and checks if it's the system vendor.
+// JWTSecret is the shared secret for validating tokens.
+// It must be set at startup via SetJWTSecret before any requests are handled.
+var jwtSecret []byte
+
+// SetJWTSecret configures the JWT signing secret used by the middleware.
+func SetJWTSecret(secret string) {
+	jwtSecret = []byte(secret)
+}
+
+// UserScopeMiddleware validates the JWT from the Authorization header and populates
+// the request context with user_id and isVendor status extracted from token claims.
+// The X-User-ID header is intentionally ignored to prevent spoofing.
 func UserScopeMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		userID := r.Header.Get("X-User-ID")
-		if userID == "" {
-			userID = r.URL.Query().Get("user_id")
-		}
-
-		if userID != "" {
-			ctx := context.WithValue(r.Context(), UserIDKey, userID)
-			if userID == vendorAdminID {
-				ctx = context.WithValue(ctx, IsVendorKey, true)
-			}
-			next.ServeHTTP(w, r.WithContext(ctx))
+		authHeader := r.Header.Get("Authorization")
+		if authHeader == "" || !strings.HasPrefix(authHeader, "Bearer ") {
+			// No token — allow request to continue but with no user scope.
+			// RequireUserScope middleware will reject it if the route needs auth.
+			next.ServeHTTP(w, r)
 			return
 		}
 
-		next.ServeHTTP(w, r)
+		tokenStr := strings.TrimPrefix(authHeader, "Bearer ")
+		claims, err := validateJWT(tokenStr)
+		if err != nil {
+			http.Error(w, "Unauthorized: invalid or expired token", http.StatusUnauthorized)
+			return
+		}
+
+		userID, _ := claims["user_id"].(string)
+		username, _ := claims["username"].(string)
+		userType, _ := claims["user_type"].(string)
+
+		ctx := context.WithValue(r.Context(), UserIDKey, userID)
+		ctx = context.WithValue(ctx, UsernameKey, username)
+
+		// Vendor/admin role is derived from JWT claims, not a hardcoded ID
+		if userType == "admin" || userType == "vendor" {
+			ctx = context.WithValue(ctx, IsVendorKey, true)
+		}
+
+		next.ServeHTTP(w, r.WithContext(ctx))
 	})
 }
 
-// GetUserID retrieves the userID from the context
+// validateJWT parses and validates a JWT token string, returning its claims.
+func validateJWT(tokenStr string) (jwt.MapClaims, error) {
+	token, err := jwt.Parse(tokenStr, func(token *jwt.Token) (interface{}, error) {
+		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
+			return nil, jwt.ErrSignatureInvalid
+		}
+		return jwtSecret, nil
+	}, jwt.WithValidMethods([]string{"HS256"}))
+
+	if err != nil || !token.Valid {
+		return nil, jwt.ErrSignatureInvalid
+	}
+
+	claims, ok := token.Claims.(jwt.MapClaims)
+	if !ok {
+		return nil, jwt.ErrTokenInvalidClaims
+	}
+	return claims, nil
+}
+
+// GetUserID retrieves the userID from the context.
 func GetUserID(ctx context.Context) string {
 	if v, ok := ctx.Value(UserIDKey).(string); ok {
 		return v
@@ -46,7 +89,7 @@ func GetUserID(ctx context.Context) string {
 	return ""
 }
 
-// IsVendor checks if the current context belongs to a system vendor
+// IsVendor checks if the current context belongs to a system vendor or admin.
 func IsVendor(ctx context.Context) bool {
 	if v, ok := ctx.Value(IsVendorKey).(bool); ok {
 		return v
@@ -54,14 +97,12 @@ func IsVendor(ctx context.Context) bool {
 	return false
 }
 
-// RequireUserScope checks if userID is present in context, returns 401 if missing
+// RequireUserScope checks if userID is present in context, returns 401 if missing.
 func RequireUserScope(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		userID := GetUserID(r.Context())
 		if userID == "" {
-			// Special bypass for vendor logged in checks if we had a proper session/JWT
-			// For now, let's keep it strict but add debugging info to the response
-			http.Error(w, "User-ID scope required (X-User-ID header missing or invalid)", http.StatusUnauthorized)
+			http.Error(w, "Unauthorized: valid JWT token required", http.StatusUnauthorized)
 			return
 		}
 		next.ServeHTTP(w, r)

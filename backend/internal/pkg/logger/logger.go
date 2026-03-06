@@ -28,3 +28,8 @@ func Errorf(format string, v ...interface{}) {
 func Debugf(format string, v ...interface{}) {
 	Debug.Printf(format, v...)
 }
+
+func Fatalf(format string, v ...interface{}) {
+	Error.Printf(format, v...)
+	os.Exit(1)
+}

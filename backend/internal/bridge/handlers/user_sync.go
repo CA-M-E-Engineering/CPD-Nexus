@@ -3,10 +3,10 @@ package handlers
 import (
 	"context"
 	"fmt"
-	"log"
 	"sgbuildex/internal/bridge"
 	"sgbuildex/internal/core/domain"
 	"sgbuildex/internal/core/ports"
+	"sgbuildex/internal/pkg/logger"
 	"sgbuildex/internal/pkg/timeutil"
 	"strconv"
 )
@@ -81,7 +81,7 @@ func (b *UserSyncBuilder) BuildSyncRequests(ctx context.Context, userID string) 
 		return nil, nil, nil, nil, nil
 	}
 
-	log.Printf("[UserSync] Found %d workers pending sync", len(workers))
+	logger.Infof("[UserSync] Found %d workers pending sync", len(workers))
 
 	var messages []bridge.Message
 	var processedWorkerIDs []string
@@ -92,14 +92,14 @@ func (b *UserSyncBuilder) BuildSyncRequests(ctx context.Context, userID string) 
 		// 1. Check for biometric/card data first
 		hasAuth := w.FaceImgLoc != "" || w.CardNumber != ""
 		if !hasAuth {
-			log.Printf("[UserSync] Worker %s (%s) has no face/card data, skipping", w.ID, w.Name)
+			logger.Infof("[UserSync] Worker %s (%s) has no face/card data, skipping", w.ID, w.Name)
 			unauthWorkers = append(unauthWorkers, w)
 			continue
 		}
 
 		// 2. Determine which site's devices to target
 		if w.SiteID == "" {
-			log.Printf("[UserSync] Worker %s (%s) has no site via project, skipping", w.ID, w.Name)
+			logger.Infof("[UserSync] Worker %s (%s) has no site via project, skipping", w.ID, w.Name)
 			invalidWorkers = append(invalidWorkers, w)
 			continue
 		}
@@ -107,13 +107,13 @@ func (b *UserSyncBuilder) BuildSyncRequests(ctx context.Context, userID string) 
 		// 3. Get device SNs for the worker's site
 		deviceSNs, err := b.deviceRepo.ListSNsBySiteID(ctx, w.UserID, w.SiteID)
 		if err != nil {
-			log.Printf("[UserSync] Failed to get devices for site %s: %v", w.SiteID, err)
+			logger.Infof("[UserSync] Failed to get devices for site %s: %v", w.SiteID, err)
 			invalidWorkers = append(invalidWorkers, w)
 			continue
 		}
 
 		if len(deviceSNs) == 0 {
-			log.Printf("[UserSync] No devices found for site %s (worker %s), skipping", w.SiteID, w.ID)
+			logger.Infof("[UserSync] No devices found for site %s (worker %s), skipping", w.SiteID, w.ID)
 			invalidWorkers = append(invalidWorkers, w)
 			continue
 		}
@@ -165,14 +165,14 @@ func (b *UserSyncBuilder) BuildSyncRequests(ctx context.Context, userID string) 
 		// Build the bridge message
 		msg, err := bridge.NewRequest(action, payload)
 		if err != nil {
-			log.Printf("[UserSync] Failed to build %s request for worker %s: %v", action, w.ID, err)
+			logger.Infof("[UserSync] Failed to build %s request for worker %s: %v", action, w.ID, err)
 			continue
 		}
 
 		// Inject Worker ID into Request ID so we can track async response
 		msg.Meta.RequestID = fmt.Sprintf("%s|%s", msg.Meta.RequestID, w.ID)
 
-		log.Printf("[UserSync] Built %s request for worker %s (%s) → %d devices at site %s",
+		logger.Infof("[UserSync] Built %s request for worker %s (%s) → %d devices at site %s",
 			action, w.ID, w.Name, len(deviceSNs), w.SiteID)
 
 		messages = append(messages, msg)
@@ -187,7 +187,7 @@ func (b *UserSyncBuilder) MarkWorkersSynced(ctx context.Context, workerIDs []str
 	for _, id := range workerIDs {
 		err := b.workerRepo.MarkSynced(ctx, id)
 		if err != nil {
-			log.Printf("[UserSync] Failed to mark worker %s as synced: %v", id, err)
+			logger.Infof("[UserSync] Failed to mark worker %s as synced: %v", id, err)
 		}
 	}
 }
