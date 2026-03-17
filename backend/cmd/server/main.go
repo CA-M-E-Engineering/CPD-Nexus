@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/signal"
 	"strings"
+	"sync"
 	"syscall"
 	"time"
 
@@ -43,10 +44,10 @@ func main() {
 	}
 	defer db.Close()
 
-	// Configure connection pool (#23)
-	db.SetMaxOpenConns(25)
-	db.SetMaxIdleConns(10)
-	db.SetConnMaxLifetime(5 * time.Minute)
+	// Configure connection pool (#23) - Increased for single-instance multi-user high concurrency
+	db.SetMaxOpenConns(100)
+	db.SetMaxIdleConns(20)
+	db.SetConnMaxLifetime(10 * time.Minute)
 
 	if err := db.Ping(); err != nil {
 		logger.Errorf("Failed to ping DB: %v", err)
@@ -68,6 +69,7 @@ func main() {
 
 	// Services
 	analyticsService := services.NewAnalyticsService(analyticsRepo)
+	analyticsService.SetUserRepo(userRepo)
 	workerService := services.NewWorkerService(workerRepo, analyticsService)
 	attendanceService := services.NewAttendanceService(attendanceRepo, workerRepo, deviceRepo, analyticsService)
 	authService := services.NewAuthService(userRepo, cfg.JWTSecret, analyticsService)
@@ -208,7 +210,23 @@ func startAPI(cfg *config.Config, routerCfg api.RouterConfig) *http.Server {
 }
 
 func startBridge(ctx context.Context, _ *config.Config, bridgeRepo ports.BridgeRepository, requestMgr *bridge.RequestManager, userSyncBuilder *bridgeHandlers.UserSyncBuilder) {
-	// Connection maintenance loop
+	// 1. Worker Sync Background Ticker (Every 10 seconds as per user requirement)
+	go func() {
+		ticker := time.NewTicker(10 * time.Second)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case <-ticker.C:
+				if err := requestMgr.RequestUserSync(ctx, userSyncBuilder); err != nil {
+					logger.Infof("[BridgeSync] Background sync check failed: %v", err)
+				}
+			}
+		}
+	}()
+
+	// 2. Connection maintenance loop
 	go func() {
 		for {
 			select {
@@ -224,38 +242,47 @@ func startBridge(ctx context.Context, _ *config.Config, bridgeRepo ports.BridgeR
 					logger.Errorf("[Bridge] Failed to fetch active bridges: %v", err)
 				} else {
 					activeIDs := make(map[string]bool)
+					var wg sync.WaitGroup
+
 					for _, c := range configs {
 						userID := c.UserID
 						wsURL := c.WSURL
 						authToken := c.AuthToken
-
 						activeIDs[userID] = true
+
 						transport, exists := requestMgr.GetTransport(userID)
 
 						if !exists {
-							logger.Infof("[Bridge] Creating new connection for user %s to %s", userID, wsURL)
-							t := bridge.NewTransport(wsURL, authToken)
-							requestMgr.AddTransport(userID, t)
+							wg.Add(1)
+							go func(uid, url, token string) {
+								defer wg.Done()
+								logger.Infof("[Bridge] Initializing bridge for user %s at %s", uid, url)
+								t := bridge.NewTransport(url, token)
+								requestMgr.AddTransport(uid, t)
+								go requestMgr.HandleIncomingMessages(ctx, uid, t)
 
-							go requestMgr.HandleIncomingMessages(ctx, userID, t)
-
-							if err := t.Connect(); err != nil {
-								logger.Errorf("[Bridge] Connection failed for %s: %v", userID, err)
-							}
+								if err := t.Connect(); err != nil {
+									logger.Errorf("[Bridge] Connection failed for %s: %v", uid, err)
+								}
+							}(userID, wsURL, authToken)
 						} else if !transport.IsConnected() {
-							logger.Infof("[Bridge] Reconnecting for user %s to %s", userID, wsURL)
-							if err := transport.Connect(); err != nil {
-								logger.Errorf("[Bridge] Reconnection failed for %s: %v", userID, err)
-							}
+							wg.Add(1)
+							go func(uid string, t *bridge.Transport) {
+								defer wg.Done()
+								if err := t.Connect(); err != nil {
+									logger.Errorf("[Bridge] Reconnection failed for %s: %v", uid, err)
+								}
+							}(userID, transport)
 						}
 					}
+					wg.Wait()
 
-					// Remove any transports that are no longer active
-					for id, t := range requestMgr.GetAllTransports() {
-						if !activeIDs[id] {
-							logger.Infof("[Bridge] Removing inactive connection for user %s", id)
+					// Cleanup dropped bridges
+					for userID, t := range requestMgr.GetAllTransports() {
+						if !activeIDs[userID] {
+							logger.Infof("[Bridge] Removing transport for inactive user %s", userID)
 							t.Close()
-							requestMgr.RemoveTransport(id)
+							requestMgr.RemoveTransport(userID)
 						}
 					}
 				}
@@ -263,28 +290,9 @@ func startBridge(ctx context.Context, _ *config.Config, bridgeRepo ports.BridgeR
 				select {
 				case <-ctx.Done():
 					return
-				case <-time.After(10 * time.Second):
+				case <-time.After(10 * time.Second): // Pacing for the maintenance loop
 				}
 			}
 		}
 	}()
-
-	// Command scheduler
-	requestInterval := 10 * time.Second
-	logger.Infof("[Bridge] Command scheduler started (Interval: %v)", requestInterval)
-
-	ticker := time.NewTicker(requestInterval)
-	defer ticker.Stop()
-
-	for {
-		select {
-		case <-ticker.C:
-			// Sync pending user registrations/updates on interval
-			if err := requestMgr.RequestUserSync(ctx, userSyncBuilder); err != nil {
-				logger.Errorf("[Bridge] User sync failed: %v", err)
-			}
-		case <-ctx.Done():
-			return
-		}
-	}
 }

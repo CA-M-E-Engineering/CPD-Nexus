@@ -61,6 +61,7 @@ export const liveApi = {
     assignWorkersToProject: assignmentsApi.assignWorkersToProject,
     assignDevicesToSite: assignmentsApi.assignDevicesToSite,
     assignProjectToSite: assignmentsApi.assignProjectToSite,
+    assignDevicesToUser: assignmentsApi.assignDevicesToUser,
 
     // --- Analytics & Dashboard ---
     getDashboardStats: analyticsApi.getDashboardStats,

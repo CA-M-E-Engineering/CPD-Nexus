@@ -5,6 +5,7 @@ import (
 	"net/url"
 	"cpd-nexus/internal/pkg/logger"
 	"sync"
+	"time"
 
 	"github.com/gorilla/websocket"
 )
@@ -57,6 +58,8 @@ func (t *Transport) Write(msg Message) error {
 		msg.Meta.AuthToken = t.token
 	}
 
+	// Set a write deadline to prevent hanging goroutines if the bridge connection is silent
+	t.conn.SetWriteDeadline(time.Now().Add(5 * time.Second))
 	return t.conn.WriteJSON(msg)
 }
 

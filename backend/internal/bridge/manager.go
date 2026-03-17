@@ -93,53 +93,65 @@ func (rm *RequestManager) RequestAttendance(ctx context.Context) error {
 		return nil
 	}
 
+	// Group tasks by UserID to process bridges in parallel but workers sequentially per bridge
+	tasksByOwner := make(map[string][]ports.BridgeWorkerTask)
+	for _, task := range tasks {
+		tasksByOwner[task.UserID] = append(tasksByOwner[task.UserID], task)
+	}
+
 	now := time.Now()
 	yesterday := now.Add(-24 * time.Hour)
 	startTime := time.Date(yesterday.Year(), yesterday.Month(), yesterday.Day(), 0, 0, 0, 0, now.Location())
+	timeRangeFrom := startTime.Format(time.RFC3339)
+	timeRangeTo := now.Format(time.RFC3339)
 
-	timeRange := map[string]string{
-		"from": startTime.Format(time.RFC3339),
-		"to":   now.Format(time.RFC3339),
+	var wg sync.WaitGroup
+	for ownerID, ownerTasks := range tasksByOwner {
+		wg.Add(1)
+		go func(uid string, workerTasks []ports.BridgeWorkerTask) {
+			defer wg.Done()
+
+			transport, exists := rm.GetTransport(uid)
+			if !exists || !transport.IsConnected() {
+				logger.Infof("RequestManager (%s): Skipping fetch, bridge not connected", uid)
+				return
+			}
+
+			for _, task := range workerTasks {
+				// Check for cancellation between workers
+				select {
+				case <-ctx.Done():
+					return
+				default:
+				}
+
+				sns, err := rm.BridgeRepo.GetActiveDeviceSNsBySite(ctx, task.SiteID)
+				if err != nil || len(sns) == 0 {
+					continue
+				}
+
+				payload := map[string]interface{}{
+					"worker_id":  task.WorkerID,
+					"devices":    sns,
+					"start_time": timeRangeFrom,
+					"end_time":   timeRangeTo,
+				}
+
+				req, err := NewRequest("GET_ATTENDANCE", payload)
+				if err != nil {
+					continue
+				}
+
+				if err := transport.Write(req); err != nil {
+					logger.Infof("RequestManager (%s): Failed to send request for worker %s: %v", uid, task.WorkerID, err)
+				} else {
+					logger.Infof("RequestManager (%s): Queued attendance request for worker %s", uid, task.WorkerID)
+				}
+			}
+		}(ownerID, ownerTasks)
 	}
 
-	// Create requests
-	for _, task := range tasks {
-		transport, exists := rm.GetTransport(task.UserID)
-		if !exists || !transport.IsConnected() {
-			logger.Infof("RequestManager: Skipping worker %s, no active bridge connection for owner %s", task.WorkerID, task.UserID)
-			continue
-		}
-
-		// Get device SNs
-		sns, err := rm.BridgeRepo.GetActiveDeviceSNsBySite(ctx, task.SiteID)
-		if err != nil {
-			continue
-		}
-
-		if len(sns) == 0 {
-			continue
-		}
-
-		payload := map[string]interface{}{
-			"worker_id":  task.WorkerID,
-			"devices":    sns,
-			"start_time": timeRange["from"],
-			"end_time":   timeRange["to"],
-		}
-
-		req, err := NewRequest("GET_ATTENDANCE", payload)
-		if err != nil {
-			continue
-		}
-
-		if err := transport.Write(req); err != nil {
-			logger.Infof("RequestManager: Failed to send request for worker %s via bridge %s: %v", task.WorkerID, task.UserID, err)
-		} else {
-			reqJSON, _ := json.MarshalIndent(req, "", "  ")
-			logger.Infof("\n--- [BRIDGE OUTBOUND REQUEST (%s)] ---\n%s\n---------------------------------", task.UserID, string(reqJSON))
-		}
-	}
-
+	wg.Wait()
 	return nil
 }
 
@@ -163,40 +175,52 @@ func (rm *RequestManager) RequestUserSync(ctx context.Context, builder interface
 		return nil
 	}
 
-	logger.Infof("RequestManager: Sending %d user sync requests", len(messages))
-
-	// Because BuildSyncRequests currently doesn't return the UserID per worker easily,
-	// we will need to lookup the user_id for the worker before sending, or handle it via Transport mapping.
-	// We'll write a quick query to group messages by worker's user_id.
-
-	// tracking successIDs for logging purpose in this outbound sweep
-	var successIDs []string
+	// Group messages by owner for parallel delivery across bridges
+	type syncTask struct {
+		workerID string
+		msg      Message
+	}
+	tasksByOwner := make(map[string][]syncTask)
 
 	for i, msg := range messages {
 		workerID := workerIDs[i]
-
 		ownerID, err := rm.BridgeRepo.GetWorkerOwnerID(ctx, workerID)
 		if err != nil {
 			logger.Infof("RequestManager: Cannot find owner for worker %s: %v", workerID, err)
 			continue
 		}
-
-		transport, exists := rm.GetTransport(ownerID)
-		if !exists || !transport.IsConnected() {
-			logger.Infof("RequestManager: Skipping sync for worker %s, bridge %s is disconnected", workerID, ownerID)
-			continue
-		}
-
-		if err := transport.Write(msg); err != nil {
-			logger.Infof("RequestManager: Failed to send user sync request for %s: %v", workerID, err)
-		} else {
-			respMsg, _ := json.MarshalIndent(msg, "", "  ")
-			logger.Infof("\n--- [BRIDGE OUTBOUND USER SYNC (%s)] ---\n%s\n-----------------------------------", ownerID, string(respMsg))
-			successIDs = append(successIDs, workerID)
-		}
+		tasksByOwner[ownerID] = append(tasksByOwner[ownerID], syncTask{workerID: workerID, msg: msg})
 	}
 
-	logger.Infof("RequestManager: Successfully queued %d worker sync requests across all bridges", len(successIDs))
+	var wg sync.WaitGroup
+	for ownerID, tasks := range tasksByOwner {
+		wg.Add(1)
+		go func(uid string, subTasks []syncTask) {
+			defer wg.Done()
+
+			transport, exists := rm.GetTransport(uid)
+			if !exists || !transport.IsConnected() {
+				logger.Infof("RequestManager (%s): Skipping user sync, bridge not connected", uid)
+				return
+			}
+
+			for _, t := range subTasks {
+				select {
+				case <-ctx.Done():
+					return
+				default:
+				}
+
+				if err := transport.Write(t.msg); err != nil {
+					logger.Infof("RequestManager (%s): Failed to send sync for worker %s: %v", uid, t.workerID, err)
+				} else {
+					logger.Infof("RequestManager (%s): Queued sync for worker %s", uid, t.workerID)
+				}
+			}
+		}(ownerID, tasks)
+	}
+
+	wg.Wait()
 	return nil
 }
 

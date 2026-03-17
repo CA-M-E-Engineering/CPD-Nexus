@@ -138,7 +138,7 @@ func (s *PitstopService) SyncConfig(ctx context.Context, userID string) error {
 		}
 	}
 
-	s.analytics.LogActivity(ctx, userID, "Pitstop Sync", "system", "", "Pitstop configuration synced successfully")
+	s.analytics.LogActivity(ctx, userID, "Pitstop Sync", "system", userID, "Synchronized organizational authorisations with SGBuildex Pitstop API")
 	return nil
 }
 
@@ -193,7 +193,7 @@ func (s *PitstopService) SubmitPendingAttendance(ctx context.Context) error {
 	// Submit via the port interface — no concrete adapter type referenced
 	_, _, err = s.externalClient.SubmitManpowerUtilization(ctx, s.submissionRepo, settings, rows)
 	if err == nil {
-		s.analytics.LogActivity(ctx, "system", "Scheduled CPD Submission", "system", "", fmt.Sprintf("Auto-submitted %d pending records", len(rows)))
+		s.analytics.LogActivity(ctx, "system", "Scheduled CPD Submission", "system", "pitstop", fmt.Sprintf("Automatically submitted %d pending attendance records to SGBuildex", len(rows)))
 	}
 	return err
 }

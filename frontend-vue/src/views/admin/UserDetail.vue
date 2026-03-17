@@ -23,7 +23,11 @@ const User = ref(null);
 const isLoading = ref(true);
 const UserUsers = ref([]);
 const UserSites = ref([]);
+const userProjects = ref([]);
+const allOrgs = ref([]);
+const cpdAuthorisations = ref([]);
 const siteDevicesMap = ref({}); // { siteId: [devices] }
+const currentUser = ref(null);
 
 const tabs = [
   { id: 'Overview', label: 'Company Overview' },
@@ -45,14 +49,24 @@ const fetchUserData = async () => {
 
     // Fetch others but don't block main render if they fail
     try {
-        const [workersData, sitesData, alluserDevices] = await Promise.all([
+        const [workersData, sitesData, alluserDevices, projectsData, authsData] = await Promise.all([
             api.getWorkers({ user_id: props.id }),
             api.getSites({ user_id: props.id }),
-            api.getDevices({ user_id: props.id })
+            api.getDevices({ user_id: props.id }),
+            api.getProjects({ user_id: props.id }),
+            api.getPitstopAuthorisations()
         ]);
         UserUsers.value = workersData || [];
         UserSites.value = sitesData || [];
         userDevices.value = alluserDevices || [];
+        userProjects.value = projectsData || [];
+        cpdAuthorisations.value = authsData || [];
+
+        // If Vendor, fetch all users for management view
+        if (UserData.user_type === 'vendor') {
+            const users = await api.getUsers();
+            allOrgs.value = users || [];
+        }
 
         // Fetch devices for each site
         const devicePromises = (sitesData || []).map(async (site) => {
@@ -75,14 +89,24 @@ const fetchUserData = async () => {
   }
 };
 
-onMounted(fetchUserData);
+onMounted(async () => {
+    try {
+        currentUser.value = await api.getUserProfile();
+    } catch (e) { console.error('Failed to get profile', e); }
+    fetchUserData();
+});
 
-const UserInfo = computed(() => [
-  { label: 'Company Name', value: User.value?.user_name || '---' },
-  { label: 'Contact Phone', value: User.value?.phone || '---' },
-  { label: 'Contact Email', value: User.value?.email || '---' },
-  { label: 'Company Address', value: User.value?.address || '---' }
-]);
+const UserInfo = computed(() => {
+  const fields = [
+    { label: 'Company Name', value: User.value?.user_name },
+    { label: 'System Username', value: User.value?.username },
+    { label: 'Contact Phone', value: User.value?.phone },
+    { label: 'Contact Email', value: User.value?.email },
+    { label: 'Bridge WebSocket', value: User.value?.bridge_ws_url },
+    { label: 'User Type', value: User.value?.user_type?.toUpperCase() }
+  ];
+  return fields.filter(f => f.value && f.value !== '---' && f.value !== '');
+});
 
 const userColumns = [
   { key: 'name', label: 'Full Name', bold: true },
@@ -92,14 +116,35 @@ const userColumns = [
   { key: 'status', label: 'Status' }
 ];
 
+const projectColumns = [
+  { key: 'title', label: 'Project Title', bold: true },
+  { key: 'reference', label: 'Reference No.', mono: true },
+  { key: 'status', label: 'Current Status' },
+  { key: 'site_count', label: 'Sites' },
+  { key: 'worker_count', label: 'Workers' }
+];
+
+const vendorManagedColumns = [
+  { key: 'username', label: 'ID/Username', bold: true },
+  { key: 'email', label: 'Primary Email' },
+  { key: 'bridge_ws_url', label: 'Bridge URL', mono: true },
+  { key: 'cpd_status', label: 'CPD Status' },
+  { key: 'status', label: 'Account' }
+];
+
 const deviceColumns = [
   { key: 'device_id', label: 'ID', bold: true },
   { key: 'model', label: 'Device Model' },
   { key: 'sn', label: 'Device SN' },
   { key: 'last_heartbeat', label: 'Last Heartbeat' },
   { key: 'user_id', label: 'User ID' },
-  { key: 'site_id', label: 'Site ID' }
+  { key: 'actions', label: '', size: 'sm' }
 ];
+
+const getCPDStatus = (userId) => {
+  const auth = cpdAuthorisations.value.find(a => a.user_id === userId);
+  return auth ? 'linked' : 'not linked';
+};
 
 const handleEdit = () => {
   emit('navigate', 'user-add', { id: props.id, mode: 'edit' });
@@ -123,15 +168,31 @@ const handleDelete = async () => {
   }
 };
 
+const handleReturnToVendor = async (deviceId) => {
+    // Only allow if viewing a client OR if viewer is vendor
+    const vendorId = currentUser.value?.user_id || 'Owner_001';
+    
+    if (confirm(`Are you sure you want to return device ${deviceId} to the vendor pool? It will be removed from this organization.`)) {
+        try {
+            await api.assignDevicesToUser(vendorId, [deviceId]);
+            notification.success(`Device ${deviceId} returned to vendor pool`);
+            await fetchUserData();
+        } catch (err) {
+            console.error('Failed to return device', err);
+            notification.error('Failed to return device to vendor');
+        }
+    }
+};
+
 const handleDeviceRemove = async (deviceId) => {
-    if (confirm(`Are you sure you want to unassign device ${deviceId}?`)) {
+    if (confirm(`Are you sure you want to decommission device ${deviceId}? This will mark it as inactive.`)) {
         try {
             await api.deleteDevice(deviceId);
-            notification.success(`Device ${deviceId} unassigned`);
+            notification.success(`Device ${deviceId} decommissioned`);
             await fetchUserData();
         } catch (err) {
             console.error('Failed to remove device', err);
-            notification.error('Failed to unassign device');
+            notification.error('Failed to decommission device');
         }
     }
 };
@@ -181,9 +242,33 @@ const handleDeviceRemove = async (deviceId) => {
             class="identity-card"
           />
           
-          <div class="user-list-section">
-            <h3 class="section-title">Associated Users</h3>
-            <DataTable :columns="userColumns" :data="UserUsers">
+          <div v-if="User.user_type === 'vendor'" class="user-list-section">
+            <div class="section-header-row">
+              <h3 class="section-title">System-wide Organizational Users</h3>
+              <p class="section-subtitle">Admin view of all platform tenants and their bridge configurations</p>
+            </div>
+            <DataTable :columns="vendorManagedColumns" :data="allOrgs" no-data-text="No other users found in system">
+              <template #cell-bridge_ws_url="{ value }">
+                 <span v-if="value" class="mono-text link-style">{{ value }}</span>
+                 <span v-else class="text-muted">None</span>
+              </template>
+              <template #cell-cpd_status="{ item }">
+                 <BaseBadge :type="getCPDStatus(item.user_id) === 'linked' ? 'success' : 'inactive'">
+                    {{ getCPDStatus(item.user_id).toUpperCase() }}
+                 </BaseBadge>
+              </template>
+              <template #cell-status="{ item }">
+                <BaseBadge :type="item.status === 'active' ? 'success' : 'warning'">{{ item.status.toUpperCase() }}</BaseBadge>
+              </template>
+            </DataTable>
+          </div>
+
+          <div v-else class="user-list-section">
+            <div class="section-header-row">
+              <h3 class="section-title">Associated Projects</h3>
+              <p class="section-subtitle">Active and historical work authorizations for this organization</p>
+            </div>
+            <DataTable :columns="projectColumns" :data="userProjects">
               <template #cell-status="{ item }">
                 <BaseBadge :type="item.status === 'active' ? 'success' : 'warning'">{{ item.status }}</BaseBadge>
               </template>
@@ -246,20 +331,30 @@ const handleDeviceRemove = async (deviceId) => {
           <template #cell-device_id="{ value }">
             <span class="mono-text">{{ value }}</span>
           </template>
-          <template #cell-model="{ value }">
-            {{ value }}
-          </template>
-          <template #cell-sn="{ value }">
-            {{ value }}
-          </template>
-          <template #cell-last_heartbeat="{ value }">
-            {{ value }}
-          </template>
           <template #cell-user_id="{ value }">
             <span class="mono-text">{{ value }}</span>
           </template>
-          <template #cell-site_id="{ value }">
-            <span class="mono-text">{{ value }}</span>
+          <template #cell-actions="{ item }">
+            <div class="action-buttons-group">
+               <BaseButton 
+                v-if="item.user_id !== (currentUser?.user_id || 'Owner_001')"
+                variant="ghost" 
+                size="sm" 
+                v-tooltip="'Return to Vendor'"
+                @click="handleReturnToVendor(item.device_id)"
+              >
+                <i class="ri-arrow-go-back-line"></i>
+              </BaseButton>
+              <BaseButton 
+                variant="ghost" 
+                size="sm" 
+                v-tooltip="'Decommission'"
+                class="delete-btn"
+                @click="handleDeviceRemove(item.device_id)"
+              >
+                <i class="ri-delete-bin-line"></i>
+              </BaseButton>
+            </div>
           </template>
         </DataTable>
       </div>
@@ -296,22 +391,24 @@ const handleDeviceRemove = async (deviceId) => {
   max-width: 600px;
 }
 
-.tab-header-actions {
+.section-header-row {
   display: flex;
-  justify-content: space-between;
   align-items: center;
-  margin-bottom: 24px;
-}
-
-.tab-header-actions .section-title {
-  margin-bottom: 0;
+  justify-content: space-between;
+  margin-bottom: 20px;
 }
 
 .section-title, .sub-section-title {
   font-size: 18px;
   font-weight: 600;
   color: var(--color-text-primary);
-  margin-bottom: 16px;
+  margin-bottom: 0px;
+}
+
+.section-subtitle {
+  font-size: 13px;
+  color: var(--color-text-muted);
+  margin-top: 4px;
 }
 
 .sub-section-title {
@@ -372,6 +469,20 @@ const handleDeviceRemove = async (deviceId) => {
 .battery-text.critical {
   color: var(--color-danger);
   font-weight: 700;
+}
+
+.link-style {
+  color: var(--color-accent);
+  text-decoration: underline;
+  text-underline-offset: 4px;
+}
+
+.mono-text {
+  font-family: var(--font-mono, monospace);
+  font-size: 12px;
+  background: var(--color-bg-subtle);
+  padding: 2px 6px;
+  border-radius: 4px;
 }
 
 .loading-state {

@@ -55,8 +55,8 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 	switch user.UserType {
 	case "client":
 		userMap["role"] = "client"
-	case "vendor":
-		userMap["role"] = "vendor"
+	default:
+		userMap["role"] = "manager"
 	}
 
 	http.SetCookie(w, &http.Cookie{
@@ -102,8 +102,8 @@ func (h *AuthHandler) Me(w http.ResponseWriter, r *http.Request) {
 	switch user.UserType {
 	case "client":
 		userMap["role"] = "client"
-	case "vendor":
-		userMap["role"] = "vendor"
+	default:
+		userMap["role"] = "manager"
 	}
 
 	w.Header().Set("Content-Type", "application/json")

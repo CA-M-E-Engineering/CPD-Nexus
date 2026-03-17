@@ -26,8 +26,8 @@ func (s *DeviceService) GetDevice(ctx context.Context, userID, id string) (*doma
 	return s.repo.Get(ctx, userID, id)
 }
 
-func (s *DeviceService) ListDevices(ctx context.Context, userID string) ([]domain.Device, error) {
-	return s.repo.List(ctx, userID)
+func (s *DeviceService) ListDevices(ctx context.Context, userID, siteID string) ([]domain.Device, error) {
+	return s.repo.List(ctx, userID, siteID)
 }
 
 func (s *DeviceService) RegisterDevice(ctx context.Context, sn, model, userID string) (*domain.Device, error) {
@@ -85,7 +85,11 @@ func (s *DeviceService) UpdateDevice(ctx context.Context, userID, id string, par
 		}
 	}
 	if v, ok := params["user_id"].(string); ok {
-		d.UserID = v
+		if v != d.UserID {
+			d.UserID = v
+			// Clear site association if owner changes to maintain integrity
+			d.SiteID = nil
+		}
 	}
 
 	err = s.repo.Update(ctx, d)
@@ -107,19 +111,26 @@ func (s *DeviceService) DecommissionDevice(ctx context.Context, userID, id strin
 }
 
 func (s *DeviceService) AssignDevicesToUser(ctx context.Context, userID string, deviceIDs []string) error {
+	if len(deviceIDs) == 0 {
+		return nil
+	}
 	err := s.repo.AssignToUser(ctx, userID, deviceIDs)
 	if err == nil {
 		actorUserID := ports.GetUserID(ctx)
-		s.analyticsService.LogActivity(ctx, actorUserID, "Device Reassigned", "user", userID, fmt.Sprintf("Bulk reassignment of %d devices to user %s", len(deviceIDs), userID))
+		// Details: "1 devices" or "5 devices"
+		s.analyticsService.LogActivity(ctx, actorUserID, "Device Reassigned", "user", userID, fmt.Sprintf("Assigned %d hardware assets to organization %s", len(deviceIDs), userID))
 	}
 	return err
 }
 
 func (s *DeviceService) AssignDevicesToSite(ctx context.Context, siteID string, deviceIDs []string) error {
+	if len(deviceIDs) == 0 {
+		return nil
+	}
 	err := s.repo.AssignToSite(ctx, siteID, deviceIDs)
 	if err == nil {
 		actorUserID := ports.GetUserID(ctx)
-		s.analyticsService.LogActivity(ctx, actorUserID, "Device Reassigned", "site", siteID, fmt.Sprintf("Bulk reassignment of %d devices to site %s", len(deviceIDs), siteID))
+		s.analyticsService.LogActivity(ctx, actorUserID, "Device Reassigned", "site", siteID, fmt.Sprintf("Deployed %d hardware assets to site %s", len(deviceIDs), siteID))
 	}
 	return err
 }

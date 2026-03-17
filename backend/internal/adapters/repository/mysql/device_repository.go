@@ -144,7 +144,7 @@ func (r *DeviceRepository) GetBySN(ctx context.Context, sn string) (*domain.Devi
 	return &d, nil
 }
 
-func (r *DeviceRepository) List(ctx context.Context, userID string) ([]domain.Device, error) {
+func (r *DeviceRepository) List(ctx context.Context, userID, siteID string) ([]domain.Device, error) {
 	query := `
 		SELECT 
 			d.device_id, d.sn, d.model, d.status, 
@@ -159,13 +159,22 @@ func (r *DeviceRepository) List(ctx context.Context, userID string) ([]domain.De
 		return nil, apperrors.NewPermissionDenied("user_id is required for multi-tenant isolation")
 	}
 
-	args := []interface{}{}
-	if userID != "" && !ports.IsVendor(ctx) {
-		query += " AND d.user_id = ?"
-		args = append(args, userID)
+	args := []interface{}{domain.StatusInactive}
+	if userID != "" {
+		// If not a vendor, strictly filter by their ID.
+		// If vendor, only filter if they are targeting a specific user (different from their own id).
+		if !ports.IsVendor(ctx) || (userID != ports.GetUserID(ctx)) {
+			query += " AND d.user_id = ?"
+			args = append(args, userID)
+		}
 	}
 
-	rows, err := r.db.QueryContext(ctx, query, append([]interface{}{domain.StatusInactive}, args...)...)
+	if siteID != "" {
+		query += " AND d.site_id = ?"
+		args = append(args, siteID)
+	}
+
+	rows, err := r.db.QueryContext(ctx, query, args...)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list devices: %w", err)
 	}

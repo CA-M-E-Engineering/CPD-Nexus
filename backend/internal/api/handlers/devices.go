@@ -20,7 +20,15 @@ func NewDevicesHandler(service ports.DeviceService) *DevicesHandler {
 
 func (h *DevicesHandler) GetDevices(w http.ResponseWriter, r *http.Request) {
 	userID := ports.GetUserID(r.Context())
-	devices, err := h.Service.ListDevices(r.Context(), userID)
+	
+	// If vendor, allow filtering by user_id query param
+	if queryUserID := r.URL.Query().Get("user_id"); queryUserID != "" && ports.IsVendor(r.Context()) {
+		userID = queryUserID
+	}
+
+	siteID := r.URL.Query().Get("site_id")
+
+	devices, err := h.Service.ListDevices(r.Context(), userID, siteID)
 	if err != nil {
 		h.handleError(w, err)
 		return

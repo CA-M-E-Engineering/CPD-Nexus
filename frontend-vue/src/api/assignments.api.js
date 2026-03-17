@@ -21,4 +21,10 @@ export const assignmentsApi = {
      */
     assignProjectToSite: (siteId, projectIds) =>
         http.post(`/sites/${siteId}/assign-projects`, { projectIds }),
+
+    /**
+     * Assign devices to a specific organization/user
+     */
+    assignDevicesToUser: (userId, deviceIds) =>
+        http.post(`/users/${userId}/devices/bulk`, { deviceIds }),
 };

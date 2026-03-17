@@ -3,6 +3,7 @@ package services
 import (
 	"context"
 	"cpd-nexus/internal/core/domain"
+	"cpd-nexus/internal/core/ports"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -35,6 +36,10 @@ func (m *MockAnalyticsService) GetDetailedAnalytics(ctx context.Context, userID 
 func (m *MockAnalyticsService) LogActivity(ctx context.Context, userID, action, targetType, targetID, details string) error {
 	args := m.Called(ctx, userID, action, targetType, targetID, details)
 	return args.Error(0)
+}
+
+func (m *MockAnalyticsService) SetUserRepo(repo ports.UserRepository) {
+	m.Called(repo)
 }
 
 func (m *MockWorkerRepository) Get(ctx context.Context, userID, id string) (*domain.Worker, error) {

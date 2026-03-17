@@ -48,8 +48,8 @@ const loadDashboardData = async () => {
 
     stats.value = statsData;
 
-    // Transform activities for UI
-    activities.value = activityData.map(a => {
+    // Transform activities for UI and limit to 10 items
+    activities.value = activityData.slice(0, 10).map(a => {
         let icon = 'ri-information-line';
         let type = 'info';
 

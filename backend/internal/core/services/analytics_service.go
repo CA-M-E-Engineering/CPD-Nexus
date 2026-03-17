@@ -6,11 +6,16 @@ import (
 )
 
 type AnalyticsService struct {
-	repo ports.AnalyticsRepository
+	repo     ports.AnalyticsRepository
+	userRepo ports.UserRepository
 }
 
 func NewAnalyticsService(repo ports.AnalyticsRepository) ports.AnalyticsService {
 	return &AnalyticsService{repo: repo}
+}
+
+func (s *AnalyticsService) SetUserRepo(repo ports.UserRepository) {
+	s.userRepo = repo
 }
 
 func (s *AnalyticsService) GetDashboardStats(ctx context.Context, userID string) (map[string]interface{}, error) {
@@ -28,17 +33,27 @@ func (s *AnalyticsService) LogActivity(ctx context.Context, userID, action, targ
 
 	// Determine log "owner" (who sees it in their feed). 
 	// Default to the provided userID, but override with actorID if available 
-	// so users primarily see their own actions (as requested).
 	ownerID := userID
 	if actorID != "" {
 		ownerID = actorID
 	}
 
+	// PROACTIVE ENHANCEMENT: Resolve names if they are IDs or missing
+	if (actorName == "" || actorName == actorID) && actorID != "" && s.userRepo != nil {
+		if u, err := s.userRepo.Get(ctx, actorID); err == nil && u != nil {
+			actorName = u.Name
+		}
+	}
+
+	// FALLBACKS
 	if actorName == "" {
-		// Fallback: If it's a login action or self-action and we don't have a name in ctx,
-		// we can try to use the userID as a label if identity is clear
-		if action == "Login" {
-			actorName = userID
+		if action == "Login" && userID != "" && s.userRepo != nil {
+			// For login, the actorID is not yet in context, use passed userID
+			if u, err := s.userRepo.Get(ctx, userID); err == nil && u != nil {
+				actorName = u.Name
+			} else {
+				actorName = userID
+			}
 		} else if userID == "system" {
 			actorName = "System"
 		} else {
