@@ -169,6 +169,16 @@ const handleSubmit = async () => {
             <BaseInput v-model="formData.address" label="Office Address" placeholder="e.g., 120 Lower Delta Road" class="full-width" />
             <BaseInput v-model="formData.latitude" label="Latitude" placeholder="e.g., 1.3521" type="number" step="any" />
             <BaseInput v-model="formData.longitude" label="Longitude" placeholder="e.g., 103.8198" type="number" step="any" />
+            
+            <div class="form-group full-width" v-if="isEdit">
+              <label class="form-label">Account Status</label>
+              <select v-model="formData.status" class="form-select">
+                <option value="active">Active (Access Enabled)</option>
+                <option value="inactive">Inactive (Access Blocked)</option>
+                <option value="pending">Pending Registration</option>
+              </select>
+              <span class="field-help">Inactive accounts cannot log in to the system.</span>
+            </div>
           </div>
         </div>
 

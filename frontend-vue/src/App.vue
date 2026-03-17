@@ -23,6 +23,7 @@ import AdminDeviceList from './views/admin/DeviceList.vue';
 import AdminDeviceAdd from './views/admin/DeviceAdd.vue';
 import AdminSettings from './views/admin/Settings.vue';
 import PitstopAuthorisations from './views/admin/PitstopAuthorisations.vue';
+import ActivityLogs from './views/admin/ActivityLogs.vue';
 
 // Client Views
 import ClientDashboard from './views/client/Dashboard.vue';
@@ -121,7 +122,8 @@ const currentComponent = computed(() => {
       'device-add': AdminDeviceAdd,
       'user-assign-device': UserAssignDevice,
       'settings': AdminSettings,
-      'pitstop-auth': PitstopAuthorisations
+      'pitstop-auth': PitstopAuthorisations,
+      'activity-log': ActivityLogs
     };
     return componentMap[activeNavId.value];
   } else {
@@ -144,7 +146,8 @@ const currentComponent = computed(() => {
       'site-assign-device': SiteAssignDevice,
       'devices': ClientDeviceList,
       'device-detail': DeviceDetail,
-      'attendance': ClientAttendanceList
+      'attendance': ClientAttendanceList,
+      'activity-log': ActivityLogs
     };
     return componentMap[activeNavId.value];
   }

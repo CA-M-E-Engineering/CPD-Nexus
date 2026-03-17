@@ -137,8 +137,9 @@ func TestPitstopService_TestSubmission_SuccessAndFailures(t *testing.T) {
 	mockSubmissionRepo := new(MockSubmissionRepository)
 	mockSettingsRepo := new(MockSettingsRepository)
 	mockExternalSubmitter := new(MockExternalSubmitter)
+	mockAnalytics := new(MockAnalyticsService)
 
-	svc := NewPitstopService(mockPitstopRepo, mockExternalSubmitter, mockAttendanceRepo, mockSubmissionRepo, mockSettingsRepo)
+	svc := NewPitstopService(mockPitstopRepo, mockExternalSubmitter, mockAttendanceRepo, mockSubmissionRepo, mockSettingsRepo, mockAnalytics)
 
 	ctx := context.Background()
 	userID := "user123"
@@ -178,6 +179,7 @@ func TestPitstopService_TestSubmission_SuccessAndFailures(t *testing.T) {
 	// The submitter will be called with the rows (internally filtered by the mapper)
 	// Let's assume the external submitter successfully processes the 1 valid payload.
 	mockExternalSubmitter.On("SubmitManpowerUtilization", ctx, mockSubmissionRepo, settings, rows).Return(1, 1, nil)
+	mockAnalytics.On("LogActivity", ctx, userID, "Manual CPD Submission", "project", projectID, mock.Anything).Return(nil)
 
 	// Execute TestSubmission
 	submittedCount, failedCount, err := svc.TestSubmission(ctx, userID, projectID)
@@ -191,6 +193,7 @@ func TestPitstopService_TestSubmission_SuccessAndFailures(t *testing.T) {
 	mockAttendanceRepo.AssertExpectations(t)
 	mockSubmissionRepo.AssertExpectations(t)
 	mockExternalSubmitter.AssertExpectations(t)
+	mockAnalytics.AssertExpectations(t)
 }
 
 func TestPitstopService_TestSubmission_ExtractError(t *testing.T) {
@@ -199,8 +202,9 @@ func TestPitstopService_TestSubmission_ExtractError(t *testing.T) {
 	mockSubmissionRepo := new(MockSubmissionRepository)
 	mockSettingsRepo := new(MockSettingsRepository)
 	mockExternalSubmitter := new(MockExternalSubmitter)
+	mockAnalytics := new(MockAnalyticsService)
 
-	svc := NewPitstopService(mockPitstopRepo, mockExternalSubmitter, mockAttendanceRepo, mockSubmissionRepo, mockSettingsRepo)
+	svc := NewPitstopService(mockPitstopRepo, mockExternalSubmitter, mockAttendanceRepo, mockSubmissionRepo, mockSettingsRepo, mockAnalytics)
 
 	ctx := context.Background()
 
@@ -223,8 +227,9 @@ func TestPitstopService_TestSubmission_NoRows(t *testing.T) {
 	mockSubmissionRepo := new(MockSubmissionRepository)
 	mockSettingsRepo := new(MockSettingsRepository)
 	mockExternalSubmitter := new(MockExternalSubmitter)
+	mockAnalytics := new(MockAnalyticsService)
 
-	svc := NewPitstopService(mockPitstopRepo, mockExternalSubmitter, mockAttendanceRepo, mockSubmissionRepo, mockSettingsRepo)
+	svc := NewPitstopService(mockPitstopRepo, mockExternalSubmitter, mockAttendanceRepo, mockSubmissionRepo, mockSettingsRepo, mockAnalytics)
 
 	ctx := context.Background()
 

@@ -11,11 +11,12 @@ import (
 )
 
 type DeviceService struct {
-	repo ports.DeviceRepository
+	repo             ports.DeviceRepository
+	analyticsService ports.AnalyticsService
 }
 
-func NewDeviceService(repo ports.DeviceRepository) ports.DeviceService {
-	return &DeviceService{repo: repo}
+func NewDeviceService(repo ports.DeviceRepository, analytics ports.AnalyticsService) ports.DeviceService {
+	return &DeviceService{repo: repo, analyticsService: analytics}
 }
 
 func (s *DeviceService) GetDevice(ctx context.Context, userID, id string) (*domain.Device, error) {
@@ -54,6 +55,7 @@ func (s *DeviceService) RegisterDevice(ctx context.Context, sn, model, userID st
 	if err := s.repo.Create(ctx, d); err != nil {
 		return nil, err
 	}
+	s.analyticsService.LogActivity(ctx, userID, "Device Registered", "device", d.ID, fmt.Sprintf("New device %s (%s) registered", d.SN, d.Model))
 	return d, nil
 }
 
@@ -86,20 +88,38 @@ func (s *DeviceService) UpdateDevice(ctx context.Context, userID, id string, par
 		d.UserID = v
 	}
 
-	return s.repo.Update(ctx, d)
+	err = s.repo.Update(ctx, d)
+	if err == nil {
+		s.analyticsService.LogActivity(ctx, userID, "Device Updated", "device", id, "Device parameters updated")
+	}
+	return err
 }
 
 func (s *DeviceService) DecommissionDevice(ctx context.Context, userID, id string) error {
 	if userID == "" {
 		return apperrors.NewPermissionDenied("user_id scope required")
 	}
-	return s.repo.Delete(ctx, userID, id)
+	err := s.repo.Delete(ctx, userID, id)
+	if err == nil {
+		s.analyticsService.LogActivity(ctx, userID, "Device Decommissioned", "device", id, "Device permanently removed from system")
+	}
+	return err
 }
 
 func (s *DeviceService) AssignDevicesToUser(ctx context.Context, userID string, deviceIDs []string) error {
-	return s.repo.AssignToUser(ctx, userID, deviceIDs)
+	err := s.repo.AssignToUser(ctx, userID, deviceIDs)
+	if err == nil {
+		actorUserID := ports.GetUserID(ctx)
+		s.analyticsService.LogActivity(ctx, actorUserID, "Device Reassigned", "user", userID, fmt.Sprintf("Bulk reassignment of %d devices to user %s", len(deviceIDs), userID))
+	}
+	return err
 }
 
 func (s *DeviceService) AssignDevicesToSite(ctx context.Context, siteID string, deviceIDs []string) error {
-	return s.repo.AssignToSite(ctx, siteID, deviceIDs)
+	err := s.repo.AssignToSite(ctx, siteID, deviceIDs)
+	if err == nil {
+		actorUserID := ports.GetUserID(ctx)
+		s.analyticsService.LogActivity(ctx, actorUserID, "Device Reassigned", "site", siteID, fmt.Sprintf("Bulk reassignment of %d devices to site %s", len(deviceIDs), siteID))
+	}
+	return err
 }

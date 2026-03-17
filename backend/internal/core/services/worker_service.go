@@ -12,11 +12,12 @@ import (
 )
 
 type WorkerService struct {
-	repo ports.WorkerRepository
+	repo             ports.WorkerRepository
+	analyticsService ports.AnalyticsService
 }
 
-func NewWorkerService(repo ports.WorkerRepository) ports.WorkerService {
-	return &WorkerService{repo: repo}
+func NewWorkerService(repo ports.WorkerRepository, analytics ports.AnalyticsService) ports.WorkerService {
+	return &WorkerService{repo: repo, analyticsService: analytics}
 }
 
 func (s *WorkerService) GetWorker(ctx context.Context, userID, id string) (*domain.Worker, error) {
@@ -74,7 +75,11 @@ func (s *WorkerService) CreateWorker(ctx context.Context, w *domain.Worker) erro
 		w.IsSynced = domain.SyncStatusPendingRegistration
 	}
 
-	return s.repo.Create(ctx, w)
+	err := s.repo.Create(ctx, w)
+	if err == nil {
+		s.analyticsService.LogActivity(ctx, w.UserID, "Worker Created", "worker", w.ID, fmt.Sprintf("Worker %s (%s) created", w.Name, w.PersonIDNo))
+	}
+	return err
 }
 
 func (s *WorkerService) validateWorker(w *domain.Worker) error {
@@ -249,14 +254,23 @@ func (s *WorkerService) UpdateWorker(ctx context.Context, userID, id string, req
 		}
 	}
 
-	return s.repo.Update(ctx, existing)
+	if err := s.repo.Update(ctx, existing); err != nil {
+		return err
+	}
+
+	s.analyticsService.LogActivity(ctx, userID, "Worker Updated", "worker", id, fmt.Sprintf("Worker %s updated", existing.Name))
+	return nil
 }
 
 func (s *WorkerService) DeleteWorker(ctx context.Context, userID, id string) error {
 	if userID == "" {
 		return apperrors.NewPermissionDenied("user_id scope required")
 	}
-	return s.repo.Delete(ctx, userID, id)
+	err := s.repo.Delete(ctx, userID, id)
+	if err == nil {
+		s.analyticsService.LogActivity(ctx, userID, "Worker Deleted", "worker", id, "Worker permanently removed from system")
+	}
+	return err
 }
 
 func (s *WorkerService) ListPendingSyncWorkers(ctx context.Context, userID string) ([]domain.Worker, error) {
@@ -280,5 +294,10 @@ func (s *WorkerService) AssignWorkersToProject(ctx context.Context, projectID st
 		return fmt.Errorf("failed to verify project: %w", err)
 	}
 
-	return s.repo.AssignToProject(ctx, projectID, workerIDs, userID)
+	err = s.repo.AssignToProject(ctx, projectID, workerIDs, userID)
+	if err == nil {
+		actorUserID := ports.GetUserID(ctx)
+		s.analyticsService.LogActivity(ctx, actorUserID, "Worker Assigned", "project", projectID, fmt.Sprintf("Bulk assignment of %d workers to project %s", len(workerIDs), projectID))
+	}
+	return err
 }

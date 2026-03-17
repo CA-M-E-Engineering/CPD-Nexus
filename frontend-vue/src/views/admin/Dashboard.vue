@@ -5,7 +5,15 @@ import { MAP_MODES } from '../../utils/constants.js';
 import PageHeader from '../../components/ui/PageHeader.vue';
 import BaseButton from '../../components/ui/BaseButton.vue';
 import UnifiedMap from '../../components/ui/UnifiedMap.vue';
+import StatCard from '../../components/ui/StatCard.vue';
 
+const stats = ref({
+  total_workers: 0,
+  active_projects: 0,
+  active_sites: 0,
+  total_devices: 0,
+  compliance_rate: 0
+});
 const activities = ref([]);
 const loading = ref(true);
 
@@ -14,10 +22,13 @@ const loadDashboardData = async () => {
   try {
     const savedUser = localStorage.getItem('auth_user');
     let userId = null;
+    let isAdmin = false;
     if (savedUser) {
         try {
             const user = JSON.parse(savedUser);
             userId = user.id || user.user_id;
+            // Only 'vendor' can see system-wide stats/logs
+            isAdmin = user.role === 'vendor' || user.user_type === 'vendor';
         } catch (e) {
             console.error('[Dashboard] Failed to parse auth_user', e);
         }
@@ -28,19 +39,34 @@ const loadDashboardData = async () => {
         return;
     }
 
+    const queryId = isAdmin ? 'all' : userId;
+
     const [statsData, activityData] = await Promise.all([
-      api.getDashboardStats({ user_id: userId }),
-      api.getActivityLog({ user_id: userId })
+      api.getDashboardStats({ user_id: queryId }),
+      api.getActivityLog({ user_id: queryId })
     ]);
 
-    // Transform activities for UI
+    stats.value = statsData;
 
-    activities.value = activityData.map(a => ({
-        title: `${a.action}: ${a.target}`,
-        time: a.time,
-        icon: 'ri-information-line', // Generic icon or map based on action
-        type: 'info'
-    }));
+    // Transform activities for UI
+    activities.value = activityData.map(a => {
+        let icon = 'ri-information-line';
+        let type = 'info';
+
+        if (a.action.includes('Created')) { icon = 'ri-add-circle-line'; type = 'success'; }
+        else if (a.action.includes('Deleted')) { icon = 'ri-delete-bin-line'; type = 'warning'; }
+        else if (a.action.includes('Submission')) { icon = 'ri-send-plane-line'; type = 'info'; }
+        else if (a.action.includes('Login')) { icon = 'ri-user-follow-line'; type = 'info'; }
+
+        return {
+            title: a.action,
+            subtitle: a.details,
+            user: a.user_name,
+            time: a.time || 'Recently',
+            icon: icon,
+            type: type
+        };
+    });
 
   } catch (err) {
     console.error("Failed to load dashboard data", err);
@@ -68,6 +94,32 @@ defineEmits(['navigate']);
     </PageHeader>
 
 
+    <div class="stats-grid">
+      <StatCard 
+        label="Total Workers" 
+        :value="stats.total_workers.toString()" 
+        icon="ri-group-line" 
+        color="blue" 
+      />
+      <StatCard 
+        label="Active Projects" 
+        :value="stats.active_projects.toString()" 
+        icon="ri-folder-line" 
+        color="green" 
+      />
+      <StatCard 
+        label="Operational Sites" 
+        :value="stats.active_sites.toString()" 
+        icon="ri-map-pin-line" 
+        color="yellow" 
+      />
+      <StatCard 
+        label="IoT Devices" 
+        :value="stats.total_devices.toString()" 
+        icon="ri-cpu-line" 
+        color="red" 
+      />
+    </div>
     <div class="quick-actions">
       <div class="action-card" @click="$emit('navigate', 'device-add')">
         <div class="action-icon"><i class="ri-cpu-line"></i></div>
@@ -100,6 +152,7 @@ defineEmits(['navigate']);
       <div class="content-card">
         <div class="card-header">
           <h3 class="card-title">Recent System Activity</h3>
+          <BaseButton variant="ghost" size="sm" @click="$emit('navigate', 'activity-log')">View All</BaseButton>
         </div>
         <div class="activity-list">
           <div v-for="(act, i) in activities" :key="i" class="activity-item">
@@ -107,8 +160,12 @@ defineEmits(['navigate']);
               <i :class="act.icon"></i>
             </div>
             <div class="activity-info">
-              <p class="activity-title">{{ act.title }}</p>
-              <p class="activity-time">{{ act.time }}</p>
+              <div class="activity-top">
+                <p class="activity-title">{{ act.title }}</p>
+                <p class="activity-time">{{ act.time }}</p>
+              </div>
+              <p class="activity-subtitle">{{ act.subtitle }}</p>
+              <p class="activity-user" v-if="act.user"><i class="ri-user-line"></i> {{ act.user }}</p>
             </div>
           </div>
         </div>
@@ -209,6 +266,9 @@ defineEmits(['navigate']);
 
 .card-header {
   margin-bottom: 20px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
 }
 
 .card-title {
@@ -263,15 +323,37 @@ defineEmits(['navigate']);
   margin: 0;
 }
 
+.activity-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 2px;
+}
+
 .activity-title {
   font-size: 13px;
   color: var(--color-text-primary);
-  font-weight: 500;
+  font-weight: 600;
 }
 
 .activity-time {
   font-size: 11px;
   color: var(--color-text-muted);
-  margin-top: 2px;
+}
+
+.activity-subtitle {
+  font-size: 12px;
+  color: var(--color-text-secondary);
+  line-height: 1.4;
+  margin-bottom: 4px;
+}
+
+.activity-user {
+  font-size: 11px;
+  color: var(--color-accent);
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-weight: 500;
 }
 </style>

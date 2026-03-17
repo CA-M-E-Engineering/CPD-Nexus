@@ -12,12 +12,13 @@ import (
 )
 
 type AuthService struct {
-	repo      ports.UserRepository
-	jwtSecret string
+	repo             ports.UserRepository
+	jwtSecret        string
+	analyticsService ports.AnalyticsService
 }
 
-func NewAuthService(repo ports.UserRepository, jwtSecret string) ports.AuthService {
-	return &AuthService{repo: repo, jwtSecret: jwtSecret}
+func NewAuthService(repo ports.UserRepository, jwtSecret string, analytics ports.AnalyticsService) ports.AuthService {
+	return &AuthService{repo: repo, jwtSecret: jwtSecret, analyticsService: analytics}
 }
 
 func (s *AuthService) Login(ctx context.Context, username, password string) (string, *domain.User, error) {
@@ -48,5 +49,6 @@ func (s *AuthService) Login(ctx context.Context, username, password string) (str
 		return "", nil, errors.New("failed to issue token")
 	}
 
+	s.analyticsService.LogActivity(ctx, user.ID, "Login", "user", user.ID, "User logged in to the system")
 	return tokenStr, user, nil
 }

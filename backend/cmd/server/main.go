@@ -67,19 +67,19 @@ func main() {
 	pitstopRepo := mysql.NewPitstopRepository(db)
 
 	// Services
-	workerService := services.NewWorkerService(workerRepo)
-	attendanceService := services.NewAttendanceService(attendanceRepo, workerRepo, deviceRepo)
-	authService := services.NewAuthService(userRepo, cfg.JWTSecret)
-	userService := services.NewUserService(userRepo)
-	siteService := services.NewSiteService(siteRepo)
-	projectService := services.NewProjectService(projectRepo)
-	deviceService := services.NewDeviceService(deviceRepo)
 	analyticsService := services.NewAnalyticsService(analyticsRepo)
-	var settingsService *services.SettingsService
+	workerService := services.NewWorkerService(workerRepo, analyticsService)
+	attendanceService := services.NewAttendanceService(attendanceRepo, workerRepo, deviceRepo, analyticsService)
+	authService := services.NewAuthService(userRepo, cfg.JWTSecret, analyticsService)
+	userService := services.NewUserService(userRepo, analyticsService)
+	siteService := services.NewSiteService(siteRepo, analyticsService)
+	projectService := services.NewProjectService(projectRepo, analyticsService)
+	deviceService := services.NewDeviceService(deviceRepo, analyticsService)
+	var settingsService ports.SettingsService
 
 	// Internal client for external fetch
 	sgClient := sgbuildex.NewClient(cfg.IngressURL, cfg.PitstopURL)
-	pitstopService := services.NewPitstopService(pitstopRepo, sgClient, attendanceRepo, submissionRepo, settingsRepo)
+	pitstopService := services.NewPitstopService(pitstopRepo, sgClient, attendanceRepo, submissionRepo, settingsRepo, analyticsService)
 
 	// Handlers
 	routerCfg := api.RouterConfig{
@@ -147,7 +147,7 @@ func main() {
 	)
 
 	// Finalized Settings Service with Scheduler injection for real-time updates
-	settingsService = services.NewSettingsService(settingsRepo, attendanceSyncScheduler, cpdSubmissionScheduler)
+	settingsService = services.NewSettingsService(settingsRepo, attendanceSyncScheduler, cpdSubmissionScheduler, analyticsService)
 	routerCfg.SettingsHandler = apiHandlers.NewSettingsHandler(settingsService)
 
 	// --- 4. Component C: REST API ---

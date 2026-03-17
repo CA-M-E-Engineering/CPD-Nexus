@@ -14,17 +14,19 @@ type AttendanceService struct {
 	repo       ports.AttendanceRepository
 	workerRepo ports.WorkerRepository
 	deviceRepo ports.DeviceRepository
+	analytics  ports.AnalyticsService
 
 	mu      sync.Mutex
 	lastSeq int
 	lastDay string
 }
 
-func NewAttendanceService(repo ports.AttendanceRepository, workerRepo ports.WorkerRepository, deviceRepo ports.DeviceRepository) ports.AttendanceService {
+func NewAttendanceService(repo ports.AttendanceRepository, workerRepo ports.WorkerRepository, deviceRepo ports.DeviceRepository, analytics ports.AnalyticsService) ports.AttendanceService {
 	return &AttendanceService{
 		repo:       repo,
 		workerRepo: workerRepo,
 		deviceRepo: deviceRepo,
+		analytics:  analytics,
 	}
 }
 
@@ -78,7 +80,11 @@ func (s *AttendanceService) ProcessBridgeAttendance(ctx context.Context, workerI
 		ResponsePayload: string(rawPayload),
 	}
 
-	return s.repo.Create(ctx, attendance)
+	err = s.repo.Create(ctx, attendance)
+	if err == nil {
+		s.analytics.LogActivity(ctx, worker.UserID, "Attendance Logged", "worker", worker.ID, fmt.Sprintf("Aggregated attendance processed for %s at site %s", worker.Name, worker.SiteID))
+	}
+	return err
 }
 
 func (s *AttendanceService) generateNextID(ctx context.Context) string {

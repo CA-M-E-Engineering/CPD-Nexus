@@ -55,8 +55,18 @@ func UserScopeMiddleware(next http.Handler) http.Handler {
 		ctx := context.WithValue(r.Context(), ports.UserIDKey, userID)
 		ctx = context.WithValue(ctx, ports.UsernameKey, username)
 
-		// Vendor/admin role is derived from JWT claims, not a hardcoded ID
-		if userType == "admin" || userType == "vendor" {
+		// Capture IP Address
+		ip := r.Header.Get("X-Forwarded-For")
+		if ip == "" {
+			ip = strings.Split(r.RemoteAddr, ":")[0]
+		} else {
+			ip = strings.Split(ip, ",")[0]
+		}
+		ctx = context.WithValue(ctx, ports.IPAddressKey, strings.TrimSpace(ip))
+
+		// Vendor role is derived from JWT claims. Only 'vendor' type has global system-wide visibility.
+		// Standard client 'admin' or 'manager' roles are restricted to their own organization.
+		if userType == "vendor" {
 			ctx = context.WithValue(ctx, ports.IsVendorKey, true)
 		}
 

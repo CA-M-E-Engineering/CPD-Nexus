@@ -13,6 +13,30 @@ type MockWorkerRepository struct {
 	mock.Mock
 }
 
+type MockAnalyticsService struct {
+	mock.Mock
+}
+
+func (m *MockAnalyticsService) GetDashboardStats(ctx context.Context, userID string) (map[string]interface{}, error) {
+	args := m.Called(ctx, userID)
+	return args.Get(0).(map[string]interface{}), args.Error(1)
+}
+
+func (m *MockAnalyticsService) GetActivityLog(ctx context.Context, userID string, filters map[string]interface{}) ([]map[string]interface{}, error) {
+	args := m.Called(ctx, userID, filters)
+	return args.Get(0).([]map[string]interface{}), args.Error(1)
+}
+
+func (m *MockAnalyticsService) GetDetailedAnalytics(ctx context.Context, userID string) (map[string]interface{}, error) {
+	args := m.Called(ctx, userID)
+	return args.Get(0).(map[string]interface{}), args.Error(1)
+}
+
+func (m *MockAnalyticsService) LogActivity(ctx context.Context, userID, action, targetType, targetID, details string) error {
+	args := m.Called(ctx, userID, action, targetType, targetID, details)
+	return args.Error(0)
+}
+
 func (m *MockWorkerRepository) Get(ctx context.Context, userID, id string) (*domain.Worker, error) {
 	args := m.Called(ctx, userID, id)
 	if args.Get(0) == nil {
@@ -71,7 +95,8 @@ func (m *MockWorkerRepository) AssignToProject(ctx context.Context, projectID st
 
 func TestWorkerService_CreateWorker_Validation(t *testing.T) {
 	mockRepo := new(MockWorkerRepository)
-	svc := NewWorkerService(mockRepo)
+	mockAnalytics := new(MockAnalyticsService)
+	svc := NewWorkerService(mockRepo, mockAnalytics)
 	ctx := context.Background()
 
 	// Invalid NRIC
@@ -91,14 +116,17 @@ func TestWorkerService_CreateWorker_Validation(t *testing.T) {
 		Status:     "active",
 	}
 	mockRepo.On("Create", ctx, w2).Return(nil)
+	mockAnalytics.On("LogActivity", ctx, "user1", "Worker Created", "worker", w2.ID, mock.Anything).Return(nil)
 	err = svc.CreateWorker(ctx, w2)
 	assert.NoError(t, err)
 	mockRepo.AssertExpectations(t)
+	mockAnalytics.AssertExpectations(t)
 }
 
 func TestWorkerService_UpdateWorker_SyncTrigger(t *testing.T) {
 	mockRepo := new(MockWorkerRepository)
-	svc := NewWorkerService(mockRepo)
+	mockAnalytics := new(MockAnalyticsService)
+	svc := NewWorkerService(mockRepo, mockAnalytics)
 	ctx := context.Background()
 
 	existing := &domain.Worker{
@@ -122,9 +150,10 @@ func TestWorkerService_UpdateWorker_SyncTrigger(t *testing.T) {
 	updated.IsSynced = domain.SyncStatusPendingUpdate
 
 	mockRepo.On("Update", ctx, &updated).Return(nil)
-
+	mockAnalytics.On("LogActivity", ctx, "user1", "Worker Updated", "worker", "w1", mock.Anything).Return(nil)
 	err := svc.UpdateWorker(ctx, "user1", "w1", req)
 	assert.NoError(t, err)
 	assert.Equal(t, domain.SyncStatusPendingUpdate, updated.IsSynced)
 	mockRepo.AssertExpectations(t)
+	mockAnalytics.AssertExpectations(t)
 }

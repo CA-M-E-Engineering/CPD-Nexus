@@ -17,6 +17,7 @@ type PitstopService struct {
 	attendanceRepo ports.AttendanceRepository
 	submissionRepo ports.SubmissionRepository
 	settingsRepo   ports.SettingsRepository
+	analytics      ports.AnalyticsService
 }
 
 func NewPitstopService(
@@ -25,6 +26,7 @@ func NewPitstopService(
 	attendanceRepo ports.AttendanceRepository,
 	submissionRepo ports.SubmissionRepository,
 	settingsRepo ports.SettingsRepository,
+	analytics ports.AnalyticsService,
 ) *PitstopService {
 	return &PitstopService{
 		pitstopRepo:    repo,
@@ -32,6 +34,7 @@ func NewPitstopService(
 		attendanceRepo: attendanceRepo,
 		submissionRepo: submissionRepo,
 		settingsRepo:   settingsRepo,
+		analytics:      analytics,
 	}
 }
 
@@ -135,6 +138,7 @@ func (s *PitstopService) SyncConfig(ctx context.Context, userID string) error {
 		}
 	}
 
+	s.analytics.LogActivity(ctx, userID, "Pitstop Sync", "system", "", "Pitstop configuration synced successfully")
 	return nil
 }
 
@@ -165,6 +169,7 @@ func (s *PitstopService) TestSubmission(ctx context.Context, userID, projectID s
 		return submittedCount, failedCount, fmt.Errorf("failed to submit payloads: %w", err)
 	}
 
+	s.analytics.LogActivity(ctx, userID, "Manual CPD Submission", "project", projectID, fmt.Sprintf("Submitted %d records (%d failed) for project %s", submittedCount, failedCount, projectID))
 	return submittedCount, failedCount, nil
 }
 
@@ -187,6 +192,9 @@ func (s *PitstopService) SubmitPendingAttendance(ctx context.Context) error {
 
 	// Submit via the port interface — no concrete adapter type referenced
 	_, _, err = s.externalClient.SubmitManpowerUtilization(ctx, s.submissionRepo, settings, rows)
+	if err == nil {
+		s.analytics.LogActivity(ctx, "system", "Scheduled CPD Submission", "system", "", fmt.Sprintf("Auto-submitted %d pending records", len(rows)))
+	}
 	return err
 }
 
@@ -195,7 +203,12 @@ func (s *PitstopService) AssignOnBehalfOfToUser(ctx context.Context, userID stri
 	if userID == "" {
 		return fmt.Errorf("user ID cannot be empty")
 	}
-	return s.pitstopRepo.AssignOnBehalfOfToUser(ctx, userID, onBehalfOfNames)
+	err := s.pitstopRepo.AssignOnBehalfOfToUser(ctx, userID, onBehalfOfNames)
+	if err == nil {
+		actorUserID := ports.GetUserID(ctx)
+		s.analytics.LogActivity(ctx, actorUserID, "Pitstop Assignment", "user", userID, fmt.Sprintf("Assigned %d contractor authorisations to user %s", len(onBehalfOfNames), userID))
+	}
+	return err
 }
 
 // --- private helpers ---

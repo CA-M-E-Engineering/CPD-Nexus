@@ -2,25 +2,23 @@ package services
 
 import (
 	"context"
-	"time"
-
 	"cpd-nexus/internal/core/domain"
 	"cpd-nexus/internal/core/ports"
-	"cpd-nexus/internal/pkg/apperrors"
 )
 
 type SiteService struct {
-	repo ports.SiteRepository
+	repo      ports.SiteRepository
+	analytics ports.AnalyticsService
 }
 
-func NewSiteService(repo ports.SiteRepository) ports.SiteService {
-	return &SiteService{repo: repo}
+func NewSiteService(repo ports.SiteRepository, analytics ports.AnalyticsService) ports.SiteService {
+	return &SiteService{
+		repo:      repo,
+		analytics: analytics,
+	}
 }
 
 func (s *SiteService) GetSite(ctx context.Context, userID, id string) (*domain.Site, error) {
-	if userID == "" {
-		return nil, apperrors.NewPermissionDenied("user_id scope required")
-	}
 	return s.repo.Get(ctx, userID, id)
 }
 
@@ -29,29 +27,25 @@ func (s *SiteService) ListSites(ctx context.Context, userID string) ([]domain.Si
 }
 
 func (s *SiteService) CreateSite(ctx context.Context, site *domain.Site) error {
-	if site.ID == "" {
-		site.ID = "s" + time.Now().Format("20060102150405")
+	err := s.repo.Create(ctx, site)
+	if err == nil {
+		s.analytics.LogActivity(ctx, site.UserID, "Site Created", "site", site.ID, "New site "+site.Name+" established")
 	}
-	return s.repo.Create(ctx, site)
+	return err
 }
 
 func (s *SiteService) UpdateSite(ctx context.Context, userID, id string, site *domain.Site) error {
-	if userID == "" {
-		return apperrors.NewPermissionDenied("user_id scope required")
+	err := s.repo.Update(ctx, site)
+	if err == nil {
+		s.analytics.LogActivity(ctx, userID, "Site Updated", "site", id, "Site details for "+site.Name+" modified")
 	}
-	// Verify ownership before update
-	existing, err := s.repo.Get(ctx, userID, id)
-	if err != nil {
-		return err
-	}
-	site.ID = existing.ID
-	site.UserID = existing.UserID
-	return s.repo.Update(ctx, site)
+	return err
 }
 
 func (s *SiteService) DeleteSite(ctx context.Context, userID, id string) error {
-	if userID == "" {
-		return apperrors.NewPermissionDenied("user_id scope required")
+	err := s.repo.Delete(ctx, userID, id)
+	if err == nil {
+		s.analytics.LogActivity(ctx, userID, "Site Deleted", "site", id, "Site record removed from system")
 	}
-	return s.repo.Delete(ctx, userID, id)
+	return err
 }

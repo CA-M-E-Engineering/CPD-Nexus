@@ -11,13 +11,15 @@ type SettingsService struct {
 	repo            ports.SettingsRepository
 	syncScheduler   *DailyScheduler
 	submitScheduler *DailyScheduler
+	analytics       ports.AnalyticsService
 }
 
-func NewSettingsService(repo ports.SettingsRepository, sync *DailyScheduler, submit *DailyScheduler) *SettingsService {
+func NewSettingsService(repo ports.SettingsRepository, sync *DailyScheduler, submit *DailyScheduler, analytics ports.AnalyticsService) ports.SettingsService {
 	return &SettingsService{
 		repo:            repo,
 		syncScheduler:   sync,
 		submitScheduler: submit,
+		analytics:       analytics,
 	}
 }
 
@@ -46,6 +48,10 @@ func (s *SettingsService) UpdateSettings(ctx context.Context, settings domain.Sy
 	}
 
 	logger.Infof("[SettingsService] Database update successful. Notifying schedulers...")
+
+	// Log activity
+	userID := ports.GetUserID(ctx)
+	s.analytics.LogActivity(ctx, userID, "Settings Updated", "system", "global", "System-wide parameters and schedules modified")
 
 	// Trigger schedulers to re-evaluate their time
 	if s.syncScheduler != nil {

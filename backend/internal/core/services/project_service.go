@@ -2,6 +2,7 @@ package services
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"cpd-nexus/internal/core/domain"
@@ -12,10 +13,11 @@ import (
 
 type ProjectService struct {
 	repo ports.ProjectRepository
+	analyticsService ports.AnalyticsService
 }
 
-func NewProjectService(repo ports.ProjectRepository) ports.ProjectService {
-	return &ProjectService{repo: repo}
+func NewProjectService(repo ports.ProjectRepository, analytics ports.AnalyticsService) ports.ProjectService {
+	return &ProjectService{repo: repo, analyticsService: analytics}
 }
 
 func (s *ProjectService) GetProject(ctx context.Context, userID, id string) (*domain.Project, error) {
@@ -36,7 +38,11 @@ func (s *ProjectService) CreateProject(ctx context.Context, p *domain.Project) e
 	if p.ID == "" {
 		p.ID = "p" + time.Now().Format("20060102150405")
 	}
-	return s.repo.Create(ctx, p)
+	err := s.repo.Create(ctx, p)
+	if err == nil {
+		s.analyticsService.LogActivity(ctx, p.UserID, "Project Created", "project", p.ID, "New project " + p.Title + " created")
+	}
+	return err
 }
 
 func (s *ProjectService) validateProject(p *domain.Project) error {
@@ -89,16 +95,29 @@ func (s *ProjectService) UpdateProject(ctx context.Context, userID, id string, p
 	}
 	p.ID = existing.ID
 	p.UserID = existing.UserID
-	return s.repo.Update(ctx, p)
+	err = s.repo.Update(ctx, p)
+	if err == nil {
+		s.analyticsService.LogActivity(ctx, userID, "Project Updated", "project", id, "Project details updated for " + p.Title)
+	}
+	return err
 }
 
 func (s *ProjectService) DeleteProject(ctx context.Context, userID, id string) error {
 	if userID == "" {
 		return apperrors.NewPermissionDenied("user_id scope required")
 	}
-	return s.repo.Delete(ctx, userID, id)
+	err := s.repo.Delete(ctx, userID, id)
+	if err == nil {
+		s.analyticsService.LogActivity(ctx, userID, "Project Deleted", "project", id, "Project permanently removed from system")
+	}
+	return err
 }
 
 func (s *ProjectService) AssignProjectsToSite(ctx context.Context, siteID string, projectIDs []string) error {
-	return s.repo.AssignToSite(ctx, siteID, projectIDs)
+	err := s.repo.AssignToSite(ctx, siteID, projectIDs)
+	if err == nil {
+		userID := ports.GetUserID(ctx)
+		s.analyticsService.LogActivity(ctx, userID, "Project Reassigned", "site", siteID, fmt.Sprintf("Bulk reassignment of %d projects to site %s", len(projectIDs), siteID))
+	}
+	return err
 }

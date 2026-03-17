@@ -2,21 +2,22 @@ package services
 
 import (
 	"context"
-	"fmt"
 	"cpd-nexus/internal/core/domain"
 	"cpd-nexus/internal/core/ports"
-	"strings"
-	"time"
-
+	"fmt"
 	"golang.org/x/crypto/bcrypt"
 )
 
 type UserService struct {
-	repo ports.UserRepository
+	repo      ports.UserRepository
+	analytics ports.AnalyticsService
 }
 
-func NewUserService(repo ports.UserRepository) ports.UserService {
-	return &UserService{repo: repo}
+func NewUserService(repo ports.UserRepository, analytics ports.AnalyticsService) ports.UserService {
+	return &UserService{
+		repo:      repo,
+		analytics: analytics,
+	}
 }
 
 func (s *UserService) GetUser(ctx context.Context, id string) (*domain.User, error) {
@@ -27,126 +28,67 @@ func (s *UserService) ListUsers(ctx context.Context) ([]domain.User, error) {
 	return s.repo.List(ctx)
 }
 
-func (s *UserService) CreateUser(ctx context.Context, u *domain.User, password string) error {
-	// 1. Force client type as per user request
-	u.UserType = "client"
-
-	// 2. Generate ID if missing (Standard format: uYYYYMMDDHHMMSS)
-	if u.ID == "" {
-		u.ID = "u" + time.Now().Format("20060102150405")
-	}
-
-	// 2. Generate Username if missing
-	if u.Username == "" {
-		u.Username = s.generateUsername(u.Name, u.ID)
-	}
-
-	// 3. Hash Password
-	if password == "" {
-		password = "password123"
-	}
-	hash, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
-	if err != nil {
-		return fmt.Errorf("failed to hash password: %w", err)
-	}
-	u.PasswordHash = string(hash)
-
-	if u.Status == "" {
-		u.Status = domain.StatusActive
-	}
-
-	return s.repo.Create(ctx, u)
-}
-
-func (s *UserService) UpdateUser(ctx context.Context, id string, payload map[string]interface{}) error {
-	existing, err := s.repo.Get(ctx, id)
-	if err != nil {
-		return err
-	}
-	if existing == nil {
-		return fmt.Errorf("user not found")
-	}
-
-	// Overlay logic
-	if v, ok := payload["user_name"].(string); ok {
-		existing.Name = v
-	}
-	if v, ok := payload["user_type"].(string); ok {
-		existing.UserType = v
-	}
-	if v, ok := payload["email"].(string); ok {
-		existing.ContactEmail = v
-	}
-	if v, ok := payload["phone"].(string); ok {
-		existing.ContactPhone = v
-	}
-	if v, ok := payload["username"].(string); ok {
-		existing.Username = v
-	}
-	if v, ok := payload["status"].(string); ok {
-		existing.Status = v
-	}
-	if v, ok := payload["address"].(string); ok {
-		existing.Address = v
-	}
-	if v, ok := payload["lat"].(float64); ok {
-		existing.Latitude = v
-	}
-	if v, ok := payload["lng"].(float64); ok {
-		existing.Longitude = v
-	}
-	if v, ok := payload["bridge_status"].(string); ok && v != "" {
-		existing.BridgeStatus = v
-	}
-	if v, ok := payload["bridge_ws_url"]; ok {
-		if v == nil {
-			existing.BridgeWSURL = nil
-		} else if s, ok := v.(*string); ok {
-			existing.BridgeWSURL = s
-		} else if s, ok := v.(string); ok && s != "" {
-			existing.BridgeWSURL = &s
-		}
-	}
-	if v, ok := payload["bridge_auth_token"]; ok {
-		if v == nil {
-			existing.BridgeAuthToken = nil
-		} else if s, ok := v.(*string); ok {
-			existing.BridgeAuthToken = s
-		} else if s, ok := v.(string); ok && s != "" {
-			existing.BridgeAuthToken = &s
-		}
-	}
-
-	if v, ok := payload["password"].(string); ok && v != "" {
-		hash, err := bcrypt.GenerateFromPassword([]byte(v), bcrypt.DefaultCost)
+func (s *UserService) CreateUser(ctx context.Context, user *domain.User, password string) error {
+	if password != "" {
+		hash, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
 		if err != nil {
 			return fmt.Errorf("failed to hash password: %w", err)
 		}
-		existing.PasswordHash = string(hash)
+		user.PasswordHash = string(hash)
 	}
 
-	return s.repo.Update(ctx, existing)
+	err := s.repo.Create(ctx, user)
+	if err == nil {
+		s.analytics.LogActivity(ctx, user.ID, "User Registered", "user", user.ID, fmt.Sprintf("New user account created for %s", user.Name))
+	}
+	return err
+}
+
+func (s *UserService) UpdateUser(ctx context.Context, id string, payload map[string]interface{}) error {
+	user, err := s.repo.Get(ctx, id)
+	if err != nil {
+		return err
+	}
+	if user == nil {
+		return fmt.Errorf("user not found")
+	}
+
+	// Manual patching from map - matching frontend keys and JSON tags
+	if name, ok := payload["user_name"].(string); ok { user.Name = name }
+	if username, ok := payload["username"].(string); ok { user.Username = username }
+	if uType, ok := payload["user_type"].(string); ok { user.UserType = uType }
+	if email, ok := payload["email"].(string); ok { user.ContactEmail = email }
+	if phone, ok := payload["phone"].(string); ok { user.ContactPhone = phone }
+	if status, ok := payload["status"].(string); ok { user.Status = status }
+	if addr, ok := payload["address"].(string); ok { user.Address = addr }
+	
+	// Handle coordinates
+	if lat, ok := payload["lat"].(float64); ok { user.Latitude = lat }
+	if lng, ok := payload["lng"].(float64); ok { user.Longitude = lng }
+
+	if bridgeWS, ok := payload["bridge_ws_url"].(string); ok { user.BridgeWSURL = &bridgeWS }
+	if bridgeAuth, ok := payload["bridge_auth_token"].(string); ok { user.BridgeAuthToken = &bridgeAuth }
+	if bridgeStat, ok := payload["bridge_status"].(string); ok { user.BridgeStatus = bridgeStat }
+
+	if pwd, ok := payload["password"].(string); ok && pwd != "" {
+		hash, err := bcrypt.GenerateFromPassword([]byte(pwd), bcrypt.DefaultCost)
+		if err != nil {
+			return fmt.Errorf("failed to hash password: %w", err)
+		}
+		user.PasswordHash = string(hash)
+	}
+
+	err = s.repo.Update(ctx, user)
+	if err == nil {
+		s.analytics.LogActivity(ctx, id, "User Updated", "user", id, "User profile and/or bridge configuration modified")
+	}
+	return err
 }
 
 func (s *UserService) DeleteUser(ctx context.Context, id string) error {
-	return s.repo.Delete(ctx, id)
-}
-
-func (s *UserService) generateUsername(name, id string) string {
-	baseName := ""
-	for _, char := range name {
-		if (char >= 'a' && char <= 'z') || (char >= 'A' && char <= 'Z') || (char >= '0' && char <= '9') {
-			baseName += strings.ToLower(string(char))
-		} else if char == ' ' {
-			baseName += "_"
-		}
+	err := s.repo.Delete(ctx, id)
+	if err == nil {
+		s.analytics.LogActivity(ctx, id, "User Deleted", "user", id, "User account deactivated/removed")
 	}
-	if len(baseName) > 15 {
-		baseName = baseName[:15]
-	}
-	suffix := ""
-	if len(id) >= 4 {
-		suffix = id[len(id)-4:]
-	}
-	return baseName + "_" + suffix
+	return err
 }

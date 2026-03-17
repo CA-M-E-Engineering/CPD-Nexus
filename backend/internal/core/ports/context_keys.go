@@ -7,7 +7,8 @@ type ContextKey string
 const (
 	UserIDKey   ContextKey = "userID"
 	IsVendorKey ContextKey = "isVendor"
-	UsernameKey ContextKey = "username"
+	UsernameKey  ContextKey = "username"
+	IPAddressKey ContextKey = "ipAddress"
 )
 
 // GetUserID retrieves the userID from the context.
@@ -29,6 +30,14 @@ func IsVendor(ctx context.Context) bool {
 // GetUsername retrieves the username from the context.
 func GetUsername(ctx context.Context) string {
 	if v, ok := ctx.Value(UsernameKey).(string); ok {
+		return v
+	}
+	return ""
+}
+
+// GetIPAddress retrieves the client's IP address from the context.
+func GetIPAddress(ctx context.Context) string {
+	if v, ok := ctx.Value(IPAddressKey).(string); ok {
 		return v
 	}
 	return ""

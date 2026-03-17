@@ -10,7 +10,10 @@ const navigation = {
     [ROLES.MANAGER]: [
         {
             title: 'Overview',
-            items: [{ id: 'dashboard', label: 'Dashboard', icon: 'ri-dashboard-line' }]
+            items: [
+                { id: 'dashboard', label: 'Dashboard', icon: 'ri-dashboard-line' },
+                { id: 'activity-log', label: 'Activity Logs', icon: 'ri-history-line' }
+            ]
         },
         {
             title: 'Management',
@@ -30,7 +33,10 @@ const navigation = {
     [ROLES.CLIENT]: [
         {
             title: 'Overview',
-            items: [{ id: 'dashboard', label: 'Dashboard', icon: 'ri-dashboard-line' }]
+            items: [
+                { id: 'dashboard', label: 'Dashboard', icon: 'ri-dashboard-line' },
+                { id: 'activity-log', label: 'Activity Logs', icon: 'ri-history-line' }
+            ]
         },
         {
             title: 'Management',
@@ -68,6 +74,7 @@ const breadcrumbMapping = {
     'analytics': 'Operational Insights',
     'settings': 'System Settings',
     'pitstop-auth': 'Pitstop Authorisations',
+    'activity-log': 'Activity Logs',
     'project-assign-workers': 'Workers / Assignment',
     'site-assign-project': 'Projects / Site Assignment',
     'site-assign-device': 'Devices / Site Assignment',
