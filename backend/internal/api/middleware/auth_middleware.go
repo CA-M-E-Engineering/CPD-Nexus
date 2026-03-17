@@ -19,59 +19,64 @@ func SetJWTSecret(secret string) {
 	jwtSecret = []byte(secret)
 }
 
-// UserScopeMiddleware validates the JWT from the Authorization header and populates
-// the request context with user_id and isVendor status extracted from token claims.
+// UserScopeMiddleware validates the JWT and ensures the user exists and is active.
 // The X-User-ID header is intentionally ignored to prevent spoofing.
-func UserScopeMiddleware(next http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		var tokenStr string
-		authHeader := r.Header.Get("Authorization")
-		if authHeader != "" && strings.HasPrefix(authHeader, "Bearer ") {
-			tokenStr = strings.TrimPrefix(authHeader, "Bearer ")
-		} else {
-			cookie, err := r.Cookie("auth_token")
-			if err == nil {
-				tokenStr = cookie.Value
+func UserScopeMiddleware(userRepo ports.UserRepository) func(http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			var tokenStr string
+			authHeader := r.Header.Get("Authorization")
+			if authHeader != "" && strings.HasPrefix(authHeader, "Bearer ") {
+				tokenStr = strings.TrimPrefix(authHeader, "Bearer ")
+			} else {
+				cookie, err := r.Cookie("auth_token")
+				if err == nil {
+					tokenStr = cookie.Value
+				}
 			}
-		}
 
-		if tokenStr == "" {
-			// No token — allow request to continue but with no user scope.
-			// RequireUserScope middleware will reject it if the route needs auth.
-			next.ServeHTTP(w, r)
-			return
-		}
+			if tokenStr == "" {
+				next.ServeHTTP(w, r)
+				return
+			}
 
-		claims, err := validateJWT(tokenStr)
-		if err != nil {
-			http.Error(w, "Unauthorized: invalid or expired token", http.StatusUnauthorized)
-			return
-		}
+			claims, err := validateJWT(tokenStr)
+			if err != nil {
+				http.Error(w, "Unauthorized: invalid or expired token", http.StatusUnauthorized)
+				return
+			}
 
-		userID, _ := claims["user_id"].(string)
-		username, _ := claims["username"].(string)
-		userType, _ := claims["user_type"].(string)
+			userID, _ := claims["user_id"].(string)
+			username, _ := claims["username"].(string)
+			userType, _ := claims["user_type"].(string)
 
-		ctx := context.WithValue(r.Context(), ports.UserIDKey, userID)
-		ctx = context.WithValue(ctx, ports.UsernameKey, username)
+			// --- New: Validate legitimacy of the User ID in Database ---
+			// Ensure the user account has not been deactivated or deleted since the token was issued.
+			user, err := userRepo.Get(r.Context(), userID)
+			if err != nil || user == nil || user.Status != "active" {
+				http.Error(w, "Unauthorized: user account is inactive or liquidated", http.StatusUnauthorized)
+				return
+			}
 
-		// Capture IP Address
-		ip := r.Header.Get("X-Forwarded-For")
-		if ip == "" {
-			ip = strings.Split(r.RemoteAddr, ":")[0]
-		} else {
-			ip = strings.Split(ip, ",")[0]
-		}
-		ctx = context.WithValue(ctx, ports.IPAddressKey, strings.TrimSpace(ip))
+			ctx := context.WithValue(r.Context(), ports.UserIDKey, userID)
+			ctx = context.WithValue(ctx, ports.UsernameKey, username)
 
-		// Vendor role is derived from JWT claims. Only 'vendor' type has global system-wide visibility.
-		// Standard client 'admin' or 'manager' roles are restricted to their own organization.
-		if userType == "vendor" {
-			ctx = context.WithValue(ctx, ports.IsVendorKey, true)
-		}
+			// Capture IP Address
+			ip := r.Header.Get("X-Forwarded-For")
+			if ip == "" {
+				ip = strings.Split(r.RemoteAddr, ":")[0]
+			} else {
+				ip = strings.Split(ip, ",")[0]
+			}
+			ctx = context.WithValue(ctx, ports.IPAddressKey, strings.TrimSpace(ip))
 
-		next.ServeHTTP(w, r.WithContext(ctx))
-	})
+			if userType == "vendor" {
+				ctx = context.WithValue(ctx, ports.IsVendorKey, true)
+			}
+
+			next.ServeHTTP(w, r.WithContext(ctx))
+		})
+	}
 }
 
 // validateJWT parses and validates a JWT token string, returning its claims.

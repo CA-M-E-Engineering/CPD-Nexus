@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"cpd-nexus/internal/api/handlers"
 	"cpd-nexus/internal/api/middleware"
+	"cpd-nexus/internal/core/ports"
 
 	"github.com/gorilla/mux"
 )
@@ -22,6 +23,7 @@ type RouterConfig struct {
 	SettingsHandler    *handlers.SettingsHandler
 	BridgeSyncHandler  *handlers.BridgeSyncHandler
 	PitstopHandler     *handlers.PitstopHandler
+	UserRepo           ports.UserRepository
 }
 
 // RegisterRoutes sets up all API endpoints
@@ -36,7 +38,7 @@ func RegisterRoutes(r *mux.Router, cfg RouterConfig) {
 	r.HandleFunc("/api/auth/login", cfg.AuthHandler.Login).Methods("POST")
 
 	api := r.PathPrefix("/api").Subrouter()
-	api.Use(middleware.UserScopeMiddleware)
+	api.Use(middleware.UserScopeMiddleware(cfg.UserRepo))
 
 	// --- Auth Routes (Protected) ---
 	api.HandleFunc("/auth/me", cfg.AuthHandler.Me).Methods("GET")

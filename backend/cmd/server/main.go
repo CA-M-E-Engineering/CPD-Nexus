@@ -93,6 +93,7 @@ func main() {
 		AnalyticsHandler:   apiHandlers.NewAnalyticsHandler(analyticsService),
 		AttendanceHandler:  apiHandlers.NewAttendanceHandler(attendanceService),
 		PitstopHandler:     apiHandlers.NewPitstopHandler(pitstopService),
+		UserRepo:           userRepo,
 		// SettingsHandler will be added later after Schedulers are ready
 	}
 
