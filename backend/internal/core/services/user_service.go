@@ -9,14 +9,16 @@ import (
 )
 
 type UserService struct {
-	repo      ports.UserRepository
-	analytics ports.AnalyticsService
+	repo            ports.UserRepository
+	analytics       ports.AnalyticsService
+	defaultPassword string
 }
 
-func NewUserService(repo ports.UserRepository, analytics ports.AnalyticsService) ports.UserService {
+func NewUserService(repo ports.UserRepository, analytics ports.AnalyticsService, defaultPassword string) ports.UserService {
 	return &UserService{
-		repo:      repo,
-		analytics: analytics,
+		repo:            repo,
+		analytics:       analytics,
+		defaultPassword: defaultPassword,
 	}
 }
 
@@ -29,8 +31,14 @@ func (s *UserService) ListUsers(ctx context.Context) ([]domain.User, error) {
 }
 
 func (s *UserService) CreateUser(ctx context.Context, user *domain.User, password string) error {
-	if password != "" {
-		hash, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
+	// If no password provided, use the global default password to avoid hardcoding specific user credentials
+	finalPassword := password
+	if finalPassword == "" {
+		finalPassword = s.defaultPassword
+	}
+
+	if finalPassword != "" {
+		hash, err := bcrypt.GenerateFromPassword([]byte(finalPassword), bcrypt.DefaultCost)
 		if err != nil {
 			return fmt.Errorf("failed to hash password: %w", err)
 		}

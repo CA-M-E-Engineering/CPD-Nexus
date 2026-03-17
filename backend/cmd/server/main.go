@@ -71,7 +71,7 @@ func main() {
 	workerService := services.NewWorkerService(workerRepo, analyticsService)
 	attendanceService := services.NewAttendanceService(attendanceRepo, workerRepo, deviceRepo, analyticsService)
 	authService := services.NewAuthService(userRepo, cfg.JWTSecret, analyticsService)
-	userService := services.NewUserService(userRepo, analyticsService)
+	userService := services.NewUserService(userRepo, analyticsService, cfg.DefaultUserPassword)
 	siteService := services.NewSiteService(siteRepo, analyticsService)
 	projectService := services.NewProjectService(projectRepo, analyticsService)
 	deviceService := services.NewDeviceService(deviceRepo, analyticsService)

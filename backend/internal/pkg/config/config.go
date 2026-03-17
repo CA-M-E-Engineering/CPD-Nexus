@@ -22,6 +22,8 @@ type Config struct {
 	JWTSecret      string
 	AllowedOrigins string
 
+	DefaultUserPassword string
+
 	WorkerIntervalMinutes int
 }
 
@@ -41,6 +43,8 @@ func LoadConfig() *Config {
 		PitstopURL:     getEnv("PITSTOP_URL", "https://ca-me-sgbuildex.pitstop.uat.dextech.ai"),
 		JWTSecret:      getEnvRequired("JWT_SECRET"),
 		AllowedOrigins: getEnv("ALLOWED_ORIGINS", ""),
+
+		DefaultUserPassword: getEnv("DEFAULT_USER_PASSWORD", "Nexus@2026!ChangeMe"),
 
 		WorkerIntervalMinutes: getEnvInt("WORKER_INTERVAL_MINUTES", 5),
 	}
