@@ -52,8 +52,11 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 		"username": user.Username,
 		"role":     "manager", // Default
 	}
-	if user.UserType == "client" {
+	switch user.UserType {
+	case "client":
 		userMap["role"] = "client"
+	case "vendor":
+		userMap["role"] = "vendor"
 	}
 
 	http.SetCookie(w, &http.Cookie{
@@ -96,9 +99,10 @@ func (h *AuthHandler) Me(w http.ResponseWriter, r *http.Request) {
 		"username": user.Username,
 		"role":     "manager", // Default
 	}
-	if user.UserType == "client" {
+	switch user.UserType {
+	case "client":
 		userMap["role"] = "client"
-	} else if user.UserType == "vendor" {
+	case "vendor":
 		userMap["role"] = "vendor"
 	}
 

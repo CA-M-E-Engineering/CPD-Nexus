@@ -207,7 +207,7 @@ func startAPI(cfg *config.Config, routerCfg api.RouterConfig) *http.Server {
 	return server
 }
 
-func startBridge(ctx context.Context, cfg *config.Config, bridgeRepo ports.BridgeRepository, requestMgr *bridge.RequestManager, userSyncBuilder *bridgeHandlers.UserSyncBuilder) {
+func startBridge(ctx context.Context, _ *config.Config, bridgeRepo ports.BridgeRepository, requestMgr *bridge.RequestManager, userSyncBuilder *bridgeHandlers.UserSyncBuilder) {
 	// Connection maintenance loop
 	go func() {
 		for {
