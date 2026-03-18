@@ -27,8 +27,8 @@ func (m *MockPitstopRepository) UpdateAuthorisations(ctx context.Context, auths 
 	return args.Error(0)
 }
 
-func (m *MockPitstopRepository) GetAuthorisations(ctx context.Context) ([]*domain.PitstopAuthorisation, error) {
-	args := m.Called(ctx)
+func (m *MockPitstopRepository) GetAuthorisations(ctx context.Context, userID string) ([]*domain.PitstopAuthorisation, error) {
+	args := m.Called(ctx, userID)
 	return args.Get(0).([]*domain.PitstopAuthorisation), args.Error(1)
 }
 

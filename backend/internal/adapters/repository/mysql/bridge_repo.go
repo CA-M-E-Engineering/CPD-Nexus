@@ -20,9 +20,10 @@ func (r *BridgeRepository) GetActiveBridgeWorkers(ctx context.Context) ([]ports.
 		SELECT w.worker_id, w.user_id, p.site_id 
 		FROM workers w
 		JOIN projects p ON w.current_project_id = p.project_id
-		WHERE w.status = ? AND w.current_project_id IS NOT NULL`
+		JOIN users u ON w.user_id = u.user_id
+		WHERE w.status = ? AND w.current_project_id IS NOT NULL AND u.bridge_status = ?`
 
-	rows, err := r.db.QueryContext(ctx, query, domain.StatusActive)
+	rows, err := r.db.QueryContext(ctx, query, domain.StatusActive, domain.StatusActive)
 	if err != nil {
 		return nil, err
 	}

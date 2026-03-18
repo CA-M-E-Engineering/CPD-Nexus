@@ -23,7 +23,12 @@ func NewPitstopHandler(pitstopService ports.PitstopService) *PitstopHandler {
 
 // GetAuthorisations handles retrieving existing configuration mappings
 func (h *PitstopHandler) GetAuthorisations(w http.ResponseWriter, r *http.Request) {
-	auths, err := h.pitstopService.GetAuthorisations(r.Context())
+	userID := ports.GetUserID(r.Context())
+	if ports.IsVendor(r.Context()) {
+		userID = "" // Vendors can see all mappings
+	}
+
+	auths, err := h.pitstopService.GetAuthorisations(r.Context(), userID)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return

@@ -57,6 +57,7 @@ const workerBaseSelect = `
         u.latitude,
         u.longitude,
         u.address,
+        u.bridge_status,
         p.site_id
     FROM workers w
     LEFT JOIN projects p ON w.current_project_id = p.project_id
@@ -64,7 +65,7 @@ const workerBaseSelect = `
     LEFT JOIN users u ON w.user_id = u.user_id`
 
 func (r *WorkerRepository) List(ctx context.Context, userID, siteID string) ([]domain.Worker, error) {
-	// Use parameterized placeholder for status — never concatenate domain constants into SQL (#3)
+	// Use parameterized placeholder for status — never concatenate domain constants (#3)
 	query := workerBaseSelect + " WHERE w.status = ?"
 	args := []interface{}{domain.StatusActive}
 
@@ -180,9 +181,9 @@ func (r *WorkerRepository) Delete(ctx context.Context, userID, id string) error 
 
 func (r *WorkerRepository) ListByIsSynced(ctx context.Context, userID string, syncStatus int) ([]domain.Worker, error) {
 	// Use parameterized placeholder for status — never concatenate domain constants (#3)
-	query := workerBaseSelect + " WHERE w.is_synced = ? AND w.status = ?"
+	query := workerBaseSelect + " WHERE w.is_synced = ? AND w.status = ? AND u.bridge_status = ?"
 
-	args := []interface{}{syncStatus, domain.StatusActive}
+	args := []interface{}{syncStatus, domain.StatusActive, domain.StatusActive}
 	if userID != "" {
 		query += " AND w.user_id = ?"
 		args = append(args, userID)
@@ -210,7 +211,7 @@ func (r *WorkerRepository) scanRow(scanner Scanner) (*domain.Worker, error) {
 	var status, projID, siteID sql.NullString
 	var userType sql.NullString
 	var pPassType, pNationality, pTrade sql.NullString
-	var pName, sName, sLoc, uName, uID, uLat, uLng, uAdd sql.NullString
+	var pName, sName, sLoc, uName, uID, uLat, uLng, uAdd, bStatus sql.NullString
 	var aStart, aEnd, fImg, cNum, cType sql.NullString
 	var fdid, isSynced sql.NullInt64
 
@@ -218,7 +219,7 @@ func (r *WorkerRepository) scanRow(scanner Scanner) (*domain.Worker, error) {
 		&w.ID, &w.Name, &userType, &status, &projID,
 		&w.PersonIDNo, &pPassType, &pNationality, &pTrade,
 		&aStart, &aEnd, &fdid, &fImg, &cNum, &cType, &isSynced,
-		&pName, &sName, &sLoc, &uName, &uID, &uLat, &uLng, &uAdd,
+		&pName, &sName, &sLoc, &uName, &uID, &uLat, &uLng, &uAdd, &bStatus,
 		&siteID,
 	)
 	if err != nil {
@@ -287,6 +288,9 @@ func (r *WorkerRepository) scanRow(scanner Scanner) (*domain.Worker, error) {
 	}
 	if uAdd.Valid {
 		w.UserAddress = uAdd.String
+	}
+	if bStatus.Valid {
+		w.BridgeStatus = bStatus.String
 	}
 
 	return &w, nil

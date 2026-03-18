@@ -39,8 +39,8 @@ func NewPitstopService(
 }
 
 // GetAuthorisations returns the currently stored authorisations. (Globally visible for Vendors)
-func (s *PitstopService) GetAuthorisations(ctx context.Context) ([]*domain.PitstopAuthorisation, error) {
-	return s.pitstopRepo.GetAuthorisations(ctx)
+func (s *PitstopService) GetAuthorisations(ctx context.Context, userID string) ([]*domain.PitstopAuthorisation, error) {
+	return s.pitstopRepo.GetAuthorisations(ctx, userID)
 }
 
 // SyncConfig fetches the newest configs from the Pitstop API and upserts them
@@ -52,7 +52,7 @@ func (s *PitstopService) SyncConfig(ctx context.Context, userID string) error {
 	}
 
 	// 2. Load existing to maintain consistent ID for Insert/Update checks
-	existingAuths, _ := s.pitstopRepo.GetAuthorisations(ctx)
+	existingAuths, _ := s.pitstopRepo.GetAuthorisations(ctx, "")
 	existingMap := make(map[string]*domain.PitstopAuthorisation)
 	for _, e := range existingAuths {
 		key := fmt.Sprintf("%s|%s|%s", e.DatasetID, e.RegulatorID, e.OnBehalfOfID)
@@ -163,13 +163,18 @@ func (s *PitstopService) TestSubmission(ctx context.Context, userID, projectID s
 		return 0, 0, nil
 	}
 
-	// Submit via the port interface — no concrete adapter type referenced
 	submittedCount, failedCount, err = s.externalClient.SubmitManpowerUtilization(ctx, s.submissionRepo, settings, rows)
+
+	details := fmt.Sprintf("Submitted %d records (%d validation failed) for project %s", submittedCount, failedCount, projectID)
+	if err != nil {
+		details = fmt.Sprintf("Submission failed: %v. Records processed: %d", err, submittedCount)
+	}
+
+	s.analytics.LogActivity(ctx, userID, "Manual CPD Submission", "project", projectID, details)
+
 	if err != nil {
 		return submittedCount, failedCount, fmt.Errorf("failed to submit payloads: %w", err)
 	}
-
-	s.analytics.LogActivity(ctx, userID, "Manual CPD Submission", "project", projectID, fmt.Sprintf("Submitted %d records (%d failed) for project %s", submittedCount, failedCount, projectID))
 	return submittedCount, failedCount, nil
 }
 

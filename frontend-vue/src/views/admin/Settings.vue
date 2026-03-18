@@ -28,14 +28,10 @@ const sampleJson = computed(() => {
   return JSON.stringify({
     "participants": [
       {
-        "id": "S8000001W",
-        "name": "Worker Ali",
+        "id": "REG-BCA-01",
+        "name": "BCA",
         "meta": {
           "data_ref_id": "PROJ-JUR-01"
-        },
-        "on_behalf_of": {
-          "id": "S8000001W",
-          "name": "Worker Ali"
         }
       }
     ],
@@ -49,7 +45,6 @@ const sampleJson = computed(() => {
         "main_contractor_company_name": "Mega Engineering",
         "main_contractor_company_unique_entity_number": "MEGA12345X",
         "person_id_no": "S8000001W",
-        "person_name": "Worker Ali",
         "person_id_and_work_pass_type": "NRIC",
         "person_trade": "ELEC",
         "person_employer_company_name": "Mega Engineering",

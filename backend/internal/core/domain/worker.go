@@ -37,6 +37,7 @@ type Worker struct {
 	UserID       string `json:"user_id,omitempty"`
 	UserLocation string `json:"user_location,omitempty"`
 	UserAddress  string `json:"user_address,omitempty"`
+	BridgeStatus string `json:"bridge_status,omitempty"`
 }
 
 type UpdateWorkerRequest struct {

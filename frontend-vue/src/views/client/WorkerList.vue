@@ -73,9 +73,11 @@ onMounted(fetchWorkers);
 
 const filteredWorkers = computed(() => {
   return workers.value.filter(worker => {
+    const isEffectiveSynced = worker.is_synced === 1 || worker.bridge_status !== 'active';
+    
     if (activeFilter.value === 'All') return true;
-    if (activeFilter.value === 'Synced') return worker.is_synced === 1;
-    if (activeFilter.value === 'Pending') return worker.is_synced === 0;
+    if (activeFilter.value === 'Synced') return isEffectiveSynced;
+    if (activeFilter.value === 'Pending') return !isEffectiveSynced;
     return true;
   });
 });
@@ -184,8 +186,8 @@ const deleteWorker = async () => {
       </template>
 
       <template #cell-is_synced="{ item }">
-        <BaseBadge :type="item.is_synced === 1 ? 'success' : 'warning'">
-          {{ item.is_synced === 1 ? 'Synced' : 'Pending' }}
+        <BaseBadge :type="(item.is_synced === 1 || item.bridge_status !== 'active') ? 'success' : 'warning'">
+          {{ (item.is_synced === 1 || item.bridge_status !== 'active') ? 'Synced' : 'Pending' }}
         </BaseBadge>
       </template>
 

@@ -27,34 +27,40 @@ func (s *AnalyticsService) GetActivityLog(ctx context.Context, userID string, fi
 }
 
 func (s *AnalyticsService) LogActivity(ctx context.Context, userID, action, targetType, targetID, details string) error {
-	// Identify the actor performing the action from context
+	// Identify the ACTOR performing the action from context
 	actorID := ports.GetUserID(ctx)
 	actorName := ports.GetUsername(ctx)
 
-	// Determine log "owner" (who sees it in their feed). 
-	// Default to the provided userID, but override with actorID if available 
+	// Determine log "owner" (whose feed/scope it belongs to).
+	// If a specific userID is passed (target of the action), use it.
+	// Otherwise, fallback to the actorID.
 	ownerID := userID
-	if actorID != "" {
-		ownerID = actorID
+	if ownerID == "" || ownerID == "system" {
+		if actorID != "" {
+			ownerID = actorID
+		} else if ownerID == "" {
+			ownerID = "system"
+		}
 	}
 
-	// PROACTIVE ENHANCEMENT: Resolve names if they are IDs or missing
+	// PROACTIVE ENHANCEMENT: Resolve actor name if missing
 	if (actorName == "" || actorName == actorID) && actorID != "" && s.userRepo != nil {
 		if u, err := s.userRepo.Get(ctx, actorID); err == nil && u != nil {
 			actorName = u.Name
 		}
 	}
 
-	// FALLBACKS
+	// FALLBACKS for Actor Name
 	if actorName == "" {
-		if action == "Login" && userID != "" && s.userRepo != nil {
-			// For login, the actorID is not yet in context, use passed userID
+		if actorID != "" {
+			actorName = actorID
+		} else if action == "Login" && userID != "" && s.userRepo != nil {
 			if u, err := s.userRepo.Get(ctx, userID); err == nil && u != nil {
 				actorName = u.Name
 			} else {
 				actorName = userID
 			}
-		} else if userID == "system" {
+		} else if ownerID == "system" {
 			actorName = "System"
 		} else {
 			actorName = "Anonymous"

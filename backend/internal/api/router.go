@@ -57,7 +57,7 @@ func RegisterRoutes(r *mux.Router, cfg RouterConfig) {
 	admin.HandleFunc("/devices", cfg.DevicesHandler.CreateDevice).Methods("POST")
 
 	if cfg.PitstopHandler != nil {
-		admin.HandleFunc("/pitstop/authorisations", cfg.PitstopHandler.GetAuthorisations).Methods("GET")
+
 		admin.HandleFunc("/pitstop/authorisations/sync", cfg.PitstopHandler.SyncConfig).Methods("POST")
 		admin.HandleFunc("/users/{id}/pitstop-on-behalf-of", cfg.PitstopHandler.AssignOnBehalfOf).Methods("POST")
 	}
@@ -121,6 +121,7 @@ func RegisterRoutes(r *mux.Router, cfg RouterConfig) {
 
 	// --- Pitstop Test Endpoints (Scoped/Admin) ---
 	if cfg.PitstopHandler != nil {
+		scoped.HandleFunc("/pitstop/authorisations", cfg.PitstopHandler.GetAuthorisations).Methods("GET")
 		scoped.HandleFunc("/pitstop/authorisations/testing-projects", cfg.PitstopHandler.GetTestingProjects).Methods("GET")
 		scoped.HandleFunc("/pitstop/authorisations/test-submission/{project_id}", cfg.PitstopHandler.TestSubmission).Methods("POST")
 	}

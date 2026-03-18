@@ -81,7 +81,7 @@ const fetchData = async () => {
 
         const [sitesData, authsData] = await Promise.all(promises);
         sites.value = sitesData || [];
-        pitstopAuths.value = (authsData || []).filter(auth => auth.user_id === userId);
+        pitstopAuths.value = authsData || [];
     } catch (err) {
         console.error('Failed to load dependency data', err);
     }

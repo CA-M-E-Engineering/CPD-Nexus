@@ -20,7 +20,11 @@ func (r *SubmissionRepository) LogSubmission(ctx context.Context, dataElementID,
 		INSERT INTO submission_logs (data_element_id, internal_id, status, payload, error_message)
 		VALUES (?, ?, ?, ?, ?)
 	`
-	_, err := r.db.ExecContext(ctx, query, dataElementID, internalID, status, payload, errorMessage)
+	var p interface{} = payload
+	if payload == "" {
+		p = nil
+	}
+	_, err := r.db.ExecContext(ctx, query, dataElementID, internalID, status, p, errorMessage)
 	return err
 }
 
@@ -30,6 +34,10 @@ func (r *SubmissionRepository) UpdateAttendanceStatus(ctx context.Context, atten
 		SET status = ?, response_payload = ?, error_message = ?, updated_at = ?
 		WHERE attendance_id = ?
 	`
-	_, err := r.db.ExecContext(ctx, query, status, responsePayload, errorMessage, time.Now(), attendanceID)
+	var p interface{} = responsePayload
+	if responsePayload == "" {
+		p = nil
+	}
+	_, err := r.db.ExecContext(ctx, query, status, p, errorMessage, time.Now(), attendanceID)
 	return err
 }
