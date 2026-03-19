@@ -36,9 +36,13 @@ func (h *AnalyticsHandler) GetActivityLog(w http.ResponseWriter, r *http.Request
 	isVendor := ports.IsVendor(r.Context())
 	contextUserID := ports.GetUserID(r.Context())
 
-	// Security: If not vendor, force filter to context user ID regardless of what query says
+	// Security/Defaulting: 
+	// 1. If not vendor, force filter to context user ID to prevent data leakage.
+	// 2. If vendor and no specific user_id requested (or own id), default to "all" for system-wide visibility.
 	if !isVendor {
 		userID = contextUserID
+	} else if userID == "" || userID == contextUserID {
+		userID = "all"
 	}
 
 	if userID == "" {

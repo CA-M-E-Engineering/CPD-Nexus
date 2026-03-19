@@ -33,28 +33,9 @@ const targetTypeOptions = [
 const fetchLogs = async () => {
   loading.value = true;
   try {
-    const savedUser = localStorage.getItem('auth_user');
-    let userId = null;
-    let isAdmin = false;
-    if (savedUser) {
-        try {
-            const user = JSON.parse(savedUser);
-            userId = user.id || user.user_id;
-            // Only 'vendor' can see system-wide stats/logs
-            isAdmin = user.role === 'vendor' || user.user_type === 'vendor';
-        } catch (e) {
-            console.error("Failed to parse user data from localStorage", e);
-            // If parsing fails, userId remains null and isAdmin remains false,
-            // which means the user will only see their own logs (or no logs if userId is null).
-        }
-    }
-
-    const params = {
-      user_id: isAdmin ? 'all' : userId,
-      ...filters.value
-    };
-
-    const data = await api.getActivityLog(params);
+    // The backend now handles role-based scoping automatically.
+    // Vendors see "all" records by default, others see only their own.
+    const data = await api.getActivityLog(filters.value);
     logs.value = data;
   } catch (err) {
     console.error("Failed to load activity logs", err);
