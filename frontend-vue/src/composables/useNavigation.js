@@ -59,9 +59,7 @@ const breadcrumbMapping = {
     'devices': 'Devices / Registry',
     'device-detail': 'Devices / Detail',
     'device-add': 'Devices / Provision',
-    'device-request': 'Devices / Request Deployment',
     'sites': 'Sites / Management',
-    'site-detail': 'Sites / Detail',
     'site-add': 'Sites / New Site',
     'projects': 'Projects / Management',
     'project-detail': 'Projects / Detail',
@@ -75,8 +73,6 @@ const breadcrumbMapping = {
     'pitstop-auth': 'Pitstop Authorisations',
     'activity-log': 'Activity Logs',
     'project-assign-workers': 'Workers / Assignment',
-    'site-assign-project': 'Projects / Site Assignment',
-    'site-assign-device': 'Devices / Site Assignment',
     'user-assign-device': 'Devices / User Allocation'
 };
 

@@ -149,7 +149,7 @@ const deleteSite = async () => {
       </template>
     </TableToolbar>
 
-    <DataTable :loading="isLoading" :columns="columns" :data="filteredSites" row-clickable @row-click="handleRowClick">
+    <DataTable :loading="isLoading" :columns="columns" :data="filteredSites" row-clickable @row-click="(item) => handleEdit(item)">
       <template #cell-site_name="{ item }">
         <div>
           <strong>{{ item.site_name }}</strong>
@@ -173,10 +173,7 @@ const deleteSite = async () => {
 
       <template #cell-actions="{ item }">
         <div class="action-buttons">
-          <BaseButton variant="ghost" size="sm" @click="handleEdit(item)">
-            <i class="ri-edit-line"></i> Edit
-          </BaseButton>
-          <BaseButton variant="ghost" size="sm" class="delete-btn" @click="confirmDelete(item)">
+          <BaseButton variant="ghost" size="sm" class="delete-btn" @click.stop="confirmDelete(item)">
             <i class="ri-delete-bin-line"></i> Delete
           </BaseButton>
         </div>

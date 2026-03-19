@@ -28,7 +28,6 @@ import ActivityLogs from './views/admin/ActivityLogs.vue';
 // Client Views
 import ClientDashboard from './views/client/Dashboard.vue';
 import ClientSiteList from './views/client/SiteList.vue';
-import ClientSiteDetail from './views/client/SiteDetail.vue';
 import ClientSiteAdd from './views/client/SiteAdd.vue';
 import ClientProjectList from './views/client/ProjectList.vue';
 import ClientProjectAdd from './views/client/ProjectAdd.vue';
@@ -41,10 +40,8 @@ import ClientAttendanceList from './views/client/AttendanceList.vue';
 
 // Maintenance Views
 import DeviceAddMaintenance from './views/maintenance/DeviceAddMaintenance.vue';
-import SiteAssignProject from './views/maintenance/SiteAssignProject.vue';
 import ProjectAssignWorkers from './views/maintenance/ProjectAssignWorkers.vue';
 import UserAssignDevice from './views/maintenance/UserAssignDevice.vue';
-import SiteAssignDevice from './views/maintenance/SiteAssignDevice.vue';
 import WorkerAssignProject from './views/maintenance/WorkerAssignProject.vue';
 
 const { 
@@ -129,9 +126,7 @@ const currentComponent = computed(() => {
     const componentMap = {
       'dashboard': ClientDashboard,
       'sites': ClientSiteList,
-      'site-detail': ClientSiteDetail,
       'site-add': ClientSiteAdd,
-      'device-request': SiteAssignDevice,
       'projects': ClientProjectList,
       'project-detail': ClientProjectDetail,
       'project-add': ClientProjectAdd,
@@ -140,8 +135,6 @@ const currentComponent = computed(() => {
 
       'worker-assign-project': WorkerAssignProject,
       'project-assign-workers': ProjectAssignWorkers,
-      'site-assign-project': SiteAssignProject,
-      'site-assign-device': SiteAssignDevice,
       'devices': ClientDeviceList,
       'device-detail': DeviceDetail,
       'attendance': ClientAttendanceList,
