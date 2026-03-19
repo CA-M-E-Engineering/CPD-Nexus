@@ -127,6 +127,10 @@ func RegisterRoutes(r *mux.Router, cfg RouterConfig) {
 		scoped.HandleFunc("/pitstop/authorisations/test-submission/{project_id}", cfg.PitstopHandler.TestSubmission).Methods("POST")
 	}
 
-	// Serve Static Files
-	r.PathPrefix("/uploads/").Handler(http.StripPrefix("/uploads/", http.FileServer(http.Dir("./uploads"))))
+	// Serve Static Files — protected behind user scope so biometric uploads are not publicly accessible
+	r.PathPrefix("/uploads/").Handler(
+		middleware.RequireUserScope(
+			http.StripPrefix("/uploads/", http.FileServer(http.Dir("./uploads"))),
+		),
+	)
 }

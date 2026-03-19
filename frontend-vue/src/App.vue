@@ -57,36 +57,23 @@ const handleLoginSuccess = (data) => {
   user.value = data.user;
   setRole(data.role);
   isAuthenticated.value = true;
-  localStorage.setItem('auth_user', JSON.stringify(data.user));
+  // Session is managed exclusively via HttpOnly cookie set by the backend.
+  // We intentionally do NOT store auth data in localStorage (XSS risk).
 };
 
 const handleLogout = () => {
   isAuthenticated.value = false;
   user.value = null;
-  localStorage.removeItem('auth_user'); // Clear user data
   setRole(ROLES.MANAGER);
 };
 
-// Check for existing session
+// Restore session from HTTPOnly cookie via /auth/me endpoint
 const checkAuth = async () => {
-  const savedUser = localStorage.getItem('auth_user');
-  
-  if (savedUser) {
-    try {
-      const userData = JSON.parse(savedUser);
-      handleLoginSuccess({ user: userData, role: userData.role || ROLES.MANAGER });
-    } catch (e) {
-      console.error("Session restore failed", e);
-      localStorage.removeItem('auth_user');
-    }
-  } else {
-    // Attempt to restore session using HTTPOnly cookie
-    try {
-        const userData = await api.getUserProfile();
-        handleLoginSuccess({ user: userData, role: userData.role });
-    } catch (e) {
-        // No active session
-    }
+  try {
+    const userData = await api.getUserProfile();
+    handleLoginSuccess({ user: userData, role: userData.role });
+  } catch (e) {
+    // No active session — user must log in
   }
 };
 

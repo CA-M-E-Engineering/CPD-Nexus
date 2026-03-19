@@ -11,6 +11,9 @@ type AttendanceRepository interface {
 	List(ctx context.Context, userID, siteID, workerID, date string) ([]domain.Attendance, error)
 	Create(ctx context.Context, a *domain.Attendance) error
 	GetMaxID(ctx context.Context, pattern string) (string, error)
+	// GenerateNextID atomically generates the next sequential attendance ID for a given day.
+	// This is implemented at the DB layer to be safe for multi-instance deployments.
+	GenerateNextID(ctx context.Context) (string, error)
 	Update(ctx context.Context, userID, id string, timeIn, timeOut *time.Time) error
 	ExtractPendingAttendance(ctx context.Context) ([]domain.AttendanceRow, error)
 	ExtractPendingAttendanceByProject(ctx context.Context, userID, projectID string) ([]domain.AttendanceRow, error)

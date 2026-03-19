@@ -78,6 +78,11 @@ func (m *MockAttendanceRepository) GetMaxID(ctx context.Context, pattern string)
 	return args.String(0), args.Error(1)
 }
 
+func (m *MockAttendanceRepository) GenerateNextID(ctx context.Context) (string, error) {
+	args := m.Called(ctx)
+	return args.String(0), args.Error(1)
+}
+
 func (m *MockAttendanceRepository) Update(ctx context.Context, userID, id string, timeIn, timeOut *time.Time) error {
 	args := m.Called(ctx, userID, id, timeIn, timeOut)
 	return args.Error(0)

@@ -35,12 +35,12 @@ func (s *AuthService) Login(ctx context.Context, username, password string) (str
 		return "", nil, errors.New("invalid credentials")
 	}
 
-	// Issue a real signed JWT
+	// Issue a real signed JWT — 2 hour expiry to limit stolen-token blast radius
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
 		"user_id":   user.ID,
 		"username":  user.Username,
 		"user_type": user.UserType,
-		"exp":       time.Now().Add(24 * time.Hour).Unix(),
+		"exp":       time.Now().Add(2 * time.Hour).Unix(),
 		"iat":       time.Now().Unix(),
 	})
 

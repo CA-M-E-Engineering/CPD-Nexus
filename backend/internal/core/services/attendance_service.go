@@ -5,8 +5,6 @@ import (
 	"fmt"
 	"cpd-nexus/internal/core/domain"
 	"cpd-nexus/internal/core/ports"
-	"strings"
-	"sync"
 	"time"
 )
 
@@ -15,10 +13,7 @@ type AttendanceService struct {
 	workerRepo ports.WorkerRepository
 	deviceRepo ports.DeviceRepository
 	analytics  ports.AnalyticsService
-
-	mu      sync.Mutex
-	lastSeq int
-	lastDay string
+	// No in-process state for ID generation — delegated to the DB for scale safety.
 }
 
 func NewAttendanceService(repo ports.AttendanceRepository, workerRepo ports.WorkerRepository, deviceRepo ports.DeviceRepository, analytics ports.AnalyticsService) ports.AttendanceService {
@@ -76,9 +71,15 @@ func (s *AttendanceService) ProcessBridgeAttendance(ctx context.Context, workerI
 		tOutPtr = &tOut
 	}
 
-	// 3. Create Attendance Record
+	// 3. Generate attendance ID atomically at the DB layer (scale-safe)
+	attendanceID, err := s.repo.GenerateNextID(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to generate attendance ID: %w", err)
+	}
+
+	// 4. Create Attendance Record
 	attendance := &domain.Attendance{
-		ID:              s.generateNextID(ctx),
+		ID:              attendanceID,
 		DeviceID:        "BRIDGE_AGGREGATED", // No single device ID for aggregated records
 		WorkerID:        worker.ID,
 		SiteID:          worker.SiteID,
@@ -97,29 +98,4 @@ func (s *AttendanceService) ProcessBridgeAttendance(ctx context.Context, workerI
 		s.analytics.LogActivity(ctx, worker.UserID, "Attendance Logged", "worker", worker.ID, fmt.Sprintf("Aggregated attendance processed for %s at site %s", worker.Name, worker.SiteID))
 	}
 	return err
-}
-
-func (s *AttendanceService) generateNextID(ctx context.Context) string {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-
-	day := time.Now().Format("20060102")
-
-	if s.lastDay != day {
-		s.lastDay = day
-		s.lastSeq = 0
-
-		maxID, err := s.repo.GetMaxID(ctx, "ATT-"+day+"-%")
-		if err == nil && maxID != "" {
-			parts := strings.Split(maxID, "-")
-			if len(parts) == 3 {
-				var seq int
-				fmt.Sscanf(parts[2], "%d", &seq)
-				s.lastSeq = seq
-			}
-		}
-	}
-
-	s.lastSeq++
-	return fmt.Sprintf("ATT-%s-%04d", day, s.lastSeq)
 }

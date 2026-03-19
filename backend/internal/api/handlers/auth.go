@@ -63,9 +63,9 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 		Name:     "auth_token",
 		Value:    token,
 		Path:     "/",
-		MaxAge:   86400, // 24 hours
+		MaxAge:   7200, // 2 hours — matches JWT expiry
 		HttpOnly: true,
-		Secure:   false, // Set to true in production with HTTPS
+		Secure:   false, // TODO: Set to true in production (requires HTTPS)
 		SameSite: http.SameSiteLaxMode,
 	})
 

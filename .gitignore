@@ -26,6 +26,9 @@ bin/
 *.dll
 *.so
 *.dylib
+# Compiled server binaries — these are 10MB+ and should not be in version control
+backend/cpd-nexus-server
+backend/tmp/
 backend/sgbuildex.db
 backend/backend_logs*.txt
 

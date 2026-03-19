@@ -3,6 +3,8 @@ package mysql
 import (
 	"context"
 	"database/sql"
+	"fmt"
+	"strings"
 	"time"
 
 	"cpd-nexus/internal/core/domain"
@@ -214,6 +216,46 @@ func (r *AttendanceRepository) GetMaxID(ctx context.Context, pattern string) (st
 		return "", err
 	}
 	return maxID.String, nil
+}
+
+// GenerateNextID atomically generates the next sequential attendance ID for today (e.g. ATT-20260319-0042).
+// Uses a DB transaction with a lock to guarantee no two IDs collide even under horizontal scaling.
+func (r *AttendanceRepository) GenerateNextID(ctx context.Context) (string, error) {
+	tx, err := r.db.BeginTx(ctx, nil)
+	if err != nil {
+		return "", fmt.Errorf("GenerateNextID: begin tx: %w", err)
+	}
+	defer tx.Rollback()
+
+	day := time.Now().Format("20060102")
+	pattern := "ATT-" + day + "-%"
+
+	var maxID sql.NullString
+	// Lock the row(s) so concurrent instances serialize here
+	err = tx.QueryRowContext(ctx, `
+		SELECT MAX(attendance_id)
+		FROM attendance
+		WHERE attendance_id LIKE ?
+		FOR UPDATE
+	`, pattern).Scan(&maxID)
+	if err != nil {
+		return "", fmt.Errorf("GenerateNextID: query max: %w", err)
+	}
+
+	seq := 0
+	if maxID.Valid && maxID.String != "" {
+		parts := strings.Split(maxID.String, "-")
+		if len(parts) == 3 {
+			fmt.Sscanf(parts[2], "%d", &seq)
+		}
+	}
+	seq++
+
+	newID := fmt.Sprintf("ATT-%s-%04d", day, seq)
+	if err := tx.Commit(); err != nil {
+		return "", fmt.Errorf("GenerateNextID: commit: %w", err)
+	}
+	return newID, nil
 }
 
 // ExtractPendingAttendance returns all non-submitted attendance rows with full joined data for SGBuildex submission.
