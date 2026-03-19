@@ -2,11 +2,15 @@
 import { ref, onMounted, computed } from 'vue';
 import { api } from '../../services/api.js';
 import { notification } from '../../services/notification';
-import { MAP_MODES, USER_TYPES } from '../../utils/constants.js';
+import { USER_TYPES } from '../../utils/constants.js';
 import UnifiedMap from '../../components/ui/UnifiedMap.vue';
 import PageHeader from '../../components/ui/PageHeader.vue';
 import BaseInput from '../../components/ui/BaseInput.vue';
 import BaseButton from '../../components/ui/BaseButton.vue';
+import BaseTabs from '../../components/ui/BaseTabs.vue';
+import DataTable from '../../components/ui/DataTable.vue';
+import BaseBadge from '../../components/ui/BaseBadge.vue';
+import ConfirmDialog from '../../components/ui/ConfirmDialog.vue';
 
 const props = defineProps({
   id: [Number, String],
@@ -40,6 +44,60 @@ const formData = ref({
 });
 
 const availableOnBehalfOfs = ref([]);
+const activeTab = ref('Overview');
+const userSites = ref([]);
+const userProjects = ref([]);
+const allOrgs = ref([]);
+const userDevices = ref([]);
+const cpdAuthorisations = ref([]);
+const siteDevicesMap = ref({});
+const currentUser = ref(null);
+const loadingResources = ref(false);
+
+const tabs = computed(() => {
+  const baseTabs = [
+    { id: 'Overview', label: 'Company Overview' },
+    { id: 'Sites', label: 'Sites' },
+    { id: 'Devices', label: 'Devices' }
+  ];
+  return baseTabs;
+});
+
+const loadResources = async () => {
+    if (!isEdit.value || !props.id) return;
+    loadingResources.value = true;
+    try {
+        const [sitesData, allDevices, projectsData, authsData] = await Promise.all([
+            api.getSites({ user_id: props.id }),
+            api.getDevices({ user_id: props.id }),
+            api.getProjects({ user_id: props.id }),
+            api.getPitstopAuthorisations()
+        ]);
+        userSites.value = sitesData || [];
+        userDevices.value = allDevices || [];
+        userProjects.value = projectsData || [];
+        cpdAuthorisations.value = authsData || [];
+
+        // If viewing/editing a vendor-type user
+        if (formData.value.user_type === 'vendor') {
+            const users = await api.getUsers();
+            allOrgs.value = users || [];
+        }
+
+        // Fetch devices for each site
+        const devicePromises = (sitesData || []).map(async (site) => {
+            try {
+                const devices = await api.getDevices({ site_id: site.site_id });
+                siteDevicesMap.value[site.site_id] = devices;
+            } catch (e) { console.error(`Failed for site ${site.site_id}`, e); }
+        });
+        await Promise.all(devicePromises);
+    } catch (e) {
+        console.error('Failed to load sub-resources', e);
+    } finally {
+        loadingResources.value = false;
+    }
+};
 
 const fetchUserAndAuthorisations = async () => {
   isLoading.value = true;
@@ -86,6 +144,8 @@ const fetchUserAndAuthorisations = async () => {
         assigned_on_behalf_ofs: Array.from(assignedToUser)
       };
     }
+    
+    await loadResources();
   } catch (err) {
       console.error('Failed to init user form:', err);
   } finally {
@@ -93,7 +153,12 @@ const fetchUserAndAuthorisations = async () => {
   }
 };
 
-onMounted(fetchUserAndAuthorisations);
+onMounted(async () => {
+    try {
+        currentUser.value = await api.getUserProfile();
+    } catch (e) { console.error('Failed to get profile', e); }
+    fetchUserAndAuthorisations();
+});
 
 const handleSubmit = async () => {
   isSaving.value = true;
@@ -133,108 +198,163 @@ const handleSubmit = async () => {
     isSaving.value = false;
   }
 };
+
+// Resource Management Actions
+const showDeleteConfirm = ref(false);
+const isDeleting = ref(false);
+
+const handleDelete = async () => {
+  isDeleting.value = true;
+  try {
+    await api.deleteUser(props.id);
+    notification.success('Organization deleted successfully');
+    emit('navigate', 'users');
+  } catch (err) {
+    notification.error(err.message || 'Failed to delete organization');
+  } finally {
+    isDeleting.value = false;
+    showDeleteConfirm.value = false;
+  }
+};
+
+const handleReturnToVendor = (deviceId) => {
+    deviceToReturn.value = deviceId;
+    showReturnConfirm.value = true;
+};
+
+const confirmReturnToVendor = async () => {
+    if (!deviceToReturn.value) return;
+    isReturning.value = true;
+    try {
+        await api.assignDevicesToUser(null, [deviceToReturn.value]);
+        notification.success('Device successfully returned to vendor pool');
+        showReturnConfirm.value = false;
+        await loadResources();
+    } catch (e) {
+        notification.error('Failed to return device to pool');
+    } finally {
+        isReturning.value = false;
+        deviceToReturn.value = null;
+    }
+};
+
+// Table Columns
+const projectColumns = [
+  { key: 'title', label: 'Project Title', bold: true },
+  { key: 'reference', label: 'Reference No.', mono: true },
+  { key: 'status', label: 'Current Status' },
+  { key: 'site_count', label: 'Sites' },
+  { key: 'worker_count', label: 'Workers' }
+];
+
+const vendorManagedColumns = [
+  { key: 'username', label: 'ID/Username', bold: true },
+  { key: 'email', label: 'Primary Email' },
+  { key: 'bridge_ws_url', label: 'Bridge URL', mono: true },
+  { key: 'cpd_status', label: 'CPD Status' },
+  { key: 'status', label: 'Account' }
+];
+
+const deviceColumns = [
+  { key: 'device_id', label: 'ID', bold: true },
+  { key: 'model', label: 'Device Model' },
+  { key: 'sn', label: 'Device SN' },
+  { key: 'last_heartbeat', label: 'Last Heartbeat' },
+  { key: 'actions', label: 'Actions', size: 'sm' }
+];
+
+const getCPDStatus = (userId) => {
+  const auth = cpdAuthorisations.value.find(a => a.user_id === userId);
+  return auth ? 'linked' : 'not linked';
+};
 </script>
 
 <template>
   <div class="user-add">
     <PageHeader
-      :title="isEdit ? 'Edit Organization' : 'Register New User'"
+      :title="isEdit ? formData.user_name : 'Register New User'"
       :description="isEdit ? 'Update details for this organization account' : 'Add a new client organization to the system'"
-    />
+      :variant="isEdit ? 'detail' : 'default'"
+    >
+      <template #toolbar-left v-if="isEdit">
+        <BaseButton variant="ghost" size="sm" @click="$emit('navigate', 'users')">
+          <template #icon><i class="ri-arrow-left-line"></i></template>
+          Back to List
+        </BaseButton>
+      </template>
+      <template #toolbar-right v-if="isEdit">
+        <BaseButton variant="danger" size="sm" icon="ri-delete-bin-line" @click="showDeleteConfirm = true">Delete Organization</BaseButton>
+      </template>
+    </PageHeader>
 
     <div v-if="isLoading" class="loading-state">
       <p>Loading record details...</p>
     </div>
 
     <form v-else class="form-container" @submit.prevent="handleSubmit">
-      <div class="form-info-banner">
+      <div v-if="!isEdit" class="form-info-banner">
         <i class="ri-information-line"></i>
         <span>Creating a User will automatically generate a <strong>Login Account</strong> and a corresponding <strong>Primary Business Entity</strong>.</span>
       </div>
 
-      <!-- Three-column layout -->
-      <div class="three-col-layout">
-
-        <!-- LEFT: User info -->
-        <div class="form-panel">
-          <div class="form-grid">
-            <div class="section-title full-width">Account &amp; Identity</div>
-            <BaseInput v-model="formData.user_name" label="User Name" placeholder="e.g., Acme Logistics" class="full-width" required />
-            <BaseInput v-model="formData.email" label="Contact Email" type="email" placeholder="contact@user.com" required />
-            <BaseInput v-model="formData.username" label="Username" placeholder="e.g., acme_admin" required />
-            <BaseInput v-model="formData.password" label="Password" type="password" placeholder="At least 6 characters" class="full-width" :required="!isEdit" />
-
-            <div class="section-title full-width">Business Details</div>
-            <BaseInput v-model="formData.phone" label="Contact Phone" placeholder="e.g., +65 1234 5678" class="full-width" />
-            <BaseInput v-model="formData.address" label="Office Address" placeholder="e.g., 120 Lower Delta Road" class="full-width" />
-            <BaseInput v-model="formData.latitude" label="Latitude" placeholder="e.g., 1.3521" type="number" step="any" />
-            <BaseInput v-model="formData.longitude" label="Longitude" placeholder="e.g., 103.8198" type="number" step="any" />
-            
-            <div class="form-group full-width" v-if="isEdit">
-              <label class="form-label">Account Status</label>
-              <select v-model="formData.status" class="form-select">
-                <option value="active">Active (Access Enabled)</option>
-                <option value="inactive">Inactive (Access Blocked)</option>
-                <option value="pending">Pending Registration</option>
-              </select>
-              <span class="field-help">Inactive accounts cannot log in to the system.</span>
-            </div>
-          </div>
-        </div>
-
-        <!-- MIDDLE: Bridge config -->
-        <div class="form-panel bridge-panel">
-            <div class="section-title">Bridge Connection</div>
-            <p class="bridge-description">Configure the IoT Bridge WebSocket connection for this organization. When active, the system will connect automatically on startup.</p>
-
-            <div class="bridge-status-indicator" :class="formData.bridge_status === 'active' ? 'status-active' : 'status-inactive'">
-              <i :class="formData.bridge_status === 'active' ? 'ri-wifi-line' : 'ri-wifi-off-line'"></i>
-              <span>{{ formData.bridge_status === 'active' ? 'Bridge Active' : 'Bridge Inactive' }}</span>
+      <!-- Dashboard Top Section -->
+      <div class="dashboard-grid">
+         
+         <!-- COLUMN 1: Account, Identity, Bridge & integration -->
+         <div class="left-main-stack">
+            <!-- Account & Identity -->
+            <div class="form-panel glass-card">
+               <h3 class="panel-title"><i class="ri-user-settings-line"></i> Account & Identity</h3>
+               <div class="row-grid">
+                  <BaseInput v-model="formData.user_name" label="Organization Name" placeholder="e.g., Acme Corp" class="full-width" required />
+                  <BaseInput v-model="formData.email" label="Primary Email" type="email" placeholder="admin@acme.com" required />
+                  <BaseInput v-model="formData.username" label="System Username" placeholder="e.g., acme_admin" required />
+                  <BaseInput v-model="formData.password" label="Access Password" type="password" placeholder="Min 6 chars" :required="!isEdit" />
+                  <BaseInput v-model="formData.phone" label="Contact Phone" placeholder="+65 8888 8888" />
+                  <div class="form-group" v-if="isEdit">
+                     <label class="form-label">Account Status</label>
+                     <select v-model="formData.status" class="form-select">
+                       <option value="active">Active</option>
+                       <option value="inactive">Inactive</option>
+                       <option value="pending">Pending</option>
+                     </select>
+                  </div>
+               </div>
             </div>
 
-            <div class="bridge-fields">
-              <BaseInput
-                v-model="formData.bridge_ws_url"
-                label="WebSocket URL"
-                placeholder="ws://192.168.1.100:8081/ws"
-              />
-              <BaseInput
-                v-model="formData.bridge_auth_token"
-                label="Auth Token (Optional)"
-                placeholder="Leave blank if not required"
-              />
-              <div class="form-group">
-                <label class="form-label">Connection Status</label>
-                <select v-model="formData.bridge_status" class="form-select">
-                  <option value="active">Active — Connect on startup</option>
-                  <option value="inactive">Inactive — Do not connect</option>
-                </select>
-                <span class="field-help">Set to Active to enable the IoT Bridge WebSocket connection for this organization's devices.</span>
-              </div>
+            <!-- Bridge Panel -->
+            <div class="form-panel glass-card bridge-card">
+               <div class="panel-header">
+                  <h3 class="panel-title"><i class="ri-wifi-line"></i> IoT Bridge Connection</h3>
+                  <BaseBadge :type="formData.bridge_status === 'active' ? 'success' : 'inactive'">
+                     {{ formData.bridge_status.toUpperCase() }}
+                  </BaseBadge>
+               </div>
+               <div class="row-grid">
+                  <BaseInput v-model="formData.bridge_ws_url" label="WebSocket URL" placeholder="ws://localhost:8081/ws" class="full-width" />
+                  <BaseInput v-model="formData.bridge_auth_token" label="Secret Token" type="password" placeholder="••••••••" class="full-width" />
+                  <div class="form-group full-width">
+                     <label class="form-label">Auto-Connect</label>
+                     <select v-model="formData.bridge_status" class="form-select">
+                       <option value="active">Enabled — Connect on startup</option>
+                       <option value="inactive">Disabled — Manual toggle only</option>
+                     </select>
+                  </div>
+               </div>
             </div>
-          </div>
-          
-          <!-- CPD Data Integrations -->
-          <div class="form-panel integration-panel">
-              <div class="section-title">Submit CPD Data On Behalf Of</div>
-              <p class="bridge-description">Assign one or more 'On Behalf Of' entities synced via configuration to assign datasets directly to this client organization.</p>
-              <div class="form-group" style="margin-top: 16px;">
-                  <label class="form-label">Assign Entities</label>
-                  
+
+            <!-- Integration Panel -->
+            <div class="form-panel glass-card integration-card">
+               <h3 class="panel-title"><i class="ri-link-m"></i> CPD Integration</h3>
+               <div class="integration-body">
+                  <p class="panel-hint">Assign 'On Behalf Of' entities to map datasets directly to this client.</p>
                   <div class="dropdown-wrapper">
                     <details class="custom-dropdown">
                         <summary class="dropdown-summary">
-                            <span>
-                                {{ formData.assigned_on_behalf_ofs.length > 0 
-                                   ? `${formData.assigned_on_behalf_ofs.length} entity(s) selected` 
-                                   : 'Select entities...' }}
-                            </span>
+                            <span>{{ formData.assigned_on_behalf_ofs.length > 0 ? `${formData.assigned_on_behalf_ofs.length} Selected` : 'Select sync entities...' }}</span>
                             <i class="ri-arrow-down-s-line"></i>
                         </summary>
                         <div class="dropdown-content contractor-list">
-                            <div v-if="availableOnBehalfOfs.length === 0" class="no-contractors">
-                                No entities fetched yet. Go to Configuration -> Submit CPD Data to sync.
-                            </div>
                             <label v-for="entity in availableOnBehalfOfs" :key="entity" class="checkbox-label">
                                 <input type="checkbox" :value="entity" v-model="formData.assigned_on_behalf_ofs" />
                                 <span>{{ entity }}</span>
@@ -242,271 +362,386 @@ const handleSubmit = async () => {
                         </div>
                     </details>
                   </div>
-                  <span class="field-help" style="margin-top: 8px; display: block;">Selected entities will automatically map their dataset authorizations to this user ID.</span>
-              </div>
-          </div>
+               </div>
+            </div>
+         </div>
+
+         <!-- COLUMN 2: Map & Address -->
+         <div class="map-side-panel glass-card">
+            <h3 class="panel-title"><i class="ri-map-pin-line"></i> Registered Address & Geofence</h3>
+            <div class="address-fields">
+               <BaseInput v-model="formData.address" label="Street Address" placeholder="123 Discovery Way" class="full-width" />
+               <div class="coord-grid">
+                  <BaseInput v-model="formData.latitude" label="Lat" type="number" step="any" />
+                  <BaseInput v-model="formData.longitude" label="Lng" type="number" step="any" />
+               </div>
+            </div>
+            <div class="map-frame-lg">
+               <UnifiedMap
+                 :mode="MAP_MODES.SINGLE_EDIT"
+                 :lat="parseFloat(formData.latitude) || 1.3521"
+                 :lng="parseFloat(formData.longitude) || 103.8198"
+                 @update:lat="v => formData.latitude = v"
+                 @update:lng="v => formData.longitude = v"
+               />
+            </div>
+         </div>
       </div>
 
-      <!-- Map full-width below both panels -->
-      <div class="map-section">
-        <label class="form-label">Office Location</label>
-        <div class="map-wrapper">
-          <UnifiedMap
-            :mode="MAP_MODES.SINGLE_EDIT"
-            :lat="parseFloat(formData.latitude) || 1.3521"
-            :lng="parseFloat(formData.longitude) || 103.8198"
-            @update:lat="v => formData.latitude = v"
-            @update:lng="v => formData.longitude = v"
-          />
-        </div>
+      <!-- Resource Dashboard (Edit Mode Only) -->
+      <div v-if="isEdit" class="resources-section glass-card">
+         <div class="resources-header">
+            <h3 class="panel-title"><i class="ri-archive-line"></i> User Resource Inventory</h3>
+            <BaseTabs v-model="activeTab" :tabs="tabs" />
+         </div>
+
+         <!-- Overview/Sub-users Tab (For Vendors) -->
+         <div v-show="activeTab === 'Overview'" class="tab-pane">
+            <div v-if="formData.user_type === 'vendor'" class="sub-resource-group">
+               <div class="resource-meta">
+                  <h4>Managed System Groups</h4>
+                  <p>System-wide view of platform tenants and their configurations</p>
+               </div>
+               <DataTable :columns="vendorManagedColumns" :data="allOrgs" no-data-text="No managed organizations found">
+                  <template #cell-cpd_status="{ item }">
+                     <BaseBadge :type="getCPDStatus(item.user_id) === 'linked' ? 'success' : 'inactive'">
+                        {{ getCPDStatus(item.user_id).toUpperCase() }}
+                     </BaseBadge>
+                  </template>
+                  <template #cell-status="{ item }">
+                     <BaseBadge :type="item.status === 'active' ? 'success' : 'warning'">{{ item.status.toUpperCase() }}</BaseBadge>
+                  </template>
+               </DataTable>
+            </div>
+            <div v-else class="sub-resource-group">
+               <div class="resource-meta">
+                  <h4>Associated Project Portfolio</h4>
+                  <p>Active and historical work authorizations for this account</p>
+               </div>
+               <DataTable :columns="projectColumns" :data="userProjects" />
+            </div>
+         </div>
+
+         <!-- Sites Tab -->
+         <div v-show="activeTab === 'Sites'" class="tab-pane">
+            <div class="sites-grid">
+               <div v-for="site in userSites" :key="site.site_id" class="site-summary-card">
+                  <div class="site-card-header">
+                     <div class="site-info">
+                        <strong>{{ site.site_name }}</strong>
+                        <span class="location-hint">{{ site.location || 'No location set' }}</span>
+                     </div>
+                     <BaseBadge>{{ site.status }}</BaseBadge>
+                  </div>
+                  <div class="site-card-body">
+                     <div class="site-stat"><span>Workers:</span> <strong>{{ site.worker_count }}</strong></div>
+                     <div class="site-stat"><span>Devices:</span> <strong>{{ siteDevicesMap[site.site_id]?.length || 0 }}</strong></div>
+                  </div>
+               </div>
+            </div>
+            <div v-if="userSites.length === 0" class="empty-hint">No registered sites found for this user.</div>
+         </div>
+
+         <!-- Devices Tab -->
+         <div v-show="activeTab === 'Devices'" class="tab-pane">
+            <DataTable :columns="deviceColumns" :data="userDevices">
+               <template #cell-actions="{ item }">
+                  <div class="btn-stack sm">
+                     <BaseButton 
+                       v-if="item.user_id !== (currentUser?.user_id || 'Owner_001')"
+                       variant="primary" size="sm" @click="handleReturnToVendor(item.device_id)">
+                       Return to Pool
+                     </BaseButton>
+                  </div>
+               </template>
+            </DataTable>
+         </div>
       </div>
 
       <div class="form-actions">
         <BaseButton variant="secondary" @click="$emit('navigate', 'users')">Cancel</BaseButton>
-        <BaseButton :loading="isSaving" @click="handleSubmit" variant="primary">
+        <BaseButton :loading="isSaving" type="submit" variant="primary">
           {{ isEdit ? 'Save Changes' : 'Register User' }}
         </BaseButton>
       </div>
     </form>
+
+    <ConfirmDialog
+      :show="showDeleteConfirm"
+      title="Delete Organization"
+      description="Permanently mark this organization as inactive? Access will be revoked immediately."
+      confirm-label="Confirm Deletion"
+      :loading="isDeleting"
+      @confirm="handleDelete"
+      @cancel="showDeleteConfirm = false"
+    />
+
+    <ConfirmDialog
+      :show="showReturnConfirm"
+      title="Return Device to Pool"
+      description="Returning this device will immediately revoke this user's access to the device and move it back to the vendor's unassigned inventory."
+      confirm-label="Return to Pool"
+      :loading="isReturning"
+      @confirm="confirmReturnToVendor"
+      @cancel="showReturnConfirm = false"
+    />
   </div>
 </template>
 
 <style scoped>
-/* Styles updated for premium look */
 .form-container {
-  max-width: 1600px;
+  max-width: 1400px;
+  display: flex;
+  flex-direction: column;
+  gap: 32px;
+  padding-bottom: 64px;
+}
+
+.glass-card {
   background: rgba(255, 255, 255, 0.03);
-  backdrop-filter: blur(10px);
+  backdrop-filter: blur(12px);
   border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: var(--radius-lg);
-  padding: 40px;
-  box-shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.3);
+  padding: 32px;
+  box-shadow: 0 8px 32px -8px rgba(0, 0, 0, 0.3);
 }
 
-.form-info-banner {
-  background: rgba(59, 130, 246, 0.1);
-  border: 1px solid rgba(59, 130, 246, 0.2);
-  border-radius: var(--radius-md);
-  padding: 16px;
-  margin-bottom: 32px;
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  color: var(--color-text-primary);
-  font-size: 14px;
-}
-
-.form-info-banner i {
-  color: var(--color-accent);
-  font-size: 1.25rem;
-  flex-shrink: 0;
-}
-
-/* Three-column layout */
-.three-col-layout {
-  display: grid;
-  grid-template-columns: 1fr 1fr 1fr;
-  gap: 32px;
-  margin-bottom: 32px;
-  align-items: start;
-}
-
-@media (max-width: 1300px) {
-  .three-col-layout {
-    grid-template-columns: 1fr 1fr;
-  }
-}
-
-@media (max-width: 900px) {
-  .three-col-layout {
-    grid-template-columns: 1fr;
-  }
-}
-
-.form-panel {
-  display: flex;
-  flex-direction: column;
-  gap: 0;
-}
-
-/* Bridge panel styling */
-.bridge-panel {
-  background: rgba(255, 255, 255, 0.02);
-  border: 1px solid rgba(255, 255, 255, 0.07);
-  border-radius: var(--radius-lg);
-  padding: 28px;
-  display: flex;
-  flex-direction: column;
-  gap: 20px;
-}
-
-.bridge-description {
-  font-size: 13px;
-  color: var(--color-text-secondary);
-  line-height: 1.6;
-  margin: 0;
-}
-
-.bridge-status-indicator {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 12px 16px;
-  border-radius: var(--radius-md);
-  font-size: 14px;
-  font-weight: 600;
-}
-
-.status-active {
-  background: rgba(34, 197, 94, 0.12);
-  border: 1px solid rgba(34, 197, 94, 0.3);
-  color: #22c55e;
-}
-
-.status-inactive {
-  background: rgba(156, 163, 175, 0.1);
-  border: 1px solid rgba(156, 163, 175, 0.2);
-  color: var(--color-text-secondary);
-}
-
-.bridge-status-indicator i {
-  font-size: 18px;
-}
-
-.bridge-fields {
-  display: flex;
-  flex-direction: column;
-  gap: 20px;
-}
-
-/* Left panel inner grid */
-.form-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 20px;
-}
-
-@media (max-width: 768px) {
-  .form-grid {
-    grid-template-columns: 1fr;
-  }
-}
-
-.section-title {
-  font-size: 13px;
+.panel-title {
+  font-size: 16px;
   font-weight: 700;
   text-transform: uppercase;
   color: var(--color-accent);
   letter-spacing: 0.05em;
-  margin-top: 8px;
-  padding-bottom: 8px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
-  margin-bottom: 4px;
+  margin-bottom: 24px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.panel-title i {
+  font-size: 20px;
+}
+
+.dashboard-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 32px;
+}
+
+.left-main-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 32px;
+}
+
+.map-side-panel {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.map-side-panel .address-fields {
+  margin-bottom: 24px;
+}
+
+.map-frame-lg {
+  flex-grow: 1;
+  min-height: 650px;
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.row-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 20px;
 }
 
 .full-width {
   grid-column: 1 / -1;
 }
 
-/* Map */
-.map-section {
-  margin-bottom: 32px;
+/* Bridge Card */
+.bridge-card .panel-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 24px;
 }
 
-.form-label {
+.bridge-card .panel-title {
+  margin-bottom: 0;
+}
+
+/* Integration Card */
+.panel-hint {
   font-size: 13px;
-  font-weight: 600;
   color: var(--color-text-secondary);
-  display: block;
-  margin-bottom: 10px;
+  margin-bottom: 16px;
+  line-height: 1.5;
 }
 
-.map-wrapper {
-  height: 350px;
-  border: 1px solid rgba(255, 255, 255, 0.1);
+/* Map Panel */
+.map-layout {
+  display: grid;
+  grid-template-columns: 350px 1fr;
+  gap: 32px;
+  align-items: start;
+}
+
+.address-fields {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.coord-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+
+.map-frame {
+  height: 300px;
   border-radius: var(--radius-md);
   overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.1);
 }
 
-/* Actions */
+/* Resources Section */
+.resources-section {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.resources-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding-bottom: 16px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.tab-pane {
+  animation: fadeIn 0.3s ease-out;
+}
+
+.resource-meta {
+  margin-bottom: 24px;
+}
+
+.resource-meta h4 {
+  font-size: 18px;
+  font-weight: 600;
+  margin-bottom: 4px;
+}
+
+.resource-meta p {
+  font-size: 13px;
+  color: var(--color-text-secondary);
+}
+
+/* Sites Grid */
+.sites-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 20px;
+}
+
+.site-summary-card {
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: var(--radius-md);
+  padding: 20px;
+  transition: transform 0.2s ease;
+}
+
+.site-summary-card:hover {
+  transform: translateY(-4px);
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.site-card-header {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 16px;
+}
+
+.site-info {
+  display: flex;
+  flex-direction: column;
+}
+
+.location-hint {
+  font-size: 12px;
+  color: var(--color-text-muted);
+}
+
+.site-card-body {
+  display: flex;
+  gap: 20px;
+  font-size: 13px;
+}
+
+.site-stat span {
+  color: var(--color-text-muted);
+  margin-right: 4px;
+}
+
+/* Action Styles */
 .form-actions {
   display: flex;
   justify-content: flex-end;
   gap: 16px;
-  padding-top: 28px;
+  padding-top: 32px;
   border-top: 1px solid rgba(255, 255, 255, 0.08);
 }
 
-/* Misc */
-.form-group {
+.btn-stack {
   display: flex;
-  flex-direction: column;
   gap: 8px;
+}
+
+.btn-stack.sm {
+  gap: 4px;
 }
 
 .form-select {
   background: rgba(255, 255, 255, 0.05);
   border: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: var(--radius-md);
-  padding: 12px;
+  padding: 10px 12px;
   color: var(--color-text-primary);
   font-size: 14px;
   outline: none;
-  cursor: pointer;
-  transition: all 0.2s ease;
+  width: 100%;
 }
 
-.form-select:focus {
-  border-color: var(--color-accent);
-  background: rgba(255, 255, 255, 0.08);
-}
-
-.field-help {
-  font-size: 11px;
-  color: var(--color-text-muted);
-  line-height: 1.5;
-}
-
-.loading-state {
-  padding: 80px;
-  text-align: center;
+.form-label {
+  font-size: 12px;
+  font-weight: 600;
   color: var(--color-text-secondary);
+  margin-bottom: 6px;
+  display: block;
 }
 
-/* Integration Panel */
-.integration-panel {
-  background: rgba(255, 255, 255, 0.02);
-  border: 1px solid rgba(255, 255, 255, 0.07);
-  border-radius: var(--radius-lg);
-  padding: 28px;
-  display: flex;
-  flex-direction: column;
+.empty-hint {
+  padding: 64px;
+  text-align: center;
+  color: var(--color-text-muted);
+  font-style: italic;
+  background: rgba(0,0,0,0.1);
+  border-radius: var(--radius-md);
 }
 
-.contractor-list {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  max-height: 250px;
-  overflow-y: auto;
-  padding: 12px;
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
 }
 
-/* Custom Dropdown Styling */
-.dropdown-wrapper {
-    position: relative;
-    width: 100%;
-}
-
-.custom-dropdown {
-    width: 100%;
-    position: relative;
-}
-
-.custom-dropdown[open] .dropdown-summary i {
-    transform: rotate(180deg);
-}
-
+/* Dropdown */
 .dropdown-summary {
     display: flex;
     justify-content: space-between;
@@ -515,71 +750,36 @@ const handleSubmit = async () => {
     background: rgba(255, 255, 255, 0.05);
     border: 1px solid rgba(255, 255, 255, 0.1);
     border-radius: var(--radius-md);
-    color: var(--color-text-primary);
-    font-size: 14px;
     cursor: pointer;
-    list-style: none;
-    transition: all 0.2s ease;
-}
-
-.dropdown-summary::-webkit-details-marker {
-    display: none;
-}
-
-.dropdown-summary:hover {
-    background: rgba(255, 255, 255, 0.08);
-}
-
-.dropdown-summary i {
-    transition: transform 0.2s ease;
-    color: var(--color-text-muted);
+    font-size: 14px;
 }
 
 .dropdown-content {
-    position: absolute;
-    top: calc(100% + 4px);
-    left: 0;
-    right: 0;
-    background: #1e293b; /* Solid dark background to avoid transparency issues over other elements */
-    border: 1px solid rgba(255, 255, 255, 0.1);
+    background: #1a1f2e;
+    border: 1px solid rgba(255,255,255,0.1);
     border-radius: var(--radius-md);
-    box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.5);
-    z-index: 50;
-}
-
-.no-contractors {
-    font-size: 13px;
-    color: var(--color-text-muted);
-    font-style: italic;
-    text-align: center;
-    padding: 12px;
+    padding: 8px;
+    margin-top: 4px;
+    max-height: 200px;
+    overflow-y: auto;
 }
 
 .checkbox-label {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  cursor: pointer;
-  padding: 8px 12px;
-  border-radius: var(--radius-sm);
-  transition: all 0.2s ease;
-  background: rgba(255, 255, 255, 0.03);
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 8px;
+    cursor: pointer;
+    border-radius: 4px;
 }
 
 .checkbox-label:hover {
-  background: rgba(255, 255, 255, 0.08);
+    background: rgba(255,255,255,0.05);
 }
 
-.checkbox-label input[type="checkbox"] {
-  width: 16px;
-  height: 16px;
-  accent-color: var(--color-accent);
-  cursor: pointer;
-}
-
-.checkbox-label span {
-  font-size: 14px;
-  color: var(--color-text-primary);
-  user-select: none;
+@media (max-width: 1100px) {
+  .dashboard-grid, .map-layout {
+    grid-template-columns: 1fr;
+  }
 }
 </style>

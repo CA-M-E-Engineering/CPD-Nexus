@@ -17,7 +17,6 @@ import DeviceDetail from './views/shared/DeviceDetail.vue';
 // Admin Views
 import AdminDashboard from './views/admin/Dashboard.vue';
 import AdminUserList from './views/admin/UserList.vue';
-import AdminUserDetail from './views/admin/UserDetail.vue';
 import AdminUserAdd from './views/admin/UserAdd.vue';
 import AdminDeviceList from './views/admin/DeviceList.vue';
 import AdminDeviceAdd from './views/admin/DeviceAdd.vue';
@@ -100,6 +99,9 @@ const componentProps = computed(() => {
   if (activeNavId.value === 'device-detail') {
     props.role = currentRole.value;
   }
+  if (activeNavId.value === 'user-detail') {
+    props.mode = 'edit';
+  }
   return props;
 });
 
@@ -108,7 +110,7 @@ const currentComponent = computed(() => {
     const componentMap = {
       'dashboard': AdminDashboard,
       'users': AdminUserList,
-      'user-detail': AdminUserDetail,
+      'user-detail': AdminUserAdd,
       'user-add': AdminUserAdd,
       'devices': AdminDeviceList,
       'device-detail': DeviceDetail,

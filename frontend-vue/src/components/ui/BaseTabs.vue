@@ -18,6 +18,7 @@ defineEmits(['update:modelValue']);
   <div class="tabs">
     <div class="tab-list">
       <button 
+        type="button"
         v-for="tab in tabs" 
         :key="tab.id"
         class="tab"

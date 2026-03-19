@@ -24,8 +24,10 @@ const columns = [
   { key: 'device_count', label: 'Devices', size: 'md', align: 'center' },
   { key: 'email', label: 'Contact Email', size: 'md' },
   { key: 'phone', label: 'Phone', size: 'md' },
-  { key: 'actions', label: 'Actions', width: '100px' }
+  { key: 'actions', label: 'Actions', width: '130px' }
 ];
+
+const vendorColumns = computed(() => columns.filter(c => c.key !== 'actions'));
 
 const fetchUsers = async () => {
   isLoading.value = true;
@@ -128,7 +130,7 @@ const deleteUser = async () => {
 
         <DataTable 
           :loading="isLoading" 
-          :columns="columns" 
+          :columns="vendorColumns" 
           :data="vendorUsers"
           row-clickable
           class="vendor-table"
@@ -164,17 +166,6 @@ const deleteUser = async () => {
             <div class="stat-cell">
               <i class="ri-cpu-line"></i>
               <span>{{ item.device_count }}</span>
-            </div>
-          </template>
-
-          <template #cell-actions="{ item }">
-            <div class="action-buttons-group">
-              <BaseButton variant="ghost" size="sm" @click.stop="handleEdit(item)">
-                <i class="ri-edit-line"></i>
-              </BaseButton>
-              <BaseButton v-if="item.user_name !== 'CA M&E Account'" variant="ghost" size="sm" class="delete-btn" @click.stop="confirmDelete(item)">
-                <i class="ri-delete-bin-line"></i>
-              </BaseButton>
             </div>
           </template>
         </DataTable>
@@ -235,11 +226,8 @@ const deleteUser = async () => {
 
           <template #cell-actions="{ item }">
             <div class="action-buttons-group">
-              <BaseButton variant="ghost" size="sm" @click.stop="handleEdit(item)">
-                <i class="ri-edit-line"></i>
-              </BaseButton>
-              <BaseButton variant="ghost" size="sm" class="delete-btn" @click.stop="confirmDelete(item)">
-                <i class="ri-delete-bin-line"></i>
+              <BaseButton variant="danger" size="sm" icon="ri-delete-bin-line" @click.stop="confirmDelete(item)">
+                Delete
               </BaseButton>
             </div>
           </template>
