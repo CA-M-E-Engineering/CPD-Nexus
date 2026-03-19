@@ -113,7 +113,7 @@ const currentComponent = computed(() => {
       'user-detail': AdminUserAdd,
       'user-add': AdminUserAdd,
       'devices': AdminDeviceList,
-      'device-detail': DeviceDetail,
+      'device-detail': AdminDeviceAdd,
       'device-add': AdminDeviceAdd,
       'user-assign-device': UserAssignDevice,
       'settings': AdminSettings,
@@ -132,7 +132,7 @@ const currentComponent = computed(() => {
       'worker-add': ClientWorkerAdd,
 
       'devices': ClientDeviceList,
-      'device-detail': DeviceDetail,
+      'device-detail': AdminDeviceAdd,
       'attendance': ClientAttendanceList,
       'activity-log': ActivityLogs
     };
