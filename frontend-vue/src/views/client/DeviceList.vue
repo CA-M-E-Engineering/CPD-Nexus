@@ -170,10 +170,7 @@ const confirmAssignSite = async () => {
 
       <template #cell-actions="{ item }">
         <div class="action-buttons">
-          <BaseButton variant="ghost" size="sm" @click.stop="handleRowClick(item)">
-            Manage
-          </BaseButton>
-          <BaseButton variant="ghost" size="sm" @click.stop="openAssignSite(item)">
+          <BaseButton size="sm" @click.stop="openAssignSite(item)">
             Assign Site
           </BaseButton>
         </div>

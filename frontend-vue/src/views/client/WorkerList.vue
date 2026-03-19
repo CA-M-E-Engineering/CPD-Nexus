@@ -193,10 +193,7 @@ const deleteWorker = async () => {
 
       <template #cell-actions="{ item }">
         <div class="action-buttons">
-          <BaseButton variant="ghost" size="sm" @click="handleEdit(item)">
-            <i class="ri-edit-line"></i> Edit
-          </BaseButton>
-          <BaseButton variant="ghost" size="sm" class="delete-btn" @click="confirmDelete(item)">
+          <BaseButton variant="danger" size="sm" @click.stop="confirmDelete(item)">
             <i class="ri-delete-bin-line"></i> Delete
           </BaseButton>
         </div>

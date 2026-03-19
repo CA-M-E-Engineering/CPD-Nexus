@@ -31,7 +31,6 @@ import ClientSiteList from './views/client/SiteList.vue';
 import ClientSiteAdd from './views/client/SiteAdd.vue';
 import ClientProjectList from './views/client/ProjectList.vue';
 import ClientProjectAdd from './views/client/ProjectAdd.vue';
-import ClientProjectDetail from './views/client/ProjectDetail.vue';
 import ClientWorkerList from './views/client/WorkerList.vue';
 import ClientWorkerAdd from './views/client/WorkerAdd.vue';
 
@@ -40,9 +39,7 @@ import ClientAttendanceList from './views/client/AttendanceList.vue';
 
 // Maintenance Views
 import DeviceAddMaintenance from './views/maintenance/DeviceAddMaintenance.vue';
-import ProjectAssignWorkers from './views/maintenance/ProjectAssignWorkers.vue';
 import UserAssignDevice from './views/maintenance/UserAssignDevice.vue';
-import WorkerAssignProject from './views/maintenance/WorkerAssignProject.vue';
 
 const { 
   activeNavId, 
@@ -128,13 +125,10 @@ const currentComponent = computed(() => {
       'sites': ClientSiteList,
       'site-add': ClientSiteAdd,
       'projects': ClientProjectList,
-      'project-detail': ClientProjectDetail,
       'project-add': ClientProjectAdd,
       'workers': ClientWorkerList,
       'worker-add': ClientWorkerAdd,
 
-      'worker-assign-project': WorkerAssignProject,
-      'project-assign-workers': ProjectAssignWorkers,
       'devices': ClientDeviceList,
       'device-detail': DeviceDetail,
       'attendance': ClientAttendanceList,

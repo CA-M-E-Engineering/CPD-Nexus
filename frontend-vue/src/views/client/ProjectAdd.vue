@@ -5,7 +5,6 @@ import { notification } from '../../services/notification';
 import PageHeader from '../../components/ui/PageHeader.vue';
 import BaseInput from '../../components/ui/BaseInput.vue';
 import BaseButton from '../../components/ui/BaseButton.vue';
-import PersonnelAssignment from '../../components/project/PersonnelAssignment.vue';
 import { TRADES } from '../../utils/constants.js';
 import { validateProjectRef, validateUEN, validateHDBContract, validateLTAContract, sanitizeUEN } from '../../utils/validation.js';
 
@@ -127,6 +126,61 @@ const fetchProject = async () => {
   }
 };
 
+// ── Inline Personnel Assignment Logic ──
+const allWorkers = ref([]);
+const isUpdatingWorkers = ref(false);
+
+const fetchWorkers = async () => {
+  if (!isEdit.value || !props.id) return;
+  try {
+    const response = await api.getWorkers({ user_id: formData.value.user_id });
+    allWorkers.value = typeof response === 'string' ? JSON.parse(response) : (response || []);
+  } catch (err) {
+    console.error('Failed to fetch workers:', err);
+  }
+};
+
+const assignedPersonnel = computed(() => {
+  return allWorkers.value.filter(w => String(w.current_project_id) === String(props.id));
+});
+
+const availablePersonnel = computed(() => {
+  return allWorkers.value.filter(w => String(w.current_project_id) !== String(props.id));
+});
+
+const handleAssignWorker = async (workerId) => {
+  if (!workerId) return;
+  isUpdatingWorkers.value = true;
+  try {
+    const workerIds = assignedPersonnel.value.map(w => w.worker_id);
+    workerIds.push(workerId);
+    await api.assignWorkersToProject(props.id, workerIds);
+    notification.success('Assigned worker to project');
+    await fetchWorkers();
+  } catch (err) {
+    notification.error('Failed to assign worker');
+  } finally {
+    isUpdatingWorkers.value = false;
+  }
+};
+
+const handleRemoveWorker = async (workerId) => {
+  if (!workerId) return;
+  isUpdatingWorkers.value = true;
+  try {
+    const workerIds = assignedPersonnel.value
+      .filter(w => w.worker_id !== workerId)
+      .map(w => w.worker_id);
+    await api.assignWorkersToProject(props.id, workerIds);
+    notification.success('Removed worker from project');
+    await fetchWorkers();
+  } catch (err) {
+    notification.error('Failed to remove worker');
+  } finally {
+    isUpdatingWorkers.value = false;
+  }
+};
+
 const selectedTrades = ref([]);
 
 watch(selectedTrades, (newVal) => {
@@ -158,6 +212,7 @@ const removeTrade = (val) => {
 onMounted(async () => {
     await fetchData();
     await fetchProject();
+    await fetchWorkers();
 });
 
 const validateForm = () => {
@@ -288,7 +343,7 @@ const handleSubmit = async () => {
     </div>
 
     <form v-else class="project-form" @submit.prevent="handleSubmit">
-      <div class="split-layout">
+      <div class="form-container">
         <div class="form-side">
 
           <!-- ── SECTION 1: Project Identification ── -->
@@ -552,17 +607,41 @@ const handleSubmit = async () => {
                 </div>
               </div>
             </div>
+
+            <!-- Personnel Assignment block (Edit only) -->
+            <div class="field-block personnel-block" v-if="isEdit && props.id">
+              <div class="block-label">
+                <i class="ri-team-line"></i>
+                Project Personnel Assignment
+              </div>
+              <div class="form-group full-width">
+                <label class="form-label">Assign Workers</label>
+                <div class="trade-selection-area">
+                  <select 
+                    class="form-select" 
+                    @change="(e) => { handleAssignWorker(e.target.value); e.target.value = ''; }"
+                    :disabled="isUpdatingWorkers"
+                  >
+                    <option value="" disabled selected>Select a worker to assign...</option>
+                    <option v-for="w in availablePersonnel" :key="w.worker_id" :value="w.worker_id">
+                      {{ w.name }} ({{ w.user_name || 'No Client' }})
+                    </option>
+                  </select>
+                  <div class="selected-trades-container" v-if="assignedPersonnel.length > 0">
+                    <span v-for="w in assignedPersonnel" :key="w.worker_id" class="trade-pill personnel-pill">
+                      {{ w.name }}
+                      <button type="button" class="remove-trade-btn" @click="handleRemoveWorker(w.worker_id)" :disabled="isUpdatingWorkers">
+                        <i class="ri-close-line"></i>
+                      </button>
+                    </span>
+                  </div>
+                  <p v-else class="no-trades-hint">No workers assigned yet. Select from the dropdown to assign.</p>
+                </div>
+              </div>
+            </div>
+            
           </div>
 
-
-        </div>
-
-        <!-- Personnel panel (edit mode only) -->
-        <div v-if="isEdit && props.id" class="personnel-side">
-          <PersonnelAssignment
-            :project-id="props.id"
-            :user-id="formData.user_id"
-          />
         </div>
       </div>
 
@@ -581,25 +660,15 @@ const handleSubmit = async () => {
   width: 100%;
 }
 
-.split-layout {
-  display: flex;
-  gap: 24px;
-  align-items: flex-start;
+.form-container {
+  width: 100%;
 }
 
 .form-side {
-  flex: 1;
   display: flex;
   flex-direction: column;
   gap: 20px;
-  min-width: 0;
-}
-
-.personnel-side {
-  width: 380px;
-  flex-shrink: 0;
-  position: sticky;
-  top: 24px;
+  width: 100%;
 }
 
 /* ── Section Cards ── */
@@ -822,6 +891,14 @@ const handleSubmit = async () => {
 .optional-block .block-label {
   color: var(--color-text-secondary);
 }
+
+.personnel-block {
+  background: rgba(37, 99, 235, 0.04);
+  border: 1px solid rgba(37, 99, 235, 0.2);
+  margin-top: 8px;
+}
+.personnel-block .block-label { color: #2563eb; }
+.personnel-pill { background: #2563eb; color: #fff; border: none; }
 
 .opt-tag {
   display: inline-block;

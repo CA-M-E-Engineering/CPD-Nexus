@@ -62,7 +62,6 @@ const breadcrumbMapping = {
     'sites': 'Sites / Management',
     'site-add': 'Sites / New Site',
     'projects': 'Projects / Management',
-    'project-detail': 'Projects / Detail',
     'project-add': 'Projects / New Project',
     'workers': 'Workers / Directory',
     'worker-add': 'Workers / New Worker',
@@ -72,7 +71,6 @@ const breadcrumbMapping = {
     'settings': 'System Settings',
     'pitstop-auth': 'Pitstop Authorisations',
     'activity-log': 'Activity Logs',
-    'project-assign-workers': 'Workers / Assignment',
     'user-assign-device': 'Devices / User Allocation'
 };
 

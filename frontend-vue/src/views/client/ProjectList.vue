@@ -81,7 +81,7 @@ const filteredProjects = computed(() => {
 const emit = defineEmits(['navigate']);
 
 const handleRowClick = (project) => {
-  emit('navigate', 'project-detail', { id: project.project_id });
+  emit('navigate', 'project-add', { id: project.project_id, mode: 'edit' });
 };
 
 const handleEdit = (project) => {
@@ -192,10 +192,7 @@ const deleteProject = async () => {
       
       <template #cell-actions="{ item }">
         <div class="action-buttons">
-          <BaseButton variant="ghost" size="sm" @click="handleEdit(item)">
-            <i class="ri-edit-line"></i> Edit
-          </BaseButton>
-          <BaseButton variant="ghost" size="sm" class="delete-btn" @click="confirmDelete(item)">
+          <BaseButton variant="danger" size="sm" @click.stop="confirmDelete(item)">
             <i class="ri-delete-bin-line"></i> Delete
           </BaseButton>
         </div>

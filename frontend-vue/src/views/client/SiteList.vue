@@ -68,10 +68,6 @@ const filteredSites = computed(() => {
 
 const emit = defineEmits(['navigate']);
 
-const handleRowClick = (site) => {
-  emit('navigate', 'site-detail', { id: site.site_id });
-};
-
 const handleEdit = (site) => {
   emit('navigate', 'site-add', { id: site.site_id, mode: 'edit' });
 };
@@ -173,7 +169,7 @@ const deleteSite = async () => {
 
       <template #cell-actions="{ item }">
         <div class="action-buttons">
-          <BaseButton variant="ghost" size="sm" class="delete-btn" @click.stop="confirmDelete(item)">
+          <BaseButton variant="danger" size="sm" @click.stop="confirmDelete(item)">
             <i class="ri-delete-bin-line"></i> Delete
           </BaseButton>
         </div>
