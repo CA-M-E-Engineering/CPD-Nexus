@@ -67,7 +67,6 @@ const breadcrumbMapping = {
     'project-detail': 'Projects / Detail',
     'project-add': 'Projects / New Project',
     'workers': 'Workers / Directory',
-    'worker-detail': 'Workers / Profile',
     'worker-add': 'Workers / New Worker',
 
     'attendance': 'Attendance Records',

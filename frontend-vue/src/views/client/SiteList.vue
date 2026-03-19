@@ -149,9 +149,9 @@ const deleteSite = async () => {
       </template>
     </TableToolbar>
 
-    <DataTable :loading="isLoading" :columns="columns" :data="filteredSites">
+    <DataTable :loading="isLoading" :columns="columns" :data="filteredSites" row-clickable @row-click="handleRowClick">
       <template #cell-site_name="{ item }">
-        <div class="clickable-cell" @click="handleRowClick(item)">
+        <div>
           <strong>{{ item.site_name }}</strong>
         </div>
       </template>
@@ -195,8 +195,6 @@ const deleteSite = async () => {
 </template>
 
 <style scoped>
-.clickable-cell { cursor: pointer; color: var(--color-accent); transition: opacity 0.2s; }
-.clickable-cell:hover { opacity: 0.8; text-decoration: underline; }
 .stat-cell { display: flex; align-items: center; gap: 8px; color: var(--color-text-secondary); }
 .error-notice {
     margin-bottom: 16px;

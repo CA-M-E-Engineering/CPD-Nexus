@@ -85,7 +85,7 @@ const filteredWorkers = computed(() => {
 const emit = defineEmits(['navigate']);
 
 const handleRowClick = (worker) => {
-  emit('navigate', 'worker-detail', { id: worker.worker_id });
+  emit('navigate', 'worker-add', { id: worker.worker_id, mode: 'edit' });
 };
 
 const handleEdit = (worker) => {
@@ -171,9 +171,9 @@ const deleteWorker = async () => {
 
 
 
-    <DataTable :loading="isLoading" :columns="columns" :data="filteredWorkers">
+    <DataTable :loading="isLoading" :columns="columns" :data="filteredWorkers" row-clickable @row-click="handleRowClick">
       <template #cell-name="{ item }">
-        <div class="clickable-cell" @click="handleRowClick(item)">
+        <div>
           <strong>{{ item.name }}</strong>
         </div>
       </template>

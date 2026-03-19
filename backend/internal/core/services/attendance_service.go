@@ -38,6 +38,18 @@ func (s *AttendanceService) ListAttendance(ctx context.Context, userID, siteID, 
 	return s.repo.List(ctx, userID, siteID, workerID, date)
 }
 
+func (s *AttendanceService) UpdateAttendance(ctx context.Context, userID, id string, timeIn, timeOut *time.Time) error {
+	if id == "" {
+		return fmt.Errorf("attendance ID is required")
+	}
+
+	err := s.repo.Update(ctx, userID, id, timeIn, timeOut)
+	if err == nil {
+		s.analytics.LogActivity(ctx, userID, "Attendance Updated", "attendance", id, fmt.Sprintf("Updated attendance times for %s", id))
+	}
+	return err
+}
+
 func (s *AttendanceService) ProcessBridgeAttendance(ctx context.Context, workerID string, timeIn, timeOut string, rawPayload []byte) error {
 	// 1. Resolve Worker
 	// We use the internal workerID provided by the bridge (which we sent in the request)

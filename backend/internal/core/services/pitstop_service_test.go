@@ -3,6 +3,8 @@ package services
 import (
 	"context"
 	"errors"
+	"time"
+
 	"cpd-nexus/internal/core/domain"
 	"cpd-nexus/internal/core/ports"
 	"testing"
@@ -74,6 +76,11 @@ func (m *MockAttendanceRepository) Create(ctx context.Context, a *domain.Attenda
 func (m *MockAttendanceRepository) GetMaxID(ctx context.Context, pattern string) (string, error) {
 	args := m.Called(ctx, pattern)
 	return args.String(0), args.Error(1)
+}
+
+func (m *MockAttendanceRepository) Update(ctx context.Context, userID, id string, timeIn, timeOut *time.Time) error {
+	args := m.Called(ctx, userID, id, timeIn, timeOut)
+	return args.Error(0)
 }
 
 type MockSubmissionRepository struct {

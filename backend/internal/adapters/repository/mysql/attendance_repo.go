@@ -3,6 +3,8 @@ package mysql
 import (
 	"context"
 	"database/sql"
+	"time"
+
 	"cpd-nexus/internal/core/domain"
 	"cpd-nexus/internal/core/ports"
 	"cpd-nexus/internal/pkg/apperrors"
@@ -177,6 +179,27 @@ func (r *AttendanceRepository) Create(ctx context.Context, a *domain.Attendance)
 		a.SubmissionDate, a.ResponsePayload,
 	)
 	return err
+}
+
+// Update modifies the TimeIn and TimeOut of an existing attendance record.
+func (r *AttendanceRepository) Update(ctx context.Context, userID, id string, timeIn, timeOut *time.Time) error {
+	query := `
+		UPDATE attendance 
+		SET time_in = ?, time_out = ?, updated_at = NOW() 
+		WHERE attendance_id = ? AND user_id = ?
+	`
+	res, err := r.db.ExecContext(ctx, query, timeIn, timeOut, id, userID)
+	if err != nil {
+		return err
+	}
+	rowsAffected, err := res.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if rowsAffected == 0 {
+		return apperrors.NewNotFound("attendance", id)
+	}
+	return nil
 }
 
 // GetMaxID returns the highest attendance_id matching the given LIKE pattern.

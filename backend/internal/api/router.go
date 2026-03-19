@@ -95,6 +95,7 @@ func RegisterRoutes(r *mux.Router, cfg RouterConfig) {
 
 	// --- Attendance Routes ---
 	scoped.HandleFunc("/attendance", cfg.AttendanceHandler.GetAttendance).Methods("GET")
+	scoped.HandleFunc("/attendance/{id}", cfg.AttendanceHandler.UpdateAttendance).Methods("PUT")
 
 	// --- Uploads ---
 	scoped.HandleFunc("/upload/face", handlers.UploadFaceHandler).Methods("POST")

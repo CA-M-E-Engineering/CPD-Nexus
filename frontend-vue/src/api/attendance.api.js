@@ -11,6 +11,11 @@ export const attendanceApi = {
     getAttendance: (params) => http.get('/attendance', { params }),
 
     /**
+     * Update an attendance record
+     */
+    updateAttendance: (id, data) => http.put(`/attendance/${id}`, data),
+
+    /**
      * Fetch a single attendance record by ID
      */
     getAttendanceById: (id) => http.get(`/attendance/${id}`),

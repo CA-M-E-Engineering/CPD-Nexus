@@ -68,6 +68,7 @@ export const liveApi = {
     getActivityLog: analyticsApi.getActivityLog,
     getDetailedAnalytics: analyticsApi.getDetailedAnalytics,
     getAttendance: attendanceApi.getAttendance,
+    updateAttendance: attendanceApi.updateAttendance,
 
     // --- System Settings ---
     getSettings: settingsApi.getSettings,

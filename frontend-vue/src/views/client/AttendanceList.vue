@@ -7,6 +7,7 @@ import DataTable from '../../components/ui/DataTable.vue';
 import BaseBadge from '../../components/ui/BaseBadge.vue';
 import BaseButton from '../../components/ui/BaseButton.vue';
 import TableToolbar from '../../components/ui/TableToolbar.vue';
+import BaseModal from '../../components/ui/BaseModal.vue';
 
 const selectedSite = ref('');
 const selectedDate = ref('');
@@ -22,7 +23,8 @@ const columns = [
   { key: 'site_name', label: 'Site', size: 'md', muted: true },
   { key: 'time_in', label: 'Time In', size: 'md', muted: true },
   { key: 'time_out', label: 'Time Out', size: 'md', muted: true },
-  { key: 'status', label: 'Status', size: 'sm' }
+  { key: 'status', label: 'Status', size: 'sm' },
+  { key: 'actions', label: '', size: 'sm', align: 'right' }
 ];
 
 const filteredAttendance = computed(() => {
@@ -85,6 +87,44 @@ const handleExport = async () => {
   await api.simulateExport('Attendance Logs');
   isExporting.value = false;
   notification.success('Attendance logs exported successfully!');
+};
+
+const showEditModal = ref(false);
+const isSaving = ref(false);
+const editingRecord = ref(null);
+const editForm = ref({ time_in: '', time_out: '' });
+
+const openEditModal = (record) => {
+  editingRecord.value = record;
+  editForm.value = {
+    time_in: record.time_in ? new Date(record.time_in).toISOString().slice(0, 16) : '',
+    time_out: record.time_out ? new Date(record.time_out).toISOString().slice(0, 16) : ''
+  };
+  showEditModal.value = true;
+};
+
+const closeEditModal = () => {
+  showEditModal.value = false;
+  editingRecord.value = null;
+};
+
+const handleSave = async () => {
+  if (!editingRecord.value) return;
+  isSaving.value = true;
+  try {
+    const payload = {
+      time_in: editForm.value.time_in ? new Date(editForm.value.time_in).toISOString() : null,
+      time_out: editForm.value.time_out ? new Date(editForm.value.time_out).toISOString() : null
+    };
+    await api.updateAttendance(editingRecord.value.attendance_id, payload);
+    notification.success('Attendance updated successfully');
+    closeEditModal();
+    fetchData();
+  } catch (error) {
+    notification.error(error.message || 'Failed to update attendance');
+  } finally {
+    isSaving.value = false;
+  }
 };
 
 defineEmits(['navigate']);
@@ -150,7 +190,35 @@ defineEmits(['navigate']);
           {{ (item.status || 'PENDING').toUpperCase() }}
         </BaseBadge>
       </template>
+      <template #cell-actions="{ item }">
+        <button class="action-btn" title="Edit" @click="openEditModal(item)">
+          <i class="ri-pencil-line"></i>
+        </button>
+      </template>
     </DataTable>
+
+    <BaseModal 
+      :show="showEditModal" 
+      title="Edit Attendance" 
+      @close="closeEditModal"
+    >
+      <div class="edit-form">
+        <div class="form-group">
+          <label>Time In</label>
+          <input type="datetime-local" class="base-input" v-model="editForm.time_in" />
+        </div>
+        <div class="form-group">
+          <label>Time Out</label>
+          <input type="datetime-local" class="base-input" v-model="editForm.time_out" />
+        </div>
+      </div>
+      <template #footer>
+        <div class="modal-actions">
+          <BaseButton variant="secondary" @click="closeEditModal">Cancel</BaseButton>
+          <BaseButton :loading="isSaving" @click="handleSave">Save Changes</BaseButton>
+        </div>
+      </template>
+    </BaseModal>
   </div>
 </template>
 
@@ -247,6 +315,68 @@ defineEmits(['navigate']);
   background: var(--color-surface-hover);
   color: var(--color-accent);
   box-shadow: var(--shadow-sm);
+}
+
+.action-btn {
+  background: transparent;
+  border: none;
+  color: var(--color-text-muted);
+  font-size: 16px;
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 4px;
+  transition: all 0.2s;
+}
+
+.action-btn:hover {
+  color: var(--color-accent);
+  background: var(--color-surface-hover);
+}
+
+.edit-form {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.form-group label {
+  font-size: 13px;
+  color: var(--color-text-secondary);
+  font-weight: 500;
+}
+
+.base-input {
+  background: var(--color-bg);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  padding: 10px 12px;
+  color: var(--color-text-primary);
+  font-size: 14px;
+  transition: all 0.2s;
+  width: 100%;
+}
+
+.base-input:focus {
+  outline: none;
+  border-color: var(--color-accent);
+}
+
+.base-input::-webkit-calendar-picker-indicator {
+  filter: invert(0.8);
+  cursor: pointer;
+}
+
+.modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  width: 100%;
 }
 </style>
 

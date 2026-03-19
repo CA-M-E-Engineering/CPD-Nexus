@@ -163,9 +163,9 @@ const deleteProject = async () => {
       </template>
     </TableToolbar>
 
-    <DataTable :loading="isLoading" :columns="columns" :data="filteredProjects">
+    <DataTable :loading="isLoading" :columns="columns" :data="filteredProjects" row-clickable @row-click="handleRowClick">
       <template #cell-title="{ item }">
-        <div class="clickable-cell" @click="handleRowClick(item)">
+        <div>
           <strong>{{ item.title }}</strong>
         </div>
       </template>
@@ -214,8 +214,6 @@ const deleteProject = async () => {
 </template>
 
 <style scoped>
-.clickable-cell { cursor: pointer; color: var(--color-accent); transition: opacity 0.2s; }
-.clickable-cell:hover { opacity: 0.8; text-decoration: underline; }
 .stat-cell { display: flex; align-items: center; gap: 8px; color: var(--color-text-secondary); }
 .stat-cell i { color: var(--color-accent); font-size: 16px; }
 </style>

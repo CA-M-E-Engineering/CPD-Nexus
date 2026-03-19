@@ -112,7 +112,7 @@ const handleEdit = () => {
 };
 
 const handleManageWorker = (worker) => {
-  emit('navigate', 'worker-detail', { id: worker.user_id });
+  emit('navigate', 'worker-add', { id: worker.user_id, mode: 'edit' });
 };
 </script>
 
@@ -155,7 +155,7 @@ const handleManageWorker = (worker) => {
       <BaseTabs v-model="activeTab" :tabs="tabs" />
 
       <div v-show="activeTab === 'Workers'" class="tab-content">
-        <DataTable :loading="loadingSubData" :columns="workerColumns" :data="assignedWorkers">
+        <DataTable :loading="loadingSubData" :columns="workerColumns" :data="assignedWorkers" row-clickable @row-click="handleManageWorker">
           <template #cell-name="{ item }">
               <strong>{{ item.name }}</strong>
           </template>

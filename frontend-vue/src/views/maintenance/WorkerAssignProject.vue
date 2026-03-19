@@ -4,7 +4,7 @@
     :description="`Update the project assignment for ${worker?.name || 'Worker'}`"
     action-label="Update Project Assignment"
     :loading="isSaving"
-    @back="$emit('navigate', 'worker-detail', { id: props.id })"
+    @back="$emit('navigate', 'worker-add', { id: props.id, mode: 'edit' })"
     @action="handleSave"
   >
     <template #list>
@@ -119,7 +119,7 @@ const handleSave = async () => {
 
   if (newId === currentId) {
 
-    emit('navigate', 'worker-detail', { id: props.id });
+    emit('navigate', 'worker-add', { id: props.id, mode: 'edit' });
     return;
   }
 
@@ -136,7 +136,7 @@ const handleSave = async () => {
 
     await api.updateWorker(props.id, updateData);
     notification.success('Project assignment updated');
-    emit('navigate', 'worker-detail', { id: props.id });
+    emit('navigate', 'worker-add', { id: props.id, mode: 'edit' });
   } catch (err) {
     console.error('[WorkerAssignProject] Failed to update project', err);
     notification.error(err.message || 'Failed to update project assignment');

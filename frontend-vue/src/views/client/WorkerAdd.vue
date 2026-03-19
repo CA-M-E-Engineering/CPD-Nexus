@@ -218,10 +218,57 @@ const handleSubmit = async () => {
       <p>Fetching worker data...</p>
     </div>
 
-    <div v-else class="split-layout">
+    <div v-else class="profile-layout">
+      <!-- ── LEFT: Live Profile Sidebar ── -->
+      <div class="profile-sidebar">
+        <div class="profile-card">
+          <div class="profile-image-wrapper" :class="{ 'has-image': !!fileName && fileName !== 'Uploading...' }">
+             <img v-if="fileName && fileName !== 'Uploading...'" :src="fileName" alt="Profile" class="profile-image" />
+             <div v-else class="profile-placeholder">
+               <i class="ri-user-smile-line"></i>
+             </div>
+             
+             <!-- Upload Overlay -->
+             <div class="image-upload-overlay">
+               <i v-if="fileName === 'Uploading...'" class="ri-loader-4-line spin-icon"></i>
+               <i v-else class="ri-camera-lens-line"></i>
+               <span v-if="fileName === 'Uploading...'">Uploading...</span>
+               <span v-else>{{ fileName && fileName !== 'Uploading...' ? 'Change Picture' : 'Upload Picture' }}</span>
+               <input v-if="fileName !== 'Uploading...'" type="file" accept="image/*" class="file-input" @change="handleFileUpload" />
+             </div>
+          </div>
+          
+          <div class="profile-header-info">
+             <h2 class="profile-name">{{ formData.name || 'New Worker' }}</h2>
+             <div class="profile-status">
+               <span class="profile-role">{{ formData.role || 'Worker' }}</span>
+             </div>
+          </div>
+          
+          <div class="profile-divider"></div>
+          
+          <div class="profile-stats">
+             <div class="stat-item">
+               <span class="stat-label">Nationality</span>
+               <span class="stat-value">{{ formData.person_nationality || '---' }}</span>
+             </div>
+             <div class="stat-item">
+               <span class="stat-label">NRIC / FIN</span>
+               <span class="stat-value">{{ formData.person_id_no || '---' }}</span>
+             </div>
+             <div class="stat-item">
+               <span class="stat-label">Sync Status</span>
+               <BaseBadge v-if="isEdit" :type="formData.is_synced === 1 ? 'success' : 'warning'">
+                 {{ formData.is_synced === 1 ? 'Synced' : 'Pending' }}
+               </BaseBadge>
+               <span v-else class="stat-value" style="color:var(--color-text-muted)">Unsaved</span>
+             </div>
+          </div>
+        </div>
+      </div>
 
-      <!-- ── LEFT: Profile + Compliance form ── -->
-      <form class="form-col" @submit.prevent="handleSubmit">
+      <!-- ── RIGHT: Form Main Area ── -->
+      <form class="profile-main form-col" @submit.prevent="handleSubmit">
 
         <!-- Section 1: Personal Info -->
         <div class="form-section-card">
@@ -234,29 +281,20 @@ const handleSubmit = async () => {
           </div>
         </div>
 
-        <!-- Section 2: SGBuildex Compliance (Mandatory + Optional blocks) -->
+        <!-- Section 2: SGBuildex Compliance -->
         <div class="form-section-card">
           <div class="section-header">
             <h3 class="section-title">SGBuildex Compliance Fields</h3>
             <p class="section-desc">Identification, pass, and trade details required for manpower utilization submission.</p>
           </div>
 
-          <!-- ── API Mandatory block ── -->
           <div class="field-block mandatory-block">
             <div class="block-label">
               <i class="ri-error-warning-line"></i>
               Mandatory — required for every API submission
             </div>
             <div class="form-grid">
-              <BaseInput
-                v-model="formData.person_id_no"
-                label="Person Identity Number (NRIC / FIN)"
-                placeholder="e.g., S1234567D"
-                required
-                maxlength="9"
-                :error="formErrors.person_id_no"
-              />
-
+              <BaseInput v-model="formData.person_id_no" label="Person Identity Number (NRIC / FIN)" placeholder="e.g., S1234567D" required maxlength="9" :error="formErrors.person_id_no" />
               <div class="form-group">
                 <label class="form-label">ID / Work Pass Type <span class="required">*</span></label>
                 <select v-model="formData.person_id_and_work_pass_type" class="form-select" :class="{ 'has-error': formErrors.person_id_and_work_pass_type }">
@@ -264,7 +302,6 @@ const handleSubmit = async () => {
                 </select>
                 <span v-if="formErrors.person_id_and_work_pass_type" class="error-text">{{ formErrors.person_id_and_work_pass_type }}</span>
               </div>
-
               <div class="form-group full-width">
                 <label class="form-label">Person Trade <span class="required">*</span></label>
                 <select v-model="formData.person_trade" class="form-select" :class="{ 'has-error': formErrors.person_trade }">
@@ -275,20 +312,13 @@ const handleSubmit = async () => {
             </div>
           </div>
 
-          <!-- ── API Optional block ── -->
           <div class="field-block optional-block">
             <div class="block-label">
               <i class="ri-information-line"></i>
               Optional — submitted when available
             </div>
             <div class="form-grid">
-              <BaseInput
-                v-model="formData.person_nationality"
-                label="Person Nationality (ISO 2-char)"
-                placeholder="e.g., SG, BD, IN, CN"
-                maxlength="2"
-                :error="formErrors.person_nationality"
-              >
+              <BaseInput v-model="formData.person_nationality" label="Person Nationality (ISO 2-char)" placeholder="e.g., SG, BD, IN, CN" maxlength="2" :error="formErrors.person_nationality">
                 <template #label-suffix>
                   <span class="reg-badge hdb">HDB Mandatory</span>
                   <span class="opt-tag">BCA/LTA: not needed</span>
@@ -297,105 +327,230 @@ const handleSubmit = async () => {
               <div class="info-note full-width">
                 <i class="ri-building-2-line"></i>
                 <div>
-                  <strong>Person Employer Company Name &amp; UEN</strong> are configured at the
-                  <span class="inline-link" @click="$emit('navigate', 'projects')">Project level</span>
-                  (Worker Company fields). Ensure each project has these filled.<br>
-                  <span style="margin-top:6px;display:block">
-                    <strong style="color:#ea580c">BCA mandatory:</strong> Employer Client Company Name/UEN and Employer Company Trade must also be set.<br>
-                    <strong style="color:#2563eb">HDB mandatory:</strong> Person Nationality must be filled.
-                  </span>
+                  <strong>Person Employer Company Name &amp; UEN</strong> are configured at the <span class="inline-link" @click="$emit('navigate', 'projects')">Project level</span>. <br>
                 </div>
               </div>
             </div>
           </div>
         </div>
 
-        <div class="form-actions">
+        <!-- Section 3: IoT Auth panel -->
+        <div class="form-section-card auth-panel-inline">
+          <div class="section-header">
+            <h3 class="section-title">IoT Authentication Setup</h3>
+            <p class="section-desc">Push biometric/access credentials for site entry.</p>
+          </div>
+
+          <div class="form-grid">
+            <div v-if="formData.worker_id" class="form-group full-width">
+              <label class="form-label">System Worker ID</label>
+              <BaseInput v-model="formData.worker_id" disabled />
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">User Type</label>
+              <select v-model="authForm.userType" class="form-select">
+                <option value="user">User</option>
+                <option value="visitor">Visitor</option>
+                <option value="blocklist">Blocklist</option>
+              </select>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">Authentication Method</label>
+              <select v-model="authForm.authType" class="form-select">
+                <option value="face">Face Recognition</option>
+                <option value="card">Access Card (NFC/RFID)</option>
+              </select>
+            </div>
+
+            <BaseInput v-model="authForm.authStart" label="Auth Start (YYYY-MM-DD HH:MM:SS)" placeholder="e.g., 2026-02-25 00:00:00" />
+            <BaseInput v-model="authForm.authEnd"   label="Auth End (YYYY-MM-DD HH:MM:SS)"   placeholder="e.g., 2037-12-31 23:59:59" />
+
+            <template v-if="authForm.authType === 'card'">
+              <BaseInput v-model="authForm.cardNo" label="Hardware Access Card Number" placeholder="e.g., 0011223344" required />
+              <div class="form-group">
+                <label class="form-label">Card Type</label>
+                <select v-model="authForm.cardType" class="form-select">
+                  <option value="normal">Normal Card</option>
+                  <option value="super">Super Card</option>
+                </select>
+              </div>
+            </template>
+          </div>
+        </div>
+
+        <div class="form-actions sticky-actions">
           <BaseButton variant="secondary" @click="$emit('navigate', 'workers')" type="button">Cancel</BaseButton>
           <BaseButton :loading="isSaving" type="submit">
             {{ isEdit ? 'Save Changes' : 'Register Worker' }}
           </BaseButton>
         </div>
       </form>
-
-      <!-- ── RIGHT: IoT Auth panel ── -->
-      <div class="auth-panel">
-        <div class="section-header" style="margin-bottom: 20px;">
-          <div style="display:flex; justify-content:space-between; align-items:flex-start;">
-            <div>
-              <h3 class="section-title" style="margin-bottom:4px;">IoT Authentication Setup</h3>
-              <p class="section-desc" style="margin:0;">Push biometric/access credentials for site entry.</p>
-            </div>
-            <BaseBadge v-if="isEdit" :type="formData.is_synced === 1 ? 'success' : 'warning'">
-              {{ formData.is_synced === 1 ? 'Synced' : 'Pending Sync' }}
-            </BaseBadge>
-          </div>
-        </div>
-
-        <div v-if="formData.worker_id" class="form-group">
-          <label class="form-label">System Worker ID</label>
-          <BaseInput v-model="formData.worker_id" disabled />
-        </div>
-
-        <div class="form-group">
-          <label class="form-label">User Type</label>
-          <select v-model="authForm.userType" class="form-select">
-            <option value="user">User</option>
-            <option value="visitor">Visitor</option>
-            <option value="blocklist">Blocklist</option>
-          </select>
-        </div>
-
-        <BaseInput v-model="authForm.authStart" label="Authorization Start (YYYY-MM-DD HH:MM:SS)" placeholder="e.g., 2026-02-25 00:00:00" />
-        <BaseInput v-model="authForm.authEnd"   label="Authorization End (YYYY-MM-DD HH:MM:SS)"   placeholder="e.g., 2037-12-31 23:59:59" />
-
-        <div class="form-group">
-          <label class="form-label">Authentication Method</label>
-          <select v-model="authForm.authType" class="form-select">
-            <option value="face">Face Recognition</option>
-            <option value="card">Access Card (NFC/RFID)</option>
-          </select>
-        </div>
-
-        <div v-if="authForm.authType === 'face'" class="form-group">
-          <label class="form-label">Face Image Scan</label>
-          <div class="upload-area">
-            <i class="ri-image-add-line upload-icon"></i>
-            <span>Click or drag image here</span>
-            <input type="file" accept="image/*" class="file-input" @change="handleFileUpload" />
-          </div>
-          <p v-if="fileName" class="file-name">Staged: {{ fileName }}</p>
-        </div>
-
-        <template v-if="authForm.authType === 'card'">
-          <BaseInput v-model="authForm.cardNo" label="Hardware Access Card Number" placeholder="e.g., 0011223344" required />
-          <div class="form-group">
-            <label class="form-label">Card Type</label>
-            <select v-model="authForm.cardType" class="form-select">
-              <option value="normal">Normal Card</option>
-              <option value="super">Super Card</option>
-            </select>
-          </div>
-        </template>
-      </div>
-
     </div>
   </div>
 </template>
 
 <style scoped>
 /* ── Layout ── */
-.split-layout {
+.profile-layout {
   display: grid;
-  grid-template-columns: 2fr 1fr;
+  grid-template-columns: 340px 1fr;
   gap: 28px;
   align-items: start;
 }
 
-.form-col {
+.profile-sidebar {
   display: flex;
   flex-direction: column;
-  gap: 20px;
+  gap: 24px;
+  position: sticky;
+  top: 24px;
+}
+
+.profile-main {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+/* ── Profile Card ── */
+.profile-card {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  box-shadow: var(--shadow-sm);
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.profile-card:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-md);
+}
+
+.profile-image-wrapper {
+  width: 100%;
+  aspect-ratio: 1;
+  background: var(--color-bg-subtle);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  border-bottom: 1px solid var(--color-border);
+  position: relative;
+  overflow: hidden;
+}
+
+.profile-image-wrapper.has-image {
+  background: transparent;
+}
+
+.profile-image {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.profile-placeholder {
+  font-size: 72px;
+  color: var(--color-text-muted);
+}
+
+.image-upload-overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  background: rgba(0, 0, 0, 0.6);
+  color: #fff;
+  opacity: 0;
+  transition: opacity 0.2s;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.profile-image-wrapper:hover .image-upload-overlay {
+  opacity: 1;
+}
+
+.image-upload-overlay .upload-icon {
+  font-size: 28px;
+  color: #fff;
+  margin-bottom: 4px;
+}
+
+.spin-icon {
+  animation: spin 1s linear infinite;
+}
+
+.file-input {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.profile-header-info {
+  padding: 24px 24px 18px;
+  text-align: center;
+}
+
+.profile-name {
+  margin: 0 0 10px;
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--color-text-primary);
+  letter-spacing: -0.01em;
+}
+
+.profile-status {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+}
+
+.profile-role {
+  font-size: 14px;
+  color: var(--color-text-secondary);
+  font-weight: 500;
+  text-transform: capitalize;
+}
+
+.profile-divider {
+  height: 1px;
+  background: var(--color-border);
+  margin: 0 24px;
+}
+
+.profile-stats {
+  padding: 20px 24px 28px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.stat-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.stat-label {
+  font-size: 13px;
+  color: var(--color-text-secondary);
+  font-weight: 500;
+}
+
+.stat-value {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--color-text-primary);
 }
 
 /* ── Section Cards ── */
@@ -404,18 +559,6 @@ const handleSubmit = async () => {
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
   padding: 24px;
-}
-
-.auth-panel {
-  background: var(--color-surface);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-md);
-  padding: 24px;
-  display: flex;
-  flex-direction: column;
-  gap: 18px;
-  position: sticky;
-  top: 24px;
 }
 
 .section-header {
@@ -546,43 +689,7 @@ const handleSubmit = async () => {
   color: #ef4444;
 }
 
-/* ── Upload area ── */
-.upload-area {
-  position: relative;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  padding: 28px;
-  border: 2px dashed var(--color-border);
-  border-radius: var(--radius-md);
-  background: var(--color-bg);
-  cursor: pointer;
-  transition: border-color 0.2s;
-  font-size: 13px;
-  color: var(--color-text-secondary);
-  gap: 6px;
-}
-
-.upload-area:hover { border-color: var(--color-accent); }
-
-.upload-icon {
-  font-size: 28px;
-  color: var(--color-text-muted);
-}
-
-.file-input {
-  position: absolute;
-  inset: 0;
-  opacity: 0;
-  cursor: pointer;
-}
-
-.file-name {
-  margin: 4px 0 0;
-  font-size: 12px;
-  color: var(--color-accent);
-}
+/* Removed unneeded UI */
 
 /* ── Loading ── */
 .loading-state {
@@ -615,8 +722,8 @@ const handleSubmit = async () => {
 
 /* ── Responsive ── */
 @media (max-width: 1024px) {
-  .split-layout { grid-template-columns: 1fr; }
-  .auth-panel { position: static; }
+  .profile-layout { grid-template-columns: 1fr; }
+  .profile-sidebar { position: static; }
 }
 
 @media (max-width: 640px) {

@@ -146,7 +146,7 @@ const handleAssignWorker = () => {
 };
 
 const handleManageWorker = (worker) => {
-  emit('navigate', 'worker-detail', { id: worker.worker_id });
+  emit('navigate', 'worker-add', { id: worker.worker_id, mode: 'edit' });
 };
 
 const showDeleteConfirm = ref(false);
@@ -212,7 +212,7 @@ const handleDelete = async () => {
       <BaseTabs v-model="activeTab" :tabs="tabs" />
 
     <div v-show="activeTab === 'Workers'" class="tab-content">
-        <DataTable :columns="workerColumns" :data="assignedWorkers">
+        <DataTable :columns="workerColumns" :data="assignedWorkers" row-clickable @row-click="handleManageWorker">
           <template #cell-name="{ item }">
               <strong>{{ item.name }}</strong>
           </template>
