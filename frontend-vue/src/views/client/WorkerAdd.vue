@@ -259,7 +259,7 @@ const handleSubmit = async () => {
              <div class="stat-item">
                <span class="stat-label">Sync Status</span>
                <BaseBadge v-if="isEdit" :type="formData.is_synced === 1 ? 'success' : 'warning'">
-                 {{ formData.is_synced === 1 ? 'Synced' : 'Pending' }}
+                 {{ formData.is_synced === 1 ? 'Synced' : 'Sync Pending' }}
                </BaseBadge>
                <span v-else class="stat-value" style="color:var(--color-text-muted)">Unsaved</span>
              </div>

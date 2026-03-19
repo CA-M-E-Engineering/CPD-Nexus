@@ -24,7 +24,7 @@ const columns = [
   { key: 'time_in', label: 'Time In', size: 'md', muted: true },
   { key: 'time_out', label: 'Time Out', size: 'md', muted: true },
   { key: 'status', label: 'Status', size: 'sm' },
-  { key: 'actions', label: '', size: 'sm', align: 'right' }
+  { key: 'actions', label: 'ACTIONS', size: 'sm', align: 'right' }
 ];
 
 const filteredAttendance = computed(() => {
@@ -191,9 +191,9 @@ defineEmits(['navigate']);
         </BaseBadge>
       </template>
       <template #cell-actions="{ item }">
-        <button class="action-btn" title="Edit" @click="openEditModal(item)">
-          <i class="ri-pencil-line"></i>
-        </button>
+        <BaseButton size="sm" @click.stop="openEditModal(item)">
+          Edit
+        </BaseButton>
       </template>
     </DataTable>
 
