@@ -5,6 +5,7 @@ import { notification } from '../../services/notification';
 import PageHeader from '../../components/ui/PageHeader.vue';
 import BaseInput from '../../components/ui/BaseInput.vue';
 import BaseButton from '../../components/ui/BaseButton.vue';
+import ConfirmDialog from '../../components/ui/ConfirmDialog.vue';
 import { TRADES } from '../../utils/constants.js';
 import { validateProjectRef, validateUEN, validateHDBContract, validateLTAContract, sanitizeUEN } from '../../utils/validation.js';
 
@@ -328,6 +329,24 @@ const handleSubmit = async () => {
     isSaving.value = false;
   }
 };
+
+const showDeleteDialog = ref(false);
+const isDeleting = ref(false);
+
+const handleDelete = async () => {
+  if (!props.id) return;
+  isDeleting.value = true;
+  try {
+    await api.deleteProject(props.id);
+    notification.success('Project deleted successfully');
+    emit('navigate', 'projects');
+  } catch (err) {
+    notification.error(err.message || 'Failed to delete project');
+  } finally {
+    isDeleting.value = false;
+    showDeleteDialog.value = false;
+  }
+};
 </script>
 
 <template>
@@ -646,12 +665,28 @@ const handleSubmit = async () => {
       </div>
 
       <div class="form-actions">
-        <BaseButton variant="secondary" @click="$emit('navigate', 'projects')" type="button">Cancel</BaseButton>
-        <BaseButton :loading="isSaving" type="submit">
-          {{ isEdit ? 'Save Changes' : 'Create Project' }}
-        </BaseButton>
+        <div class="left-actions">
+          <BaseButton v-if="isEdit" variant="danger" @click="showDeleteDialog = true" type="button">
+            Delete Project
+          </BaseButton>
+        </div>
+        <div class="right-actions">
+          <BaseButton variant="secondary" @click="$emit('navigate', 'projects')" type="button">Cancel</BaseButton>
+          <BaseButton :loading="isSaving" type="submit">
+            {{ isEdit ? 'Save Changes' : 'Create Project' }}
+          </BaseButton>
+        </div>
       </div>
     </form>
+
+    <ConfirmDialog
+      :show="showDeleteDialog"
+      :loading="isDeleting"
+      title="Delete Project"
+      :description="`Are you sure you want to delete this project? This action will remove all assignments for this project and cannot be undone.`"
+      @confirm="handleDelete"
+      @cancel="showDeleteDialog = false"
+    />
   </div>
 </template>
 
@@ -1010,11 +1045,17 @@ const handleSubmit = async () => {
 /* ── Actions ── */
 .form-actions {
   display: flex;
-  justify-content: flex-end;
+  justify-content: space-between;
+  align-items: center;
   gap: 12px;
   margin-top: 24px;
   padding-top: 24px;
   border-top: 1px solid var(--color-border);
+}
+
+.right-actions {
+  display: flex;
+  gap: 12px;
 }
 
 /* ── Responsive ── */
