@@ -18,12 +18,12 @@ const activeFilter = ref('All');
 const filters = DATA_FILTERS.DEVICES;
 
 const columns = [
-  { key: 'device_id', label: 'Data Stream ID', size: 'md', bold: true },
+  { key: 'device_id', label: 'DEVICE ID', size: 'md', bold: true },
   { key: 'sn', label: 'Serial Number', size: 'md' },
   { key: 'model', label: 'Hardware Model', size: 'md' },
   { key: 'last_heartbeat', label: 'Last Connection', size: 'md' },
   { key: 'site_name', label: 'Current Assignment', size: 'lg' },
-  { key: 'actions', label: 'Actions', width: '120px' }
+  { key: 'actions', label: 'Actions', width: '130px' }
 ];
 
 const deviceStore = useDeviceStore();
@@ -157,10 +157,7 @@ const formatDate = (dateStr) => {
 
       <template #cell-actions="{ item }">
         <div class="action-buttons-table">
-          <BaseButton variant="ghost" size="sm" @click.stop="handleRowClick(item)">
-            Manage
-          </BaseButton>
-          <BaseButton variant="ghost" size="sm" class="delete-btn" @click.stop="confirmDelete(item)">
+          <BaseButton variant="danger" size="sm" icon="ri-delete-bin-line" @click.stop="confirmDelete(item)">
             Delete
           </BaseButton>
         </div>
