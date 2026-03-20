@@ -22,6 +22,7 @@ type RouterConfig struct {
 	AttendanceHandler  *handlers.AttendanceHandler
 	SettingsHandler    *handlers.SettingsHandler
 	BridgeSyncHandler  *handlers.BridgeSyncHandler
+	BridgeHandler      *handlers.BridgeHandler
 	PitstopHandler     *handlers.PitstopHandler
 	UserRepo           ports.UserRepository
 }
@@ -36,6 +37,10 @@ func RegisterRoutes(r *mux.Router, cfg RouterConfig) {
 
 	// --- Auth Routes (Public) ---
 	r.HandleFunc("/api/auth/login", cfg.AuthHandler.Login).Methods("POST")
+
+	// --- Bridge Connection (Internal/Machine-to-Machine) ---
+	// This endpoint handles its own token-based authentication
+	r.HandleFunc("/api/v1/bridge/connect", cfg.BridgeHandler.Connect)
 
 	api := r.PathPrefix("/api").Subrouter()
 	api.Use(middleware.UserScopeMiddleware(cfg.UserRepo))

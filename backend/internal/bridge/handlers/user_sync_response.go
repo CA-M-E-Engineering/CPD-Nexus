@@ -20,11 +20,13 @@ type UserSyncResponsePayload struct {
 // UserSyncResponseHandler processes REGISTER_USER_RESPONSE and UPDATE_USER_RESPONSE
 type UserSyncResponseHandler struct {
 	workerRepo ports.WorkerRepository
+	bridgeRepo ports.BridgeRepository
 }
 
-func NewUserSyncResponseHandler(workerRepo ports.WorkerRepository) *UserSyncResponseHandler {
+func NewUserSyncResponseHandler(workerRepo ports.WorkerRepository, bridgeRepo ports.BridgeRepository) *UserSyncResponseHandler {
 	return &UserSyncResponseHandler{
 		workerRepo: workerRepo,
+		bridgeRepo: bridgeRepo,
 	}
 }
 
@@ -54,6 +56,12 @@ func (h *UserSyncResponseHandler) Handle(ctx context.Context, msg bridge.Message
 	} else {
 		// Do not update is_synced if bridge explicitly rejected or failed the user operation
 		logger.Infof("[UserSyncResponse] Bridge rejected sync for worker %s (Code: %d, Msg: %s). Sync status unchanged.", workerID, payload.Code, payload.Msg)
+	}
+
+	// Update the interaction log with the actual status code
+	// bridge_userID was injected into ctx by RequestManager
+	if userID, ok := ctx.Value("bridge_userID").(string); ok {
+		_ = h.bridgeRepo.LogBridgeInteraction(ctx, userID, msg.Action, msg.Meta.RequestID, nil, msg.Payload, payload.Code)
 	}
 
 	return nil, nil

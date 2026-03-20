@@ -29,6 +29,7 @@ INSERT INTO
         longitude,
         status,
         bridge_ws_url,
+        bridge_auth_token,
         bridge_status,
         created_at,
         updated_at
@@ -45,7 +46,8 @@ VALUES (
         1.3521,
         103.8198,
         'active',
-        'ws://localhost:8081/ws',
+        NULL,
+        NULL,
         'active',
         NOW(),
         NOW()

@@ -14,12 +14,14 @@ import (
 type BridgeSyncHandler struct {
 	builder    *bridgeHandlers.UserSyncBuilder
 	requestMgr *bridge.RequestManager
+	bridgeRepo ports.BridgeRepository
 }
 
-func NewBridgeSyncHandler(builder *bridgeHandlers.UserSyncBuilder, requestMgr *bridge.RequestManager) *BridgeSyncHandler {
+func NewBridgeSyncHandler(builder *bridgeHandlers.UserSyncBuilder, requestMgr *bridge.RequestManager, bridgeRepo ports.BridgeRepository) *BridgeSyncHandler {
 	return &BridgeSyncHandler{
 		builder:    builder,
 		requestMgr: requestMgr,
+		bridgeRepo: bridgeRepo,
 	}
 }
 
@@ -89,6 +91,9 @@ func (h *BridgeSyncHandler) SyncUsers(w http.ResponseWriter, r *http.Request) {
 			logger.Infof("[BridgeSync API] Failed to send message %d: %v", i, err)
 			failCount++
 		} else {
+			// Log the interaction
+			_ = h.bridgeRepo.LogBridgeInteraction(ctx, userID, msg.Action, msg.Meta.RequestID, msg.Payload, nil, 0)
+
 			respMsg, _ := json.MarshalIndent(msg, "", "  ")
 			logger.Infof("\n--- [BRIDGE SYNC API OUTBOUND] ---\n%s\n----------------------------------", string(respMsg))
 

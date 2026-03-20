@@ -4,6 +4,8 @@ import (
 	"context"
 	"cpd-nexus/internal/core/domain"
 	"cpd-nexus/internal/core/ports"
+	"crypto/rand"
+	"encoding/hex"
 	"fmt"
 	"golang.org/x/crypto/bcrypt"
 )
@@ -44,6 +46,17 @@ func (s *UserService) CreateUser(ctx context.Context, user *domain.User, passwor
 		}
 		user.PasswordHash = string(hash)
 	}
+    
+    // Auto-generate Bridge Config if missing
+    if user.BridgeAuthToken == nil || *user.BridgeAuthToken == "" {
+        token := generateSecureToken(16)
+        user.BridgeAuthToken = &token
+    }
+    
+    // Default bridge status to active for new users to simplify setup
+    if user.BridgeStatus == "" {
+        user.BridgeStatus = "active"
+    }
 
 	err := s.repo.Create(ctx, user)
 	if err == nil {
@@ -99,4 +112,12 @@ func (s *UserService) DeleteUser(ctx context.Context, id string) error {
 		s.analytics.LogActivity(ctx, id, "User Deleted", "user", id, "User account deactivated/removed")
 	}
 	return err
+}
+
+func generateSecureToken(length int) string {
+	b := make([]byte, length)
+	if _, err := rand.Read(b); err != nil {
+		return ""
+	}
+	return hex.EncodeToString(b)
 }

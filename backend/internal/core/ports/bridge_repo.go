@@ -19,4 +19,5 @@ type BridgeRepository interface {
 	GetActiveDeviceSNsBySite(ctx context.Context, siteID string) ([]string, error)
 	GetWorkerOwnerID(ctx context.Context, workerID string) (string, error)
 	GetActiveBridges(ctx context.Context) ([]BridgeConfig, error)
+	LogBridgeInteraction(ctx context.Context, userID, action, requestID string, requestPayload, responsePayload []byte, statusCode int) error
 }

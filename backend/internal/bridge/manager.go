@@ -145,6 +145,8 @@ func (rm *RequestManager) RequestAttendance(ctx context.Context) error {
 				if err := transport.Write(req); err != nil {
 					logger.Infof("RequestManager (%s): Failed to send request for worker %s: %v", uid, task.WorkerID, err)
 				} else {
+					// Log the interaction
+					_ = rm.BridgeRepo.LogBridgeInteraction(ctx, uid, req.Action, req.Meta.RequestID, req.Payload, nil, 0)
 					logger.Infof("RequestManager (%s): Queued attendance request for worker %s", uid, task.WorkerID)
 				}
 			}
@@ -214,6 +216,8 @@ func (rm *RequestManager) RequestUserSync(ctx context.Context, builder interface
 				if err := transport.Write(t.msg); err != nil {
 					logger.Infof("RequestManager (%s): Failed to send sync for worker %s: %v", uid, t.workerID, err)
 				} else {
+					// Log the interaction
+					_ = rm.BridgeRepo.LogBridgeInteraction(ctx, uid, t.msg.Action, t.msg.Meta.RequestID, t.msg.Payload, nil, 0)
 					logger.Infof("RequestManager (%s): Queued sync for worker %s", uid, t.workerID)
 				}
 			}
@@ -246,6 +250,9 @@ func (rm *RequestManager) HandleIncomingMessages(ctx context.Context, userID str
 			fullMsg, _ := json.MarshalIndent(msg, "", "  ")
 			logger.Infof("\n--- [BRIDGE INBOUND (%s)] ---\n%s\n------------------------", userID, string(fullMsg))
 
+			// Log inbound message
+			_ = rm.BridgeRepo.LogBridgeInteraction(ctx, userID, msg.Action, msg.Meta.RequestID, nil, msg.Payload, 0)
+
 			if handler, ok := func() (Handler, bool) {
 				rm.handlersMu.RLock()
 				defer rm.handlersMu.RUnlock()
@@ -261,6 +268,9 @@ func (rm *RequestManager) HandleIncomingMessages(ctx context.Context, userID str
 					if err := transport.Write(*resp); err != nil {
 						logger.Infof("RequestManager (%s): Failed to send response back to bridge: %v", userID, err)
 					} else {
+						// Log the outbound response
+						_ = rm.BridgeRepo.LogBridgeInteraction(ctx, userID, resp.Action, resp.Meta.RequestID, resp.Payload, nil, 0)
+
 						respMsg, _ := json.MarshalIndent(resp, "", "  ")
 						logger.Infof("\n--- [BRIDGE OUTBOUND RESPONSE (%s)] ---\n%s\n----------------------------------", userID, string(respMsg))
 					}

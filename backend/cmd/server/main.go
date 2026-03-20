@@ -7,7 +7,6 @@ import (
 	"os"
 	"os/signal"
 	"strings"
-	"sync"
 	"syscall"
 	"time"
 
@@ -103,12 +102,12 @@ func main() {
 	bridgeRepo := mysql.NewBridgeRepository(db)
 	requestMgr := bridge.NewRequestManager(bridgeRepo)
 	userSyncBuilder := bridgeHandlers.NewUserSyncBuilder(workerService, workerRepo, deviceRepo)
-	routerCfg.BridgeSyncHandler = apiHandlers.NewBridgeSyncHandler(userSyncBuilder, requestMgr)
+	routerCfg.BridgeHandler = apiHandlers.NewBridgeHandler(requestMgr, userRepo); routerCfg.BridgeSyncHandler = apiHandlers.NewBridgeSyncHandler(userSyncBuilder, requestMgr, bridgeRepo)
 
 	attendanceHandler := bridgeHandlers.NewAttendanceHandler(attendanceService)
 	requestMgr.RegisterHandler("GET_ATTENDANCE_RESPONSE", attendanceHandler)
 
-	userSyncResponseHandler := bridgeHandlers.NewUserSyncResponseHandler(workerRepo)
+	userSyncResponseHandler := bridgeHandlers.NewUserSyncResponseHandler(workerRepo, bridgeRepo)
 	requestMgr.RegisterHandler("REGISTER_USER_RESPONSE", userSyncResponseHandler)
 	requestMgr.RegisterHandler("UPDATE_USER_RESPONSE", userSyncResponseHandler)
 
@@ -209,8 +208,9 @@ func startAPI(cfg *config.Config, routerCfg api.RouterConfig) *http.Server {
 	return server
 }
 
-func startBridge(ctx context.Context, _ *config.Config, bridgeRepo ports.BridgeRepository, requestMgr *bridge.RequestManager, userSyncBuilder *bridgeHandlers.UserSyncBuilder) {
+func startBridge(ctx context.Context, _ *config.Config, _ ports.BridgeRepository, requestMgr *bridge.RequestManager, userSyncBuilder *bridgeHandlers.UserSyncBuilder) {
 	// 1. Worker Sync Background Ticker (Every 10 seconds as per user requirement)
+	// This queues sync commands for any bridges that are currently connected.
 	go func() {
 		ticker := time.NewTicker(10 * time.Second)
 		defer ticker.Stop()
@@ -221,76 +221,6 @@ func startBridge(ctx context.Context, _ *config.Config, bridgeRepo ports.BridgeR
 			case <-ticker.C:
 				if err := requestMgr.RequestUserSync(ctx, userSyncBuilder); err != nil {
 					logger.Infof("[BridgeSync] Background sync check failed: %v", err)
-				}
-			}
-		}
-	}()
-
-	// 2. Connection maintenance loop
-	go func() {
-		for {
-			select {
-			case <-ctx.Done():
-				for _, t := range requestMgr.GetAllTransports() {
-					t.Close()
-				}
-				return
-			default:
-				// Fetch active bridges
-				configs, err := bridgeRepo.GetActiveBridges(ctx)
-				if err != nil {
-					logger.Errorf("[Bridge] Failed to fetch active bridges: %v", err)
-				} else {
-					activeIDs := make(map[string]bool)
-					var wg sync.WaitGroup
-
-					for _, c := range configs {
-						userID := c.UserID
-						wsURL := c.WSURL
-						authToken := c.AuthToken
-						activeIDs[userID] = true
-
-						transport, exists := requestMgr.GetTransport(userID)
-
-						if !exists {
-							wg.Add(1)
-							go func(uid, url, token string) {
-								defer wg.Done()
-								logger.Infof("[Bridge] Initializing bridge for user %s at %s", uid, url)
-								t := bridge.NewTransport(url, token)
-								requestMgr.AddTransport(uid, t)
-								go requestMgr.HandleIncomingMessages(ctx, uid, t)
-
-								if err := t.Connect(); err != nil {
-									logger.Errorf("[Bridge] Connection failed for %s: %v", uid, err)
-								}
-							}(userID, wsURL, authToken)
-						} else if !transport.IsConnected() {
-							wg.Add(1)
-							go func(uid string, t *bridge.Transport) {
-								defer wg.Done()
-								if err := t.Connect(); err != nil {
-									logger.Errorf("[Bridge] Reconnection failed for %s: %v", uid, err)
-								}
-							}(userID, transport)
-						}
-					}
-					wg.Wait()
-
-					// Cleanup dropped bridges
-					for userID, t := range requestMgr.GetAllTransports() {
-						if !activeIDs[userID] {
-							logger.Infof("[Bridge] Removing transport for inactive user %s", userID)
-							t.Close()
-							requestMgr.RemoveTransport(userID)
-						}
-					}
-				}
-
-				select {
-				case <-ctx.Done():
-					return
-				case <-time.After(10 * time.Second): // Pacing for the maintenance loop
 				}
 			}
 		}

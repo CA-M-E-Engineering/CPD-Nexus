@@ -51,6 +51,9 @@ func (h *SitesHandler) CreateSite(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Enforce multi-tenancy: set UserID from authenticated context
+	site.UserID = ports.GetUserID(r.Context())
+	
 	if err := h.service.CreateSite(r.Context(), &site); err != nil {
 		writeError(w, err)
 		return

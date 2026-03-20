@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"cpd-nexus/internal/core/domain"
 	"cpd-nexus/internal/core/ports"
+	"cpd-nexus/internal/pkg/logger"
 )
 
 type BridgeRepository struct {
@@ -85,4 +86,35 @@ func (r *BridgeRepository) GetActiveBridges(ctx context.Context) ([]ports.Bridge
 		configs = append(configs, c)
 	}
 	return configs, nil
+}
+
+func (r *BridgeRepository) LogBridgeInteraction(ctx context.Context, userID, action, requestID string, requestPayload, responsePayload []byte, statusCode int) error {
+	query := `
+		INSERT INTO bridge_logs (user_id, action, request_id, request_payload, response_payload, status_code)
+		VALUES (?, ?, ?, ?, ?, ?)
+		ON DUPLICATE KEY UPDATE 
+			response_payload = IF(VALUES(response_payload) IS NOT NULL, VALUES(response_payload), response_payload),
+			status_code = IF(VALUES(status_code) IS NOT NULL, VALUES(status_code), status_code),
+			updated_at = CURRENT_TIMESTAMP`
+
+	var reqPl, respPl interface{}
+	if len(requestPayload) > 0 {
+		reqPl = requestPayload
+	}
+	if len(responsePayload) > 0 {
+		respPl = responsePayload
+	}
+
+	var sc interface{}
+	if statusCode != 0 {
+		sc = statusCode
+	}
+
+	// 6 parameters total: user_id, action, request_id, request_payload, response_payload, status_code
+	// The ON DUPLICATE KEY UPDATE uses VALUES() to refer to these.
+	_, err := r.db.ExecContext(ctx, query, userID, action, requestID, reqPl, respPl, sc)
+	if err != nil {
+		logger.Errorf("BridgeRepo: Failed to log interaction (user: %s, action: %s, reqID: %s): %v", userID, action, requestID, err)
+	}
+	return err
 }

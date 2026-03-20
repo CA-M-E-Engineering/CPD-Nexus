@@ -59,6 +59,9 @@ func (h *WorkersHandler) CreateWorker(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Enforce multi-tenancy: set UserID from authenticated context
+	worker.UserID = ports.GetUserID(r.Context())
+	
 	if err := h.service.CreateWorker(r.Context(), &worker); err != nil {
 		writeError(w, err)
 		return

@@ -64,6 +64,12 @@ func (h *DevicesHandler) CreateDevice(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Enforce multi-tenancy: set UserID from authenticated context unless requester is a vendor
+	userID := ports.GetUserID(r.Context())
+	if !ports.IsVendor(r.Context()) || body.UserID == "" {
+		body.UserID = userID
+	}
+
 	d, err := h.Service.RegisterDevice(r.Context(), body.SN, body.Model, body.UserID)
 	if err != nil {
 		h.handleError(w, err)

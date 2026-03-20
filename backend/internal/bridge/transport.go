@@ -25,6 +25,15 @@ func NewTransport(bridgeURL, token string) *Transport {
 	}
 }
 
+// NewServerTransport creates a transport from an already-established server-side connection.
+// This is used when the bridge initiates the connection to the backend.
+func NewServerTransport(conn *websocket.Conn, token string) *Transport {
+	return &Transport{
+		conn:  conn,
+		token: token,
+	}
+}
+
 // Connect dial the bridge and maintains the connection
 func (t *Transport) Connect() error {
 	u, err := url.Parse(t.url)
