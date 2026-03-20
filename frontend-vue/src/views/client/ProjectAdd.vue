@@ -40,7 +40,8 @@ const formData = ref({
   offsite_fabricator_name: '',
   offsite_fabricator_uen: '',
   offsite_fabricator_location: '',
-  status: 'active'
+  status: 'active',
+  worker_ids: []
 });
 
 const sites = ref([]);
@@ -132,7 +133,6 @@ const allWorkers = ref([]);
 const isUpdatingWorkers = ref(false);
 
 const fetchWorkers = async () => {
-  if (!isEdit.value || !props.id) return;
   try {
     const response = await api.getWorkers({ user_id: formData.value.user_id });
     allWorkers.value = typeof response === 'string' ? JSON.parse(response) : (response || []);
@@ -142,15 +142,29 @@ const fetchWorkers = async () => {
 };
 
 const assignedPersonnel = computed(() => {
-  return allWorkers.value.filter(w => String(w.current_project_id) === String(props.id));
+  if (isEdit.value) {
+    return allWorkers.value.filter(w => String(w.current_project_id) === String(props.id));
+  }
+  return allWorkers.value.filter(w => formData.value.worker_ids.includes(w.worker_id));
 });
 
 const availablePersonnel = computed(() => {
-  return allWorkers.value.filter(w => String(w.current_project_id) !== String(props.id));
+  if (isEdit.value) {
+    return allWorkers.value.filter(w => String(w.current_project_id) !== String(props.id));
+  }
+  return allWorkers.value.filter(w => !formData.value.worker_ids.includes(w.worker_id));
 });
 
 const handleAssignWorker = async (workerId) => {
   if (!workerId) return;
+  
+  if (!isEdit.value) {
+    if (!formData.value.worker_ids.includes(workerId)) {
+      formData.value.worker_ids.push(workerId);
+    }
+    return;
+  }
+
   isUpdatingWorkers.value = true;
   try {
     const workerIds = assignedPersonnel.value.map(w => w.worker_id);
@@ -167,6 +181,12 @@ const handleAssignWorker = async (workerId) => {
 
 const handleRemoveWorker = async (workerId) => {
   if (!workerId) return;
+
+  if (!isEdit.value) {
+    formData.value.worker_ids = formData.value.worker_ids.filter(id => id !== workerId);
+    return;
+  }
+
   isUpdatingWorkers.value = true;
   try {
     const workerIds = assignedPersonnel.value
@@ -627,8 +647,8 @@ const handleDelete = async () => {
               </div>
             </div>
 
-            <!-- Personnel Assignment block (Edit only) -->
-            <div class="field-block personnel-block" v-if="isEdit && props.id">
+            <!-- Personnel Assignment block -->
+            <div class="field-block personnel-block">
               <div class="block-label">
                 <i class="ri-team-line"></i>
                 Project Personnel Assignment
