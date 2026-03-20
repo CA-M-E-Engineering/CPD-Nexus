@@ -2,6 +2,7 @@ package sgbuildex
 
 import (
 	"context"
+	"encoding/json"
 	"cpd-nexus/internal/core/domain"
 	"cpd-nexus/internal/core/ports"
 )
@@ -15,10 +16,20 @@ func (c *Client) SubmitManpowerUtilization(ctx context.Context, repo ports.Submi
 	muResult := MapAttendanceToManpower(rows)
 
 	failedCount := 0
-	for id, errMsg := range muResult.Failures {
-		repo.UpdateAttendanceStatus(ctx, id, "failed", "", errMsg)
-		repo.LogSubmission(ctx, "manpower_utilization", id, "failed", "", errMsg)
-		failedCount++
+	// For rows that failed local mandatory field validation, we still want to log what we tried to send
+	for _, row := range rows {
+		if errMsg, exists := muResult.Failures[row.AttendanceID]; exists {
+			// Create a best-effort payload for logging
+			dummyResult := MapAttendanceToManpower([]domain.AttendanceRow{row})
+			var failedPayload string
+			if len(dummyResult.Payloads) > 0 {
+				pJSON, _ := json.Marshal(dummyResult.Payloads[0])
+				failedPayload = string(pJSON)
+			}
+			repo.UpdateAttendanceStatus(ctx, row.AttendanceID, "failed", "", errMsg)
+			repo.LogSubmission(ctx, "manpower_utilization", row.AttendanceID, "failed", failedPayload, errMsg)
+			failedCount++
+		}
 	}
 
 	wrappers := make([]ManpowerUtilizationWrapper, len(muResult.Payloads))

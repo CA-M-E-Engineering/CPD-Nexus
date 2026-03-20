@@ -44,6 +44,7 @@ func SubmitPayloads[T Submittable](ctx context.Context, repo ports.SubmissionRep
 		var batchPayload []any
 		var batchOnBehalf []OnBehalfWrapper
 		var batchIDs []string
+		itemRequestPayloads := make(map[string]string) // NEW: track request payload per item
 
 		// Build the largest possible batch within limits
 		for i < totalItems && len(batchIDs) < maxBatchSize {
@@ -54,6 +55,10 @@ func SubmitPayloads[T Submittable](ctx context.Context, repo ports.SubmissionRep
 				i++
 				continue
 			}
+
+			// Capture individual payload for DB logging
+			itemJSON, _ := json.Marshal(req.Payload)
+			itemRequestPayloads[s.GetInternalID()] = string(itemJSON)
 
 			// Preview if we add this item — use explicit copy to avoid append slice sharing (#11)
 			nextParticipants := make([]ParticipantWrapper, len(batchParticipants), len(batchParticipants)+len(req.Participants))
@@ -125,17 +130,20 @@ func SubmitPayloads[T Submittable](ctx context.Context, repo ports.SubmissionRep
 
 			status := "submitted"
 			errorMessage := ""
+			var responsePayload string // NEW: capture response for DB storage
+
 			if err != nil {
 				status = "failed"
 				errorMessage = err.Error()
 				logger.Infof("[SGBuildex] Batch submission failed: %v", err)
 			} else {
-				// Ensure body is closed after reading
 				defer resp.Body.Close()
+				bodyBytes, _ := io.ReadAll(resp.Body)
+				responsePayload = string(bodyBytes) // Capture body string
+
 				if resp.StatusCode >= 400 {
 					status = "failed"
-					bodyBytes, _ := io.ReadAll(resp.Body)
-					errorMessage = fmt.Sprintf("HTTP %d: %s", resp.StatusCode, string(bodyBytes))
+					errorMessage = fmt.Sprintf("HTTP %d: %s", resp.StatusCode, responsePayload)
 					logger.Infof("[SGBuildex] Batch submission returned error: %s", errorMessage)
 				} else {
 					totalSubmitted += len(batchIDs)
@@ -144,12 +152,13 @@ func SubmitPayloads[T Submittable](ctx context.Context, repo ports.SubmissionRep
 
 			// Update database for each individual item in the batch
 			for _, id := range batchIDs {
-				// Log to central logs — payload removed for PII safety (#4)
-				repo.LogSubmission(ctx, dataElementID, id, status, "", errorMessage)
+				// Store the specific REQUEST payload in central logs
+				reqPayload := itemRequestPayloads[id]
+				repo.LogSubmission(ctx, dataElementID, id, status, reqPayload, errorMessage)
 
-				// Update specific source table if needed
+				// Store the general RESPONSE payload in the source table
 				if dataElementID == "manpower_utilization" {
-					repo.UpdateAttendanceStatus(ctx, id, status, "", errorMessage)
+					repo.UpdateAttendanceStatus(ctx, id, status, responsePayload, errorMessage)
 				}
 			}
 		}()
