@@ -74,7 +74,7 @@ func main() {
 	authService := services.NewAuthService(userRepo, cfg.JWTSecret, analyticsService)
 	userService := services.NewUserService(userRepo, analyticsService, cfg.DefaultUserPassword)
 	siteService := services.NewSiteService(siteRepo, analyticsService)
-	projectService := services.NewProjectService(projectRepo, analyticsService)
+	projectService := services.NewProjectService(projectRepo, workerRepo, analyticsService)
 	deviceService := services.NewDeviceService(deviceRepo, analyticsService)
 	var settingsService ports.SettingsService
 

@@ -8,6 +8,10 @@ type Project struct {
 	UserID string `json:"user_id"`
 	Title  string `json:"title"`
 	Status string `json:"status"`
+	
+	// WorkerIDs for initial assignment during creation
+	WorkerIDs []string `json:"worker_ids,omitempty"`
+
 	// SubmissionEntity: 1 = Onsite Builder, 2 = Offsite Fabricator (BCA validation rule)
 	SubmissionEntity int     `json:"submission_entity"`
 	Reference        string  `json:"reference"`

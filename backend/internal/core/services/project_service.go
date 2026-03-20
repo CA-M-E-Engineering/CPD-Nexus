@@ -13,11 +13,12 @@ import (
 
 type ProjectService struct {
 	repo ports.ProjectRepository
+	workerRepo ports.WorkerRepository
 	analyticsService ports.AnalyticsService
 }
 
-func NewProjectService(repo ports.ProjectRepository, analytics ports.AnalyticsService) ports.ProjectService {
-	return &ProjectService{repo: repo, analyticsService: analytics}
+func NewProjectService(repo ports.ProjectRepository, workerRepo ports.WorkerRepository, analytics ports.AnalyticsService) ports.ProjectService {
+	return &ProjectService{repo: repo, workerRepo: workerRepo, analyticsService: analytics}
 }
 
 func (s *ProjectService) GetProject(ctx context.Context, userID, id string) (*domain.Project, error) {
@@ -41,6 +42,15 @@ func (s *ProjectService) CreateProject(ctx context.Context, p *domain.Project) e
 	err := s.repo.Create(ctx, p)
 	if err == nil {
 		s.analyticsService.LogActivity(ctx, p.UserID, "Project Created", "project", p.ID, "New project " + p.Title + " created")
+		
+		// Assign initial workers if provided
+		if len(p.WorkerIDs) > 0 {
+			if err := s.workerRepo.AssignToProject(ctx, p.ID, p.WorkerIDs, p.UserID); err != nil {
+				// We log the error but don't fail the project creation entirely
+				// since the project was already successfully created.
+				fmt.Printf("Failed to assign initial workers to project %s: %v\n", p.ID, err)
+			}
+		}
 	}
 	return err
 }
