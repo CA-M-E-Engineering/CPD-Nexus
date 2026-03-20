@@ -101,16 +101,16 @@ The SGTradeX Pitstop API adapter.
 | `payloads/` | `ManpowerUtilization` struct matching BCA API schema |
 
 ### `internal/bridge/`
-Manages persistent WebSocket connections to IoT device gateways.
+Host for the WebSocket gateway and the manager of persistent IoT bridge connections.
 
 | File | Role |
 |---|---|
-| `manager.go` | `RequestManager` — maintains per-user transport map, dispatches commands |
-| `transport.go` | Low-level WebSocket send/receive wrapper |
-| `types.go` | Message envelope structs (`BridgeMessage`, `BridgeMeta`) |
-| `handlers/attendance.go` | Processes `GET_ATTENDANCE_RESPONSE` events |
-| `handlers/user_sync.go` | Builds `REGISTER_USER` / `UPDATE_USER` payloads |
-| `handlers/user_sync_response.go` | Processes sync response; updates `is_synced` flag |
+| `manager.go` | `RequestManager` — maintains per-user transport map, dispatches commands synchronously |
+| `transport.go` | Low-level WebSocket server transport (Upgrade & Heartbeat) |
+| `types.go` | Message envelope structs (`BridgeMessage`, `BridgeMeta`) matching the protocol |
+| `handlers/attendance.go` | Processes `GET_ATTENDANCE_RESPONSE` events from bridges |
+| `handlers/user_sync.go` | Builds `REGISTER_USER` / `UPDATE_USER` command payloads |
+| `handlers/user_sync_response.go` | Processes device acknowledgment; updates worker `is_synced` flag |
 
 ---
 

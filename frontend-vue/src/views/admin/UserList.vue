@@ -194,7 +194,7 @@ const deleteUser = async () => {
           <template #cell-user_name="{ item }">
             <div class="user-name-cell">
               <div class="client-avatar">
-                {{ item.user_name.charAt(0).toUpperCase() }}
+                {{ (item.user_name || '?').charAt(0).toUpperCase() }}
               </div>
               <span>{{ item.user_name }}</span>
             </div>

@@ -1,6 +1,19 @@
 # CPD-Nexus — IoT Bridge Communication Protocol
 
-This document defines the WebSocket message protocol used between the CPD-Nexus backend and the IoT device bridge. All messages use a standardised JSON envelope.
+This document defines the WebSocket message protocol used between the CPD-Nexus backend and the IoT device bridge. 
+
+## 1. Connection Architecture (Bridge-as-Client)
+
+The system uses a **Bridge-as-Client** pattern where the physical IoT bridge initiates a WebSocket connection to the central CPD-Nexus backend. This allows the backend to be hosted in a cloud environment (e.g., AWS) without needing public exposure of the bridge's local network.
+
+### 1.1 Connection URL
+Bridges must connect to the following endpoint:
+`ws://[backend-host]:[port]/api/v1/bridge/connect?user_id=[ID]&token=[TOKEN]`
+
+### 1.2 Handshake Authentication
+Authentication is performed during the initial WebSocket upgrade using query parameters:
+- `user_id`: The unique system ID of the client organization.
+- `token`: The secret bridge authentication token generated in the Admin Dashboard.
 
 ---
 
@@ -12,8 +25,7 @@ Every message — in both directions — follows this structure:
 {
   "meta": {
     "request_id": "req-20260301120530|w20260225135067",
-    "sent_at": "2026-03-01T12:05:30Z",
-    "auth_token": "client-bridge-secret-token"
+    "sent_at": "2026-03-01T12:05:30Z"
   },
   "action": "ACTION_NAME",
   "payload": { ... }
@@ -24,7 +36,6 @@ Every message — in both directions — follows this structure:
 |---|---|
 | `meta.request_id` | Unique request identifier. May include contextual data after `\|` (e.g. worker ID) to correlate async responses. |
 | `meta.sent_at` | RFC3339 timestamp of when the message was sent. |
-| `meta.auth_token` | **Required** for all write operations (`REGISTER_USER`, `UPDATE_USER`). The bridge validates this token before modifying device state. |
 | `action` | The operation name (see actions below). |
 | `payload` | Action-specific data body. |
 

@@ -2,7 +2,7 @@
 import { ref, onMounted, computed } from 'vue';
 import { api } from '../../services/api.js';
 import { notification } from '../../services/notification';
-import { USER_TYPES } from '../../utils/constants.js';
+import { USER_TYPES, MAP_MODES } from '../../utils/constants.js';
 import UnifiedMap from '../../components/ui/UnifiedMap.vue';
 import PageHeader from '../../components/ui/PageHeader.vue';
 import BaseInput from '../../components/ui/BaseInput.vue';
@@ -165,6 +165,7 @@ const handleSubmit = async () => {
   try {
     const payload = {
         ...formData.value,
+        bridge_ws_url: formData.value.bridge_ws_url || serverBridgeUrl.value,
         lat: parseFloat(formData.value.latitude) || 0,
         lng: parseFloat(formData.value.longitude) || 0
     };
@@ -267,6 +268,38 @@ const getCPDStatus = (userId) => {
   const auth = cpdAuthorisations.value.find(a => a.user_id === userId);
   return auth ? 'linked' : 'not linked';
 };
+
+const serverBridgeUrl = computed(() => {
+    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+    const host = window.location.hostname;
+    const port = host === 'localhost' || host === '127.0.0.1' ? ':3010' : '';
+    return `${protocol}//${host}${port}/api/v1/bridge/connect`;
+});
+
+const fullConnectionString = computed(() => {
+    if (!isEdit.value || !props.id || !formData.value.bridge_auth_token) {
+        return `${serverBridgeUrl.value}?user_id=[ID]&token=[TOKEN]`;
+    }
+    return `${serverBridgeUrl.value}?user_id=${props.id}&token=${formData.value.bridge_auth_token}`;
+});
+
+const copyToClipboard = (text, label) => {
+    navigator.clipboard.writeText(text).then(() => {
+        notification.success(`${label} copied to clipboard`);
+    }).catch(() => {
+        notification.error('Failed to copy to clipboard');
+    });
+};
+
+const generateToken = () => {
+    const chars = 'abcdef0123456789';
+    let result = '';
+    for (let i = 0; i < 32; i++) {
+        result += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+    formData.value.bridge_auth_token = result;
+    notification.success('New secret token generated (remember to save)');
+};
 </script>
 
 <template>
@@ -330,13 +363,57 @@ const getCPDStatus = (userId) => {
                      {{ formData.bridge_status.toUpperCase() }}
                   </BaseBadge>
                </div>
-               <div class="row-grid">
-                  <BaseInput v-model="formData.bridge_ws_url" label="WebSocket URL" placeholder="ws://localhost:8081/ws" class="full-width" />
-                  <BaseInput v-model="formData.bridge_auth_token" label="Secret Token" type="password" placeholder="••••••••" class="full-width" />
+               
+               <div class="bridge-info-row">
+                  <div class="info-item">
+                     <span class="info-label">Full Connection String (Copy to Bridge)</span>
+                     <div class="info-value-group">
+                        <code class="mono-text">{{ fullConnectionString }}</code>
+                        <BaseButton variant="ghost" size="sm" icon="ri-file-copy-line" @click="copyToClipboard(fullConnectionString, 'Connection String')" title="Copy Full String" />
+                     </div>
+                  </div>
+                  <div class="info-item mt-2">
+                     <span class="info-label">Individual Credentials</span>
+                     <div class="creds-stack">
+                        <div class="cred-pill" @click="copyToClipboard(serverBridgeUrl, 'Gateway URL')">
+                           <span class="l">URL:</span> <code class="v">{{ serverBridgeUrl }}</code>
+                        </div>
+                        <div class="cred-pill" v-if="isEdit" @click="copyToClipboard(props.id, 'User ID')">
+                           <span class="l">ID:</span> <code class="v">{{ props.id }}</code>
+                        </div>
+                        <div class="cred-pill" v-if="formData.bridge_auth_token" @click="copyToClipboard(formData.bridge_auth_token, 'Secret Token')">
+                           <span class="l">TOKEN:</span> <code class="v">{{ formData.bridge_auth_token }}</code>
+                        </div>
+                     </div>
+                  </div>
+               </div>
+
+               <div class="row-grid mt-3">
                   <div class="form-group full-width">
-                     <label class="form-label">Auto-Connect</label>
+                     <label class="form-label">Secret Authentication Token</label>
+                     <div class="input-with-action">
+                        <BaseInput 
+                           v-model="formData.bridge_auth_token" 
+                           type="text" 
+                           placeholder="Generates automatically on save if empty" 
+                           class="flex-grow no-margin"
+                        />
+                        <div class="action-buttons">
+                           <BaseButton variant="secondary" size="sm" icon="ri-refresh-line" @click="generateToken" title="Regenerate Token" />
+                           <BaseButton variant="ghost" size="sm" icon="ri-file-copy-line" @click="copyToClipboard(formData.bridge_auth_token, 'Secret Token')" title="Copy Token" />
+                        </div>
+                     </div>
+                     <span class="form-hint">Used by the bridge for secure authentication.</span>
+                  </div>
+                  
+                  <div class="form-group full-width">
+                     <BaseInput v-model="formData.bridge_ws_url" label="Bridge Software Version" placeholder="e.g. v1.2.0 (Optional reference)" />
+                  </div>
+
+                  <div class="form-group full-width">
+                     <label class="form-label">Auto-Connect Priority</label>
                      <select v-model="formData.bridge_status" class="form-select">
-                       <option value="active">Enabled — Connect on startup</option>
+                       <option value="active">Enabled — Connect and sync automatically</option>
                        <option value="inactive">Disabled — Manual toggle only</option>
                      </select>
                   </div>
@@ -563,15 +640,104 @@ const getCPDStatus = (userId) => {
 }
 
 /* Bridge Card */
-.bridge-card .panel-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  margin-bottom: 24px;
-}
-
 .bridge-card .panel-title {
   margin-bottom: 0;
+}
+
+.bridge-info-row {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  background: rgba(0, 0, 0, 0.2);
+  border-radius: var(--radius-sm);
+  padding: 16px;
+  margin-bottom: 24px;
+  border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.info-item {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.info-label {
+  font-size: 11px;
+  text-transform: uppercase;
+  color: var(--color-text-muted);
+  font-weight: 600;
+}
+
+.info-value-group {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.mono-text {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--color-accent);
+  background: rgba(139, 92, 246, 0.1);
+  padding: 4px 8px;
+  border-radius: 4px;
+  word-break: break-all;
+  line-height: 1.4;
+}
+
+.creds-stack {
+   display: flex;
+   flex-wrap: wrap;
+   gap: 8px;
+   margin-top: 4px;
+}
+
+.cred-pill {
+   background: rgba(255, 255, 255, 0.05);
+   border: 1px solid rgba(255, 255, 255, 0.08);
+   border-radius: 4px;
+   padding: 4px 8px;
+   font-size: 11px;
+   cursor: pointer;
+   display: flex;
+   gap: 6px;
+   transition: all 0.2s ease;
+}
+
+.cred-pill:hover {
+   background: rgba(255, 255, 255, 0.1);
+   border-color: var(--color-accent);
+}
+
+.cred-pill .l { color: var(--color-text-muted); font-weight: 600; }
+.cred-pill .v { color: #fff; font-family: var(--font-mono); }
+
+.mt-2 { margin-top: 8px; }
+
+.input-with-action {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+}
+
+.input-with-action :deep(.form-group) {
+  margin-bottom: 0;
+  flex: 1;
+}
+
+.action-buttons {
+  display: flex;
+  gap: 8px;
+  padding-top: 4px; /* Align with the inner input height */
+}
+
+.no-margin :deep(.form-group) {
+  margin-bottom: 0;
+}
+
+.mt-3 {
+  margin-top: 24px;
 }
 
 /* Integration Card */

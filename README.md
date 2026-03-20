@@ -7,10 +7,10 @@
 ## 🏗️ System Overview
 
 ```
-┌──────────────┐      WebSocket       ┌───────────────────────┐
-│  IoT Devices │ ──────────────────▶  │  Bridge Manager (Go)  │
-│ (Biometrics) │ ◀────────────────── │  RequestManager.go    │
-└──────────────┘                       └───────────┬───────────┘
+┌──────────────┐      WebSocket       ┌───────────────────┐
+│  IoT Bridge  │ ──────────────────▶  │  Backend Gateway  │
+│  (Client)    │ ◀────────────────── │  (WS Server)      │
+└──────────────┘                       └───────────┬───────┘
                                                     │
                                           Attendance Events
                                                     │
@@ -151,6 +151,10 @@ SGTRADEX_API_KEY=your_api_key_here
 INGRESS_URL=https://ingress.pitstop.uat.dextech.ai
 PITSTOP_URL=https://ca-me-sgbuildex.pitstop.uat.dextech.ai
 
+# Authentication Security
+JWT_SECRET=uC77N3FGObzfI3iHVundm0d+Ai9Y8T2Zl1LODr8lmpE=
+DEFAULT_USER_PASSWORD=Nexus@2026!ChangeMe
+
 # Scheduler (HH:MM:SS format, 24-hour)
 ATTENDANCE_SYNC_TIME=01:00:00
 CPD_SUBMISSION_TIME=02:00:00
@@ -176,9 +180,10 @@ CPD_SUBMISSION_TIME=02:00:00
 
 ### Worker Sync (Nexus → IoT Bridge)
 1. Worker is created/updated with biometric data → `is_synced` set to `pending_registration` or `pending_update`.
-2. Admin triggers **Bridge Sync** via the UI.
-3. Backend issues `REGISTER_USER` or `UPDATE_USER` commands to all active devices at the worker's site.
-4. On `REGISTER_USER_RESPONSE` with HTTP 200, `is_synced` is set to `synced`.
+2. Admin triggers **Sync** from the dashboard.
+3. Backend dispatches commands to the **RequestManager**.
+4. Commands are sent over the persistent WebSocket connection established by the bridge.
+5. On `REGISTER_USER_RESPONSE` with HTTP 200, `is_synced` is set to `synced`.
 
 ---
 
