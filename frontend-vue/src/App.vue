@@ -12,8 +12,6 @@ import BaseToast from './components/ui/BaseToast.vue';
 import Login from './views/Login.vue';
 
 // Shared/Unified Views
-import DeviceDetail from './views/shared/DeviceDetail.vue';
-
 // Admin Views
 import AdminDashboard from './views/admin/Dashboard.vue';
 import AdminUserList from './views/admin/UserList.vue';
